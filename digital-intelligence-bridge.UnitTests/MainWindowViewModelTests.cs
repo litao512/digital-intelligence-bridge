@@ -1,5 +1,7 @@
-﻿using DigitalIntelligenceBridge.Services;
+﻿using DigitalIntelligenceBridge.Configuration;
+using DigitalIntelligenceBridge.Services;
 using DigitalIntelligenceBridge.ViewModels;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace DigitalIntelligenceBridge.UnitTests;
@@ -73,6 +75,68 @@ public class MainWindowViewModelTests
         Assert.True(vm.IsTodoEmpty);
         Assert.Empty(vm.TodoItems);
         Assert.Empty(vm.FilteredTodoItems);
+    }
+
+    [Fact]
+    public void Constructor_ShouldUseConfiguredMenuAndDetectInstalledPlugin_WhenPluginDirectoryExists()
+    {
+        var pluginRootName = $"plugins-test-{Guid.NewGuid():N}";
+        var appFolder = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "UniversalTrayTool");
+        var pluginRoot = Path.Combine(appFolder, pluginRootName);
+        var patientPluginDir = Path.Combine(pluginRoot, "patient");
+        Directory.CreateDirectory(patientPluginDir);
+
+        try
+        {
+            var settings = new AppSettings
+            {
+                Plugin = new PluginConfig { PluginDirectory = pluginRootName },
+                Navigation = new List<NavigationMenuItemConfig>
+                {
+                    new() { Id = "todo", Name = "待办", Type = "Todo", Order = 1, IsInstalled = true },
+                    new() { Id = "patient", Name = "患者", Type = "PatientMgmt", Order = 2, IsInstalled = false }
+                }
+            };
+
+            var vm = new MainWindowViewModel(
+                new NullLoggerService<MainWindowViewModel>(),
+                Options.Create(settings));
+
+            Assert.Equal(2, vm.MenuItems.Count);
+            Assert.Equal("todo", vm.MenuItems[0].Id);
+            Assert.Equal("patient", vm.MenuItems[1].Id);
+            Assert.True(vm.MenuItems[1].IsInstalled);
+            Assert.False(vm.MenuItems[1].IsPlaceholder);
+        }
+        finally
+        {
+            if (Directory.Exists(pluginRoot))
+            {
+                Directory.Delete(pluginRoot, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void Constructor_ShouldFallbackToDefaultMenu_WhenConfiguredMenuHasNoValidType()
+    {
+        var settings = new AppSettings
+        {
+            Navigation = new List<NavigationMenuItemConfig>
+            {
+                new() { Id = "invalid", Name = "Invalid", Type = "NotAViewType", Order = 1 }
+            }
+        };
+
+        var vm = new MainWindowViewModel(
+            new NullLoggerService<MainWindowViewModel>(),
+            Options.Create(settings));
+
+        Assert.Contains(vm.MenuItems, x => x.ViewType == MainViewType.Home);
+        Assert.Contains(vm.MenuItems, x => x.ViewType == MainViewType.Todo);
+        Assert.True(vm.MenuItems.Count >= 2);
     }
 
     private sealed class NullLoggerService<T> : ILoggerService<T>

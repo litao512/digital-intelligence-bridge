@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Media;
@@ -23,6 +24,7 @@ public class SettingsViewModel : ViewModelBase
     private readonly ITrayService _trayService;
     private readonly ILoggerService<SettingsViewModel> _logger;
     private readonly AppSettings _settings;
+    private readonly ISupabaseService? _supabaseService;
 
     // 外观设置
     private bool _isDarkMode;
@@ -40,7 +42,9 @@ public class SettingsViewModel : ViewModelBase
     private string _appName = "通用工具箱";
     private string _appVersion = "1.0.0";
     private string _selfCheckSummary = "尚未执行自检";
+    private string _selfCheckNotice = string.Empty;
     private DateTime? _lastSelfCheckAt;
+    private bool _isSelfCheckRunning;
 
     public ObservableCollection<SelfCheckItem> SelfCheckItems { get; } = new();
 
@@ -111,11 +115,32 @@ public class SettingsViewModel : ViewModelBase
         set => SetProperty(ref _selfCheckSummary, value);
     }
 
+    public string SelfCheckNotice
+    {
+        get => _selfCheckNotice;
+        set => SetProperty(ref _selfCheckNotice, value);
+    }
+
     public DateTime? LastSelfCheckAt
     {
         get => _lastSelfCheckAt;
         set => SetProperty(ref _lastSelfCheckAt, value);
     }
+
+    public bool IsSelfCheckRunning
+    {
+        get => _isSelfCheckRunning;
+        private set
+        {
+            if (SetProperty(ref _isSelfCheckRunning, value))
+            {
+                RaisePropertyChanged(nameof(RunSelfCheckButtonText));
+                RunSelfCheckCommand?.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
+    public string RunSelfCheckButtonText => IsSelfCheckRunning ? "执行中..." : "运行自检";
 
     // 命令
     public DelegateCommand SaveSettingsCommand { get; }
@@ -131,12 +156,14 @@ public class SettingsViewModel : ViewModelBase
         IApplicationService appService,
         ITrayService trayService,
         ILoggerService<SettingsViewModel> logger,
-        IOptions<AppSettings> settings)
+        IOptions<AppSettings> settings,
+        ISupabaseService? supabaseService = null)
     {
         _appService = appService;
         _trayService = trayService;
         _logger = logger;
         _settings = settings.Value;
+        _supabaseService = supabaseService;
 
         // 加载当前设置
         LoadSettings();
@@ -148,10 +175,10 @@ public class SettingsViewModel : ViewModelBase
         ClearAllDataCommand = new DelegateCommand(ClearAllData);
         CheckUpdateCommand = new DelegateCommand(CheckUpdate);
         OpenLogFolderCommand = new DelegateCommand(OpenLogFolder);
-        RunSelfCheckCommand = new DelegateCommand(RunSelfCheck);
+        RunSelfCheckCommand = new DelegateCommand(() => _ = RunSelfCheckAsync(), () => !IsSelfCheckRunning);
         ExportSelfCheckReportCommand = new DelegateCommand(ExportSelfCheckReport);
 
-        RunSelfCheck();
+        _ = RunSelfCheckAsync();
 
         _logger.LogInformation("设置页面已初始化");
     }
@@ -245,53 +272,92 @@ public class SettingsViewModel : ViewModelBase
         }
     }
 
-    private void RunSelfCheck()
+    private async Task RunSelfCheckAsync()
     {
-        SelfCheckItems.Clear();
-
-        var passed = 0;
-        var total = 0;
-
-        void AddResult(string name, bool ok, string detail)
+        if (IsSelfCheckRunning)
         {
-            total++;
-            if (ok) passed++;
-            SelfCheckItems.Add(new SelfCheckItem
-            {
-                Name = name,
-                IsPassed = ok,
-                Detail = detail
-            });
+            return;
         }
 
-        var configPath = ConfigurationExtensions.GetConfigFilePath();
-        AddResult("用户配置文件", File.Exists(configPath), configPath);
+        IsSelfCheckRunning = true;
+        SelfCheckNotice = "正在执行自检...";
+        try
+        {
+            SelfCheckItems.Clear();
 
-        var defaultConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
-        AddResult("默认配置文件", File.Exists(defaultConfigPath), defaultConfigPath);
+            var passed = 0;
+            var total = 0;
 
-        var trayIconPath = Path.Combine(AppContext.BaseDirectory, _settings.Tray.IconPath);
-        AddResult("托盘图标文件", File.Exists(trayIconPath), trayIconPath);
+            void AddResult(string name, bool ok, string detail)
+            {
+                total++;
+                if (ok) passed++;
+                SelfCheckItems.Add(new SelfCheckItem
+                {
+                    Name = name,
+                    IsPassed = ok,
+                    Detail = detail
+                });
+            }
 
-        var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var appFolder = Path.Combine(appDataPath, "UniversalTrayTool");
-        var pluginDir = Path.Combine(appFolder, _settings.Plugin.PluginDirectory);
-        var pluginExists = Directory.Exists(pluginDir);
-        var pluginCount = pluginExists
-            ? Directory.GetDirectories(pluginDir).Length + Directory.GetFiles(pluginDir, "*.dll").Length
-            : 0;
-        AddResult("插件目录", pluginExists, $"{pluginDir}（发现 {pluginCount} 项）");
+            var configPath = ConfigurationExtensions.GetConfigFilePath();
+            AddResult("用户配置文件", File.Exists(configPath), configPath);
 
-        var logDir = Path.Combine(appFolder, _settings.Logging.LogPath);
-        var logWritable = EnsureWritable(logDir, out var writeDetail);
-        AddResult("日志目录写入", logWritable, writeDetail);
+            var defaultConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+            AddResult("默认配置文件", File.Exists(defaultConfigPath), defaultConfigPath);
 
-        AddResult("导航配置", _settings.Navigation.Count > 0, $"Navigation 项数: {_settings.Navigation.Count}");
+            var trayIconPath = Path.Combine(AppContext.BaseDirectory, _settings.Tray.IconPath);
+            AddResult("托盘图标文件", File.Exists(trayIconPath), trayIconPath);
 
-        LastSelfCheckAt = DateTime.Now;
-        SelfCheckSummary = $"自检完成：{passed}/{total} 通过";
+            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var appFolder = Path.Combine(appDataPath, "UniversalTrayTool");
+            var pluginDir = Path.Combine(appFolder, _settings.Plugin.PluginDirectory);
+            var pluginExists = Directory.Exists(pluginDir);
+            var pluginCount = pluginExists
+                ? Directory.GetDirectories(pluginDir).Length + Directory.GetFiles(pluginDir, "*.dll").Length
+                : 0;
+            AddResult("插件目录", pluginExists, $"{pluginDir}（发现 {pluginCount} 项）");
 
-        _logger.LogInformation("设置自检完成：{Passed}/{Total} 通过", passed, total);
+            var logDir = Path.Combine(appFolder, _settings.Logging.LogPath);
+            var logWritable = EnsureWritable(logDir, out var writeDetail);
+            AddResult("日志目录写入", logWritable, writeDetail);
+
+            AddResult("导航配置", _settings.Navigation.Count > 0, $"Navigation 项数: {_settings.Navigation.Count}");
+
+            if (_supabaseService == null)
+            {
+                AddResult("Supabase 表访问", false, "ISupabaseService 未注册");
+            }
+            else
+            {
+                try
+                {
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                    var tableResult = await _supabaseService.CheckTableAccessAsync("todos", cts.Token);
+                    var schema = string.IsNullOrWhiteSpace(_settings.Supabase.Schema) ? "public" : _settings.Supabase.Schema;
+                    AddResult("Supabase 表访问", tableResult.IsSuccess, $"{schema}.todos - {tableResult.Message}");
+                }
+                catch (Exception ex)
+                {
+                    AddResult("Supabase 表访问", false, $"检测异常: {ex.Message}");
+                }
+            }
+
+            LastSelfCheckAt = DateTime.Now;
+            SelfCheckSummary = $"自检完成：{passed}/{total} 通过";
+            SelfCheckNotice = $"自检完成，完成时间：{LastSelfCheckAt:HH:mm:ss}";
+
+            _logger.LogInformation("设置自检完成：{Passed}/{Total} 通过", passed, total);
+        }
+        catch (Exception ex)
+        {
+            SelfCheckNotice = $"自检失败：{ex.Message}";
+            _logger.LogError(ex, "设置自检执行失败");
+        }
+        finally
+        {
+            IsSelfCheckRunning = false;
+        }
     }
 
     private void ExportSelfCheckReport()
@@ -300,7 +366,7 @@ public class SettingsViewModel : ViewModelBase
         {
             if (SelfCheckItems.Count == 0)
             {
-                RunSelfCheck();
+                RunSelfCheckAsync().GetAwaiter().GetResult();
             }
 
             var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);

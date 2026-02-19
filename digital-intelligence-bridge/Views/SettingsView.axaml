@@ -1,10 +1,12 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:DigitalIntelligenceBridge.ViewModels"
+             xmlns:prism="http://prismlibrary.com/"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="500"
              x:Class="DigitalIntelligenceBridge.Views.SettingsView"
+             prism:ViewModelLocator.AutoWireViewModel="True"
              x:DataType="vm:SettingsViewModel">
 
     <Design.DataContext>
@@ -157,12 +159,13 @@
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Text="系统自检" FontSize="16" FontWeight="SemiBold"/>
                             <TextBlock Text="{Binding SelfCheckSummary}" FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
+                            <TextBlock Text="{Binding SelfCheckNotice}" FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
                             <TextBlock Text="{Binding LastSelfCheckAt, StringFormat='最近执行: {0:yyyy-MM-dd HH:mm:ss}'}"
                                        FontSize="11"
                                        Foreground="{StaticResource TextMutedBrush}"/>
                         </StackPanel>
                         <Button Grid.Column="1"
-                               Content="运行自检"
+                               Content="{Binding RunSelfCheckButtonText}"
                                Classes="Primary"
                                Command="{Binding RunSelfCheckCommand}"
                                VerticalAlignment="Top"/>

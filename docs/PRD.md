@@ -243,3 +243,23 @@ Supabase 部署约束：
 | 2026-02-19 | v1.0.2 | 同步 UI 改造：导航激活态、空状态、快捷入口、Tab 过渡 |
 | 2026-02-19 | v1.0.1 | 重建 PRD 内容并修复 UTF-8 乱码 |
 | 2026-02-19 | v1.0.0 | 初版创建 |
+
+---
+
+## 11. Runtime Sensitive Config Delivery Plan (Draft)
+
+### 11.1 Temporary phase (current)
+- For delivery progress, clients can read sensitive runtime config from `%LOCALAPPDATA%/UniversalTrayTool/appsettings.runtime.json`.
+- This file is local-machine only and must never be committed to repository.
+- Effective config loading order: `appsettings.json` -> user `appsettings.json` -> `appsettings.runtime.json` -> environment variables.
+
+### 11.2 Target phase (to implement with plugin repository)
+- Introduce remote config distribution service for desktop clients.
+- Client fetches signed runtime config (Url/AnonKey/Schema/configVersion/expiresAt).
+- Client verifies signature with embedded public key before applying config.
+- Client persists last valid config as local cache and supports offline fallback.
+- ServiceRoleKey must stay server-side only; desktop client never stores it.
+
+### 11.3 Rotation strategy
+- Support overlap window for old/new runtime config during key or endpoint rotation.
+- Add `minAppVersion` in remote config to coordinate forced upgrade when required.
