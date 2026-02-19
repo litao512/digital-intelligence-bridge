@@ -1,0 +1,22 @@
+# Build outputs
+bin/
+obj/
+
+# IDE and local settings
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Logs
+*.log
+logs/
+webview_debug.log
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Temporary placeholder files seen in this repo
+nul
+AvaloniaDemo/nul

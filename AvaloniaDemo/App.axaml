@@ -1,0 +1,22 @@
+<prism:PrismApplication xmlns="https://github.com/avaloniaui"
+                        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                        xmlns:prism="http://prismlibrary.com/"
+                        xmlns:semi="https://irihi.tech/semi"
+                        xmlns:converters="using:AvaloniaDemo.Converters"
+                        x:Class="AvaloniaDemo.App">
+
+    <prism:PrismApplication.Resources>
+        <converters:PriorityToBrushConverter x:Key="PriorityToBrushConverter" />
+        <converters:BoolToOpacityConverter x:Key="BoolToOpacityConverter" />
+        <converters:TabTypeToVisibilityConverter x:Key="TabTypeToVisibilityConverter" />
+    </prism:PrismApplication.Resources>
+
+    <prism:PrismApplication.Styles>
+        <semi:SemiTheme />
+    </prism:PrismApplication.Styles>
+
+    <!-- 系统托盘图标配置（由 TrayService 动态创建） -->
+    <TrayIcon.Icons>
+        <TrayIcons />
+    </TrayIcon.Icons>
+</prism:PrismApplication>

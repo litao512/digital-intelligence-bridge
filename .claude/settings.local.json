@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet --version:*)",
+      "Bash(dotnet new avalonia.mvvm:*)",
+      "Bash(dotnet new install:*)",
+      "Bash(dotnet build:*)",
+      "Bash(timeout 5 dotnet run:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet clean:*)",
+      "Bash(timeout 10 dotnet run:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "Bash(taskkill:*)",
+      "Bash(dotnet run:*)",
+      "Bash(cd:*)",
+      "Bash(dotnet list package:*)",
+      "Bash(findstr:*)",
+      "Bash(dotnet nuget locals:*)",
+      "Bash(dir:*)",
+      "Bash(ls:*)",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs",
+      "Bash(start dotnet run:*)"
+    ]
+  }
+}

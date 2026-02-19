@@ -1,0 +1,156 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AvaloniaDemo.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="500"
+             x:Class="AvaloniaDemo.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel">
+
+    <Design.DataContext>
+        <vm:SettingsViewModel/>
+    </Design.DataContext>
+
+    <ScrollViewer>
+        <StackPanel Margin="20" Spacing="20">
+            <!-- 页面标题 -->
+            <!-- <TextBlock Text="设置" FontSize="24" FontWeight="Bold"/> -->
+
+            <!-- 外观设置 -->
+            <Border Classes="Card" Background="#f8f9fa" CornerRadius="8" Padding="15">
+                <StackPanel Spacing="15">
+                    <TextBlock Text="外观" FontSize="16" FontWeight="SemiBold"/>
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="深色模式" FontWeight="Medium"/>
+                            <TextBlock Text="启用深色主题以保护眼睛" FontSize="12" Opacity="0.6"/>
+                        </StackPanel>
+                        <ToggleSwitch Grid.Column="1"
+                                     IsChecked="{Binding IsDarkMode}"
+                                     OnContent="" OffContent=""/>
+                    </Grid>
+
+                    <Separator/>
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="启动时最小化到托盘" FontWeight="Medium"/>
+                            <TextBlock Text="应用程序启动时不显示主窗口" FontSize="12" Opacity="0.6"/>
+                        </StackPanel>
+                        <ToggleSwitch Grid.Column="1"
+                                     IsChecked="{Binding StartMinimizedToTray}"
+                                     OnContent="" OffContent=""/>
+                    </Grid>
+
+                    <Separator/>
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="开机自启动" FontWeight="Medium"/>
+                            <TextBlock Text="系统启动时自动运行" FontSize="12" Opacity="0.6"/>
+                        </StackPanel>
+                        <ToggleSwitch Grid.Column="1"
+                                     IsChecked="{Binding StartWithSystem}"
+                                     OnContent="" OffContent=""/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- 托盘设置 -->
+            <Border Classes="Card" Background="#f8f9fa" CornerRadius="8" Padding="15">
+                <StackPanel Spacing="15">
+                    <TextBlock Text="系统托盘" FontSize="16" FontWeight="SemiBold"/>
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="显示通知" FontWeight="Medium"/>
+                            <TextBlock Text="在系统托盘显示通知提示" FontSize="12" Opacity="0.6"/>
+                        </StackPanel>
+                        <ToggleSwitch Grid.Column="1"
+                                     IsChecked="{Binding ShowTrayNotifications}"
+                                     OnContent="" OffContent=""/>
+                    </Grid>
+
+                    <Separator/>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="托盘图标" FontWeight="Medium"/>
+                        <ComboBox SelectedItem="{Binding SelectedTrayIcon}"
+                                 HorizontalAlignment="Stretch">
+                            <ComboBoxItem>默认图标</ComboBoxItem>
+                            <ComboBoxItem>简洁图标</ComboBoxItem>
+                            <ComboBoxItem>彩色图标</ComboBoxItem>
+                        </ComboBox>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- 数据设置 -->
+            <Border Classes="Card" Background="#f8f9fa" CornerRadius="8" Padding="15">
+                <StackPanel Spacing="15">
+                    <TextBlock Text="数据管理" FontSize="16" FontWeight="SemiBold"/>
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="自动保存间隔（分钟）" FontWeight="Medium"/>
+                            <TextBlock Text="数据自动保存到本地的时间间隔" FontSize="12" Opacity="0.6"/>
+                        </StackPanel>
+                        <NumericUpDown Grid.Column="1"
+                                      Value="{Binding AutoSaveInterval}"
+                                      Minimum="1"
+                                      Maximum="60"
+                                      Width="100"/>
+                    </Grid>
+
+                    <Separator/>
+
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button Content="导出数据"
+                               Command="{Binding ExportDataCommand}"
+                               Classes="Secondary"/>
+                        <Button Content="导入数据"
+                               Command="{Binding ImportDataCommand}"
+                               Classes="Secondary"/>
+                        <Button Content="清除所有数据"
+                               Command="{Binding ClearAllDataCommand}"
+                               Classes="Danger"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- 关于 -->
+            <Border Classes="Card" Background="#f8f9fa" CornerRadius="8" Padding="15">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="关于" FontSize="16" FontWeight="SemiBold"/>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{Binding AppName}" FontSize="18" FontWeight="Bold"/>
+                        <TextBlock Text="{Binding AppVersion}" FontSize="13" Opacity="0.7"/>
+                        <TextBlock Text="基于 Avalonia UI 和 Prism 框架开发的通用工具箱"
+                                  FontSize="12" Opacity="0.6" TextWrapping="Wrap"/>
+                    </StackPanel>
+
+                    <Separator/>
+
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button Content="检查更新"
+                               Command="{Binding CheckUpdateCommand}"
+                               Classes="Primary"/>
+                        <Button Content="打开日志文件夹"
+                               Command="{Binding OpenLogFolderCommand}"
+                               Classes="Tertiary"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- 保存按钮 -->
+            <Button Content="保存设置"
+                   Command="{Binding SaveSettingsCommand}"
+                   Classes="Primary"
+                   HorizontalAlignment="Stretch"
+                   HorizontalContentAlignment="Center"
+                   Padding="15,10"/>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
