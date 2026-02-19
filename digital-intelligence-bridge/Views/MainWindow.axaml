@@ -1,0 +1,294 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:DigitalIntelligenceBridge.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:models="using:DigitalIntelligenceBridge.Models"
+        xmlns:views="using:DigitalIntelligenceBridge.Views"
+        xmlns:configuration="using:DigitalIntelligenceBridge.Configuration"
+        xmlns:prism="http://prismlibrary.com/"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="700"
+        x:Class="DigitalIntelligenceBridge.Views.MainWindow"
+        x:Name="Root"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="通用工具箱 - Universal Tray Tool"
+        Width="1200" Height="700"
+        WindowStartupLocation="CenterScreen"
+        prism:ViewModelLocator.AutoWireViewModel="True">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <!-- 窗口样式 -->
+    <Window.Styles>
+        <Style Selector="TextBlock.header">
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+
+        <!-- 导航按钮样式 -->
+        <Style Selector="Button.NavButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.2"/>
+                    <BrushTransition Property="Foreground" Duration="0:0:0.2"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.NavButton:pointerover">
+            <Setter Property="Background" Value="#404040"/>
+        </Style>
+        <Style Selector="Button.NavButton.SubNav">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#ccc"/>
+            <Setter Property="FontSize" Value="13"/>
+        </Style>
+        <Style Selector="Button.NavButton.SubNav:pointerover">
+            <Setter Property="Background" Value="#404040"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+
+        <!-- 卡片悬停效果 -->
+        <Style Selector="Border.Card">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2"/>
+                    <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2"/>
+                </Transitions>
+            </Setter>
+            <Setter Property="RenderTransform" Value="none"/>
+            <Setter Property="BoxShadow" Value="0 2 4 0 #10000000"/>
+        </Style>
+        <Style Selector="Border.Card:pointerover">
+            <Setter Property="RenderTransform" Value="scale(1.01)"/>
+            <Setter Property="BoxShadow" Value="0 4 12 0 #20000000"/>
+        </Style>
+
+        <!-- 按钮点击反馈动画 -->
+        <Style Selector="Button">
+            <Setter Property="RenderTransform" Value="none"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button:pressed">
+            <Setter Property="RenderTransform" Value="scale(0.97)"/>
+        </Style>
+
+        <!-- 输入框聚焦动画 -->
+        <Style Selector="TextBox">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.2"/>
+                </Transitions>
+            </Setter>
+        </Style>
+    </Window.Styles>
+
+    <!-- 主布局：左侧边栏 + 中间内容区（TabControl） -->
+    <Grid ColumnDefinitions="250,*">
+
+        <!-- ========== 左侧导航栏 ========== -->
+        <Border Grid.Column="0"
+                Background="#2d2d2d"
+                BorderBrush="#1a1a1a"
+                BorderThickness="0,0,1,0">
+            <Grid RowDefinitions="Auto,*,Auto">
+                <!-- 应用标题 -->
+                <Border Grid.Row="0"
+                        Background="#1a1a1a"
+                        Padding="15,20">
+                    <StackPanel Spacing="5">
+                        <TextBlock Text="通用工具箱"
+                                  FontSize="18"
+                                  FontWeight="Bold"
+                                  Foreground="White"/>
+                        <TextBlock Text="Universal Tray Tool"
+                                  FontSize="11"
+                                  Opacity="0.6"
+                                  Foreground="White"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 导航菜单 -->
+                <ScrollViewer Grid.Row="1"
+                             VerticalScrollBarVisibility="Auto"
+                             Padding="10">
+                    <StackPanel Spacing="5">
+                        <!-- 核心功能分组 -->
+                        <TextBlock Text="核心功能"
+                                  FontSize="11"
+                                  FontWeight="Bold"
+                                  Foreground="#888"
+                                  Margin="10,10,10,5"/>
+
+                        <ItemsControl ItemsSource="{Binding MenuItems}"
+                                     x:Name="MenuItemsList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="vm:MenuItem">
+                                    <Button Classes="NavButton"
+                                           HorizontalAlignment="Stretch"
+                                           HorizontalContentAlignment="Left"
+                                           Padding="12,10"
+                                           Opacity="{Binding IsInstalled, Converter={StaticResource BoolToOpacityConverter}}"
+                                           Command="{Binding #Root.((vm:MainWindowViewModel)DataContext).NavigateCommand}"
+                                           CommandParameter="{Binding ViewType}">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <TextBlock Text="{Binding Icon}" FontFamily="{StaticResource SymbolThemeFontFamily}"/>
+                                            <TextBlock Text="{Binding Name}"/>
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Separator Background="#404040" Margin="10,15"/>
+
+                        <!-- 设置 -->
+                        <Button Classes="NavButton"
+                               x:Name="SettingsButton"
+                               HorizontalAlignment="Stretch"
+                               HorizontalContentAlignment="Left"
+                               Padding="12,10"
+                               Click="SettingsButton_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <TextBlock Text="&#xf013;" FontFamily="{StaticResource SymbolThemeFontFamily}"/>
+                                <TextBlock Text="设置"/>
+                            </StackPanel>
+                        </Button>
+
+                        <!-- 注：Web 应用功能已移除，将作为可选插件在后续版本提供 -->
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 底部信息 -->
+                <Border Grid.Row="2"
+                        Background="#1a1a1a"
+                        Padding="15,10">
+                    <TextBlock Text="v1.0.0"
+                              FontSize="10"
+                              Opacity="0.5"
+                              Foreground="White"
+                              HorizontalAlignment="Center"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- ========== 中间主要内容区域（TabControl） ========== -->
+        <Border Grid.Column="1" Background="#fafafa">
+            <TabControl ItemsSource="{Binding OpenTabs}"
+                       SelectedItem="{Binding SelectedTab}"
+                       Margin="10"
+                       TabStripPlacement="Top">
+                <TabControl.ItemTemplate>
+                    <DataTemplate DataType="vm:TabItemModel">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="{Binding Title}" VerticalAlignment="Center"/>
+                            <Button Content="&#xf00d;"
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    Classes="Tertiary"
+                                    Padding="4,2"
+                                    FontSize="10"
+                                    VerticalAlignment="Center"
+                                    Command="{Binding #Root.((vm:MainWindowViewModel)DataContext).CloseTabCommand}"
+                                    CommandParameter="{Binding}"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </TabControl.ItemTemplate>
+                <TabControl.ContentTemplate>
+                    <DataTemplate DataType="vm:TabItemModel">
+                        <!-- 根据标签页类型显示不同内容 -->
+                        <Grid Margin="10">
+                            <!-- 首页视图 -->
+                            <Border IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=Home}"
+                                    Classes="Card"
+                                    BorderBrush="#e0e0e0"
+                                    BorderThickness="1"
+                                    CornerRadius="8">
+                                <views:HomeView />
+                            </Border>
+
+                            <!-- 待办事项视图 -->
+                            <Grid IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=Todo}">
+                                <views:TodoView />
+                            </Grid>
+
+
+                            <!-- 设置视图 -->
+                            <Border IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=Settings}"
+                                    Classes="Card"
+                                    BorderBrush="#e0e0e0"
+                                    BorderThickness="1"
+                                    CornerRadius="8">
+                                <views:SettingsView />
+                            </Border>
+
+                            <!-- 患者管理视图（占位） -->
+                            <Border IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=PatientMgmt}"
+                                    Classes="Card"
+                                    BorderBrush="#e0e0e0"
+                                    BorderThickness="1"
+                                    CornerRadius="8">
+                                <Border Background="White" CornerRadius="8">
+                                    <StackPanel VerticalAlignment="Center"
+                                               HorizontalAlignment="Center"
+                                               Spacing="15">
+                                        <TextBlock Text="&#xf0c0;"
+                                                  FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                                  FontSize="64"
+                                                  Opacity="0.3"
+                                                  HorizontalAlignment="Center"/>
+                                        <TextBlock Text="患者管理模块"
+                                                  FontSize="20"
+                                                  FontWeight="SemiBold"
+                                                  HorizontalAlignment="Center"/>
+                                        <TextBlock Text="功能开发中，敬请期待..."
+                                                  FontSize="14"
+                                                  Opacity="0.6"
+                                                  HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                            </Border>
+
+                            <!-- 日程安排视图（占位） -->
+                            <Border IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=Schedule}"
+                                    Classes="Card"
+                                    BorderBrush="#e0e0e0"
+                                    BorderThickness="1"
+                                    CornerRadius="8">
+                                <Border Background="White" CornerRadius="8">
+                                    <StackPanel VerticalAlignment="Center"
+                                               HorizontalAlignment="Center"
+                                               Spacing="15">
+                                        <TextBlock Text="&#xf133;"
+                                                  FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                                  FontSize="64"
+                                                  Opacity="0.3"
+                                                  HorizontalAlignment="Center"/>
+                                        <TextBlock Text="日程安排模块"
+                                                  FontSize="20"
+                                                  FontWeight="SemiBold"
+                                                  HorizontalAlignment="Center"/>
+                                        <TextBlock Text="功能开发中，敬请期待..."
+                                                  FontSize="14"
+                                                  Opacity="0.6"
+                                                  HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                            </Border>
+                        </Grid>
+                    </DataTemplate>
+                </TabControl.ContentTemplate>
+            </TabControl>
+        </Border>
+    </Grid>
+</Window>

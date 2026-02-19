@@ -1,65 +1,66 @@
 # CLAUDE.md
 
-本文件为 Claude Code (claude.ai/code) 提供在此代码库中工作的指导。
+�o��-?件为 Claude Code (claude.ai/code) 提�>�o�此代码�"中工�o�s"�O?导�?,
 
-## 项目概述
+## 项�>��,述
 
-这是一个面向 WinForms 开发者的 Avalonia UI 入门教程项目 - 一个待办事项管理应用，演示了 MVVM 模式、数据绑定和 XAML 布局。使用 Semi.Avalonia 主题和 CommunityToolkit.Mvvm 提供 MVVM 支持。
+�T�~��?个面�' WinForms �?�'�?.�s" Avalonia UI �.��-��.T�<项�>� - �?个�.�Sz�<项管�?�"�"��O�"示�? MVVM 模式�?��.�据�'�s�'O XAML �f�?�?,使�"� Semi.Avalonia 主�~�'O CommunityToolkit.Mvvm 提�> MVVM �"��O��?,
 
-## 构建和运行命令
+## �z"建�'O运�O�'�令
 
 ```bash
-# 进入项目目录
-cd AvaloniaDemo
+# �>�.�项�>��>��.
+cd digital-intelligence-bridge
 
-# 构建项目
+# �z"建项�>�
 dotnet build
 
-# 运行应用
+# 运�O�"�"�
 dotnet run
 
-# Release 模式运行
+# Release 模式运�O
 dotnet run --configuration Release
 
-# 开发热重载
+# �?�'�f��?�载
 dotnet watch run --hot-reload
 ```
 
-## 架构概述
+## �z��z"�,述
 
 ### MVVM 模式
-项目遵循严格的 MVVM 架构：
-- **Models**：数据实体（如 `TodoItem.cs`）- 实现 `ObservableObject` 并使用 `[ObservableProperty]` 特性自动生成属性变更通知
-- **ViewModels**：业务逻辑和状态（如 `MainWindowViewModel.cs`）- 继承自 `ViewModelBase`，而 `ViewModelBase` 继承自 `ObservableObject`
-- **Views**：XAML UI 定义（如 `MainWindow.axaml`）- 代码后置文件包含最少逻辑
+项�>�遵循严格�s" MVVM �z��z"�s
+- **Models**�s�.�据�z�"�^�, `TodoItem.cs`�?- �z�Z� `ObservableObject` 并使�"� `[ObservableProperty]` �?��?��?��S��"Y�^��z�?��~�>��?s�Y�
+- **ViewModels**�s�s�S��?��'�'O�S��?��^�, `MainWindowViewModel.cs`�?- 继�?��?� `ViewModelBase`�O�?O `ViewModelBase` 继�?��?� `ObservableObject`
+- **Views**�sXAML UI �s�?�^�, `MainWindow.axaml`�?- 代码�Z置�-?件�O.含�o?�'�?��'
 
 ### ViewLocator 模式
-`ViewLocator.cs` 实现 `IDataTemplate` 接口，通过命名约定自动映射 ViewModel 到 View：
-- ViewModel: `MainWindowViewModel` → View: `MainWindow`
-- 使用反射定位对应的视图类型
-- 在 `App.axaml` 中注册为应用级数据模板
+`ViewLocator.cs` �z�Z� `IDataTemplate` �Z�口�O�?s�?�'�名约�s�?��S��~��" ViewModel �^� View�s
+- ViewModel: `MainWindowViewModel` �?' View: `MainWindow`
+- 使�"�反�"�s位对�"�s"�?�>�类�z<
+- �o� `App.axaml` 中注�?O为�"�"�级�.�据模板
 
-### 核心框架
-- **Avalonia UI 11.3.12**：跨平台 UI 框架
-- **CommunityToolkit.Mvvm 8.2.1**：MVVM 样板代码源生成器（`[ObservableProperty]`、`[RelayCommand]`）
-- **Semi.Avalonia 11.3.7**：现代 UI 主题（在 `App.axaml` 中配置）
+### 核�f�?�z�
+- **Avalonia UI 11.3.12**�s跨平台 UI �?�z�
+- **CommunityToolkit.Mvvm 8.2.1**�sMVVM 样板代码源�"Y�^��T��^`[ObservableProperty]`�?�`[RelayCommand]`�?
+- **Semi.Avalonia 11.3.7**�s�Z�代 UI 主�~�^�o� `App.axaml` 中�.�置�?
 
-### 数据绑定约定
-- 标记 `[ObservableProperty]` 的特性会自动生成可观察属性
-- 命令使用 `[RelayCommand]` 特性 - 方法名如 `AddTodo` 会生成 `AddTodoCommand`
-- 集合使用 `ObservableCollection<T>` 实现自动 UI 更新
-- 在视图上设置 `x:DataType` 用于编译绑定（在 `.csproj` 中默认启用）
+### �.�据�'�s约�s
+- �?记 `[ObservableProperty]` �s"�?��?��s�?��S��"Y�^�可�,�Y�z�?�
+- �'�令使�"� `[RelayCommand]` �?��?� - �-��.名�, `AddTodo` �s�"Y�^� `AddTodoCommand`
+- �>?�^使�"� `ObservableCollection<T>` �z�Z��?��S� UI �>��-�
+- �o��?�>��S设置 `x:DataType` �"��Z�-�'�'�s�^�o� `.csproj` 中�~认启�"��?
 
-### 系统托盘实现
-应用支持最小化到托盘：
-- 在 `App.axaml` 中通过 `<TrayIcon.Icons>` 配置
-- 在 `App.axaml.cs` 中通过 `ShutdownMode.OnExplicitShutdown` 实现逻辑
-- 拦截窗口关闭事件使其隐藏而非退出
-- 退出方式：托盘图标"退出"菜单或显式调用 `ExitApplication()` 方法
+### 系�Y�?~�>~�z�Z�
+�"�"��"��O��o?小�O-�^��?~�>~�s
+- �o� `App.axaml` 中�?s�? `<TrayIcon.Icons>` �.�置
+- �o� `App.axaml.cs` 中�?s�? `ShutdownMode.OnExplicitShutdown` �z�Z��?��'
+- �<��^��-口�.��-��<件使�.��s��-��?O�z�??�?�
+- �??�?��-�式�s�?~�>~�>��?"�??�?�"�o�.�^-�~�式�f�"� `ExitApplication()` �-��.
 
-## 重要实现细节
+## �?�要�z�Z��?�S,
 
-- **验证**：在 `App.axaml.cs` 中禁用 Avalonia 的 DataAnnotations 验证，以避免与 CommunityToolkit 验证冲突
-- **主题**：使用 `SemiTheme`（默认浅色模式），在 `App.axaml` 样式中注册
-- **字体**：在 `Program.cs` 中通过 `.WithInterFont()` 配置 Inter 字体
-- **编译绑定**：在项目文件中默认启用；需要在视图上设置 `x:DataType`
+- **�O证**�s�o� `App.axaml.cs` 中禁�"� Avalonia �s" DataAnnotations �O证�O以避�.��Z CommunityToolkit �O证�?�突
+- **主�~**�s使�"� `SemiTheme`�^�~认�.�?�模式�?�O�o� `App.axaml` 样式中注�?O
+- **�-�"**�s�o� `Program.cs` 中�?s�? `.WithInterFont()` �.�置 Inter �-�"
+- **�-�'�'�s**�s�o�项�>��-?件中�~认启�"��>�o?要�o��?�>��S设置 `x:DataType`
+

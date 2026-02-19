@@ -1,20 +1,20 @@
 # Repository Guidelines
 
 ## 项目结构与模块组织
-- 主应用位于 `AvaloniaDemo/`（单一 .NET 桌面项目）。
-- UI 层在 `AvaloniaDemo/Views/*.axaml`，对应代码后置在 `*.axaml.cs`。
-- 视图模型在 `AvaloniaDemo/ViewModels/`；数据模型在 `AvaloniaDemo/Models/`。
-- 通用能力放在 `AvaloniaDemo/Services/`、`AvaloniaDemo/Configuration/`，值转换器在 `AvaloniaDemo/Converters/`。
-- 静态资源位于 `AvaloniaDemo/Assets/`，全局样式与资源入口为 `App.axaml`。
+- 主应用位于 `digital-intelligence-bridge/`（单一 .NET 桌面项目）。
+- UI 层在 `digital-intelligence-bridge/Views/*.axaml`，对应代码后置在 `*.axaml.cs`。
+- 视图模型在 `digital-intelligence-bridge/ViewModels/`；数据模型在 `digital-intelligence-bridge/Models/`。
+- 通用能力放在 `digital-intelligence-bridge/Services/`、`digital-intelligence-bridge/Configuration/`，值转换器在 `digital-intelligence-bridge/Converters/`。
+- 静态资源位于 `digital-intelligence-bridge/Assets/`，全局样式与资源入口为 `App.axaml`。
 - 方案和设计记录在 `docs/plans/`。
 
 ## 构建、测试与开发命令
 默认在仓库根目录执行。
-- `dotnet restore AvaloniaDemo/AvaloniaDemo.csproj`：还原 NuGet 依赖。
-- `dotnet build AvaloniaDemo/AvaloniaDemo.csproj -c Debug`：本地调试构建。
-- `dotnet run --project AvaloniaDemo/AvaloniaDemo.csproj`：启动桌面应用。
-- `dotnet watch --project AvaloniaDemo/AvaloniaDemo.csproj run --hot-reload`：热重载开发循环。
-- `dotnet build AvaloniaDemo/AvaloniaDemo.csproj -c Release`：发布配置构建校验。
+- `dotnet restore digital-intelligence-bridge/digital-intelligence-bridge.csproj`：还原 NuGet 依赖。
+- `dotnet build digital-intelligence-bridge/digital-intelligence-bridge.csproj -c Debug`：本地调试构建。
+- `dotnet run --project digital-intelligence-bridge/digital-intelligence-bridge.csproj`：启动桌面应用。
+- `dotnet watch --project digital-intelligence-bridge/digital-intelligence-bridge.csproj run --hot-reload`：热重载开发循环。
+- `dotnet build digital-intelligence-bridge/digital-intelligence-bridge.csproj -c Release`：发布配置构建校验。
 
 ## 代码风格与命名约定
 - 使用 4 空格缩进，保持可空引用类型启用（`<Nullable>enable</Nullable>`）。
@@ -25,7 +25,7 @@
 
 ## 测试指南
 - 当前仓库未包含独立测试项目。
-- 新功能建议新增测试工程（推荐命名：`AvaloniaDemo.Tests`）。
+- 新功能建议新增测试工程（推荐命名：`digital-intelligence-bridge.Tests`）。
 - 测试文件命名：`<ClassName>Tests.cs`；测试方法命名：`MethodName_ShouldExpectedBehavior_WhenCondition`。
 - 最低验证要求：`Debug/Release` 可构建、关键 ViewModel 行为正确、核心 UI 流程可手动回归。
 
