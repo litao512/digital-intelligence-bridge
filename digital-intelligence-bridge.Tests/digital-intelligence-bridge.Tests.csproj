@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="digital-intelligence-bridge">
+      <HintPath>..\digital-intelligence-bridge\bin\Debug\net10.0\digital-intelligence-bridge.dll</HintPath>
+    </Reference>
+    <Reference Include="Prism">
+      <HintPath>..\digital-intelligence-bridge\bin\Debug\net10.0\Prism.dll</HintPath>
+    </Reference>
+    <Reference Include="Prism.Avalonia">
+      <HintPath>..\digital-intelligence-bridge\bin\Debug\net10.0\Prism.Avalonia.dll</HintPath>
+    </Reference>
+    <Reference Include="Prism.Events">
+      <HintPath>..\digital-intelligence-bridge\bin\Debug\net10.0\Prism.Events.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions">
+      <HintPath>..\digital-intelligence-bridge\bin\Debug\net10.0\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Options">
+      <HintPath>..\digital-intelligence-bridge\bin\Debug\net10.0\Microsoft.Extensions.Options.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>
