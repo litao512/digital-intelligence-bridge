@@ -1,4 +1,4 @@
-﻿using DigitalIntelligenceBridge.Configuration;
+using DigitalIntelligenceBridge.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 namespace DigitalIntelligenceBridge.Services;
 
 /// <summary>
-/// åº”ç”¨ç”Ÿå‘½å‘¨æœŸæœåŠ¡å®žçŽ°
+/// 应用生命周期服务实现
 /// </summary>
 public class ApplicationService : IApplicationService
 {
@@ -42,34 +42,34 @@ public class ApplicationService : IApplicationService
     {
         if (_isInitialized)
         {
-            _logger.LogWarning("åº”ç”¨ç¨‹åºå·²ç»åˆå§‹åŒ–");
+            _logger.LogWarning("应用程序已经初始化");
             return;
         }
 
-        _logger.LogInformation("æ­£åœ¨åˆå§‹åŒ–åº”ç”¨ç¨‹åº...");
+        _logger.LogInformation("正在初始化应用程序...");
 
         try
         {
-            // ç¡®ä¿é…ç½®ç›®å½•å­˜åœ¨
+            // 确保配置目录存在
             EnsureDirectories();
 
-            // é…ç½®æ—¥å¿—ç³»ç»Ÿ
+            // 配置日志系统
             LoggingConfiguration.ConfigureSerilog(_appSettings.Value);
 
-            _logger.LogInformation("åº”ç”¨ç¨‹åºé…ç½®:");
-            _logger.LogInformation("  - åº”ç”¨åç§°: {Name}", _appSettings.Value.Application.Name);
-            _logger.LogInformation("  - åº”ç”¨ç‰ˆæœ¬: {Version}", _appSettings.Value.Application.Version);
-            _logger.LogInformation("  - æ—¥å¿—è·¯å¾„: {LogPath}", _appSettings.Value.Logging.LogPath);
-            _logger.LogInformation("  - æ’ä»¶ç›®å½•: {PluginDir}", _appSettings.Value.Plugin.PluginDirectory);
-            _logger.LogInformation("åº”ç”¨ç¨‹åºåˆå§‹åŒ–å®Œæˆ");
+            _logger.LogInformation("应用程序配置:");
+            _logger.LogInformation("  - 应用名称: {Name}", _appSettings.Value.Application.Name);
+            _logger.LogInformation("  - 应用版本: {Version}", _appSettings.Value.Application.Version);
+            _logger.LogInformation("  - 日志路径: {LogPath}", _appSettings.Value.Logging.LogPath);
+            _logger.LogInformation("  - 插件目录: {PluginDir}", _appSettings.Value.Plugin.PluginDirectory);
+            _logger.LogInformation("应用程序初始化完成");
 
             _isInitialized = true;
 
-            _logger.LogInformation("åº”ç”¨ç¨‹åºåˆå§‹åŒ–å®Œæˆ");
+            _logger.LogInformation("应用程序初始化完成");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "åº”ç”¨ç¨‹åºåˆå§‹åŒ–å¤±è´¥");
+            _logger.LogError(ex, "应用程序初始化失败");
             throw;
         }
 
@@ -124,22 +124,22 @@ public class ApplicationService : IApplicationService
     }
 public async Task OnShutdownAsync()
     {
-        _logger.LogInformation("åº”ç”¨ç¨‹åºæ­£åœ¨å…³é—­...");
+        _logger.LogInformation("应用程序正在关闭...");
 
         try
         {
-            // ä¿å­˜é…ç½®
+            // 保存配置
             SaveConfiguration();
 
-            // å…³é—­æ—¥å¿—
+            // 关闭日志
             LoggingConfiguration.CloseAndFlush();
 
-            _logger.LogInformation("åº”ç”¨ç¨‹åºå·²å…³é—­");
+            _logger.LogInformation("应用程序已关闭");
         }
         catch (Exception ex)
         {
-            // ä½¿ç”¨ Console è¾“å‡ºï¼Œå› ä¸ºæ—¥å¿—å¯èƒ½å·²ç»å…³é—­
-            Console.WriteLine($"å…³é—­æ—¶å‘ç”Ÿé”™è¯¯: {ex.Message}");
+            // 使用 Console 输出，因为日志可能已经关闭
+            Console.WriteLine($"关闭时发生错误: {ex.Message}");
         }
 
         await Task.CompletedTask;
@@ -147,14 +147,14 @@ public async Task OnShutdownAsync()
 
     public string GetVersion()
     {
-        // ä¼˜å…ˆä½¿ç”¨é…ç½®æ–‡ä»¶ä¸­çš„ç‰ˆæœ¬
+        // 优先使用配置文件中的版本
         var configVersion = _appSettings.Value.Application.Version;
         if (!string.IsNullOrEmpty(configVersion) && configVersion != "1.0.0")
         {
             return configVersion;
         }
 
-        // å¦åˆ™ä½¿ç”¨ç¨‹åºé›†ç‰ˆæœ¬
+        // 否则使用程序集版本
         var assemblyVersion = Assembly.GetExecutingAssembly().GetName().Version;
         return assemblyVersion?.ToString(3) ?? "1.0.0";
     }
@@ -165,50 +165,50 @@ public async Task OnShutdownAsync()
     }
 
     /// <summary>
-    /// ç¡®ä¿å¿…è¦çš„ç›®å½•å­˜åœ¨
+    /// 确保必要的目录存在
     /// </summary>
     private void EnsureDirectories()
     {
         var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var appFolder = Path.Combine(appDataPath, "UniversalTrayTool");
 
-        // åˆ›å»ºåº”ç”¨ä¸»ç›®å½•
+        // 创建应用主目录
         if (!Directory.Exists(appFolder))
         {
             Directory.CreateDirectory(appFolder);
-            _logger.LogDebug("åˆ›å»ºåº”ç”¨ç›®å½•: {Path}", appFolder);
+            _logger.LogDebug("创建应用目录: {Path}", appFolder);
         }
 
-        // åˆ›å»ºæ—¥å¿—ç›®å½•
+        // 创建日志目录
         var logPath = Path.Combine(appFolder, _appSettings.Value.Logging.LogPath);
         if (!Directory.Exists(logPath))
         {
             Directory.CreateDirectory(logPath);
-            _logger.LogDebug("åˆ›å»ºæ—¥å¿—ç›®å½•: {Path}", logPath);
+            _logger.LogDebug("创建日志目录: {Path}", logPath);
         }
 
-        // åˆ›å»ºæ’ä»¶ç›®å½•
+        // 创建插件目录
         var pluginPath = Path.Combine(appFolder, _appSettings.Value.Plugin.PluginDirectory);
         if (!Directory.Exists(pluginPath))
         {
             Directory.CreateDirectory(pluginPath);
-            _logger.LogDebug("åˆ›å»ºæ’ä»¶ç›®å½•: {Path}", pluginPath);
+            _logger.LogDebug("创建插件目录: {Path}", pluginPath);
         }
     }
 
     /// <summary>
-    /// ä¿å­˜å½“å‰é…ç½®
+    /// 保存当前配置
     /// </summary>
     private void SaveConfiguration()
     {
         try
         {
             _configuration.SaveAppSettings(_appSettings.Value);
-            _logger.LogDebug("é…ç½®å·²ä¿å­˜");
+            _logger.LogDebug("配置已保存");
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "ä¿å­˜é…ç½®å¤±è´¥");
+            _logger.LogWarning(ex, "保存配置失败");
         }
     }
 }
