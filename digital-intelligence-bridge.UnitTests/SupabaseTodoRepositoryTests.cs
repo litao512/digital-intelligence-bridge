@@ -123,6 +123,137 @@ public class SupabaseTodoRepositoryTests
         Assert.Contains(todos, x => x.Title == "local-fallback");
     }
 
+    [Fact]
+    public async Task UpdateAsync_ShouldUpdateFallback_WhenPatchFails()
+    {
+        var id = Guid.NewGuid();
+        var item = new TodoItem
+        {
+            Id = id,
+            Title = "before-update",
+            Description = "d",
+            Category = "默认",
+            Priority = TodoItem.PriorityLevel.Normal
+        };
+
+        var repository = CreateRepository(
+            new AppSettings
+            {
+                Supabase = new SupabaseConfig
+                {
+                    Url = "http://localhost:54321",
+                    AnonKey = "anon-key",
+                    Schema = "dib"
+                }
+            },
+            req =>
+            {
+                return req.Method switch
+                {
+                    var m when m == HttpMethod.Post => new HttpResponseMessage(HttpStatusCode.InternalServerError),
+                    var m when m == HttpMethod.Patch => new HttpResponseMessage(HttpStatusCode.InternalServerError),
+                    var m when m == HttpMethod.Get => throw new HttpRequestException("offline"),
+                    _ => new HttpResponseMessage(HttpStatusCode.OK)
+                };
+            },
+            configured: true);
+
+        await repository.AddAsync(item);
+        item.Title = "after-update";
+
+        var updateResult = await repository.UpdateAsync(item);
+        var todos = await repository.GetAllAsync();
+
+        Assert.False(updateResult);
+        Assert.Contains(todos, x => x.Id == id && x.Title == "after-update");
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ShouldRemoveFromFallback_WhenDeleteFails()
+    {
+        var id = Guid.NewGuid();
+        var item = new TodoItem
+        {
+            Id = id,
+            Title = "to-delete",
+            Description = "d",
+            Category = "默认",
+            Priority = TodoItem.PriorityLevel.Normal
+        };
+
+        var repository = CreateRepository(
+            new AppSettings
+            {
+                Supabase = new SupabaseConfig
+                {
+                    Url = "http://localhost:54321",
+                    AnonKey = "anon-key",
+                    Schema = "dib"
+                }
+            },
+            req =>
+            {
+                return req.Method switch
+                {
+                    var m when m == HttpMethod.Post => new HttpResponseMessage(HttpStatusCode.InternalServerError),
+                    var m when m == HttpMethod.Delete => new HttpResponseMessage(HttpStatusCode.InternalServerError),
+                    var m when m == HttpMethod.Get => throw new HttpRequestException("offline"),
+                    _ => new HttpResponseMessage(HttpStatusCode.OK)
+                };
+            },
+            configured: true);
+
+        await repository.AddAsync(item);
+        var deleteResult = await repository.DeleteAsync(id);
+        var todos = await repository.GetAllAsync();
+
+        Assert.False(deleteResult);
+        Assert.DoesNotContain(todos, x => x.Id == id);
+    }
+
+    [Fact]
+    public async Task ClearCompletedAsync_ShouldClearFallback_WhenRemoteDeleteFails()
+    {
+        var completedItem = new TodoItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "completed-local",
+            IsCompleted = true,
+            Category = "默认",
+            Priority = TodoItem.PriorityLevel.Normal
+        };
+
+        var repository = CreateRepository(
+            new AppSettings
+            {
+                Supabase = new SupabaseConfig
+                {
+                    Url = "http://localhost:54321",
+                    AnonKey = "anon-key",
+                    Schema = "dib"
+                }
+            },
+            req =>
+            {
+                return req.Method switch
+                {
+                    var m when m == HttpMethod.Post => new HttpResponseMessage(HttpStatusCode.InternalServerError),
+                    var m when m == HttpMethod.Delete => new HttpResponseMessage(HttpStatusCode.InternalServerError),
+                    var m when m == HttpMethod.Get => throw new HttpRequestException("offline"),
+                    _ => new HttpResponseMessage(HttpStatusCode.OK)
+                };
+            },
+            configured: true);
+
+        await repository.AddAsync(completedItem);
+
+        var removedCount = await repository.ClearCompletedAsync();
+        var todos = await repository.GetAllAsync();
+
+        Assert.True(removedCount >= 1);
+        Assert.DoesNotContain(todos, x => x.IsCompleted);
+    }
+
     private static SupabaseTodoRepository CreateRepository(
         AppSettings settings,
         Func<HttpRequestMessage, HttpResponseMessage> responder,
