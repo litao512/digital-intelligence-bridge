@@ -1,0 +1,18 @@
+# Normalize line endings for text files.
+* text=auto
+
+# Enforce UTF-8 working tree encoding for source/docs/config files.
+*.md text working-tree-encoding=UTF-8
+*.txt text working-tree-encoding=UTF-8
+*.json text working-tree-encoding=UTF-8
+*.yml text working-tree-encoding=UTF-8
+*.yaml text working-tree-encoding=UTF-8
+*.xml text working-tree-encoding=UTF-8
+*.cs text working-tree-encoding=UTF-8
+*.axaml text working-tree-encoding=UTF-8
+*.csproj text working-tree-encoding=UTF-8
+*.props text working-tree-encoding=UTF-8
+*.targets text working-tree-encoding=UTF-8
+*.sln text working-tree-encoding=UTF-8
+*.ps1 text working-tree-encoding=UTF-8
+
