@@ -1,8 +1,10 @@
 using System;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Media;
 using DigitalIntelligenceBridge.Configuration;
 using DigitalIntelligenceBridge.Services;
 using Microsoft.Extensions.Options;
@@ -36,6 +38,10 @@ public class SettingsViewModel : ViewModelBase
     // 关于信息
     private string _appName = "通用工具箱";
     private string _appVersion = "1.0.0";
+    private string _selfCheckSummary = "尚未执行自检";
+    private DateTime? _lastSelfCheckAt;
+
+    public ObservableCollection<SelfCheckItem> SelfCheckItems { get; } = new();
 
     public bool IsDarkMode
     {
@@ -98,6 +104,18 @@ public class SettingsViewModel : ViewModelBase
         set => SetProperty(ref _appVersion, value);
     }
 
+    public string SelfCheckSummary
+    {
+        get => _selfCheckSummary;
+        set => SetProperty(ref _selfCheckSummary, value);
+    }
+
+    public DateTime? LastSelfCheckAt
+    {
+        get => _lastSelfCheckAt;
+        set => SetProperty(ref _lastSelfCheckAt, value);
+    }
+
     // 命令
     public DelegateCommand SaveSettingsCommand { get; }
     public DelegateCommand ExportDataCommand { get; }
@@ -105,6 +123,7 @@ public class SettingsViewModel : ViewModelBase
     public DelegateCommand ClearAllDataCommand { get; }
     public DelegateCommand CheckUpdateCommand { get; }
     public DelegateCommand OpenLogFolderCommand { get; }
+    public DelegateCommand RunSelfCheckCommand { get; }
 
     public SettingsViewModel(
         IApplicationService appService,
@@ -127,6 +146,9 @@ public class SettingsViewModel : ViewModelBase
         ClearAllDataCommand = new DelegateCommand(ClearAllData);
         CheckUpdateCommand = new DelegateCommand(CheckUpdate);
         OpenLogFolderCommand = new DelegateCommand(OpenLogFolder);
+        RunSelfCheckCommand = new DelegateCommand(RunSelfCheck);
+
+        RunSelfCheck();
 
         _logger.LogInformation("设置页面已初始化");
     }
@@ -219,4 +241,83 @@ public class SettingsViewModel : ViewModelBase
             _logger.LogError($"打开日志文件夹失败: {ex}");
         }
     }
+
+    private void RunSelfCheck()
+    {
+        SelfCheckItems.Clear();
+
+        var passed = 0;
+        var total = 0;
+
+        void AddResult(string name, bool ok, string detail)
+        {
+            total++;
+            if (ok) passed++;
+            SelfCheckItems.Add(new SelfCheckItem
+            {
+                Name = name,
+                IsPassed = ok,
+                Detail = detail
+            });
+        }
+
+        var configPath = ConfigurationExtensions.GetConfigFilePath();
+        AddResult("用户配置文件", File.Exists(configPath), configPath);
+
+        var defaultConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+        AddResult("默认配置文件", File.Exists(defaultConfigPath), defaultConfigPath);
+
+        var trayIconPath = Path.Combine(AppContext.BaseDirectory, _settings.Tray.IconPath);
+        AddResult("托盘图标文件", File.Exists(trayIconPath), trayIconPath);
+
+        var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var appFolder = Path.Combine(appDataPath, "UniversalTrayTool");
+        var pluginDir = Path.Combine(appFolder, _settings.Plugin.PluginDirectory);
+        var pluginExists = Directory.Exists(pluginDir);
+        var pluginCount = pluginExists
+            ? Directory.GetDirectories(pluginDir).Length + Directory.GetFiles(pluginDir, "*.dll").Length
+            : 0;
+        AddResult("插件目录", pluginExists, $"{pluginDir}（发现 {pluginCount} 项）");
+
+        var logDir = Path.Combine(appFolder, _settings.Logging.LogPath);
+        var logWritable = EnsureWritable(logDir, out var writeDetail);
+        AddResult("日志目录写入", logWritable, writeDetail);
+
+        AddResult("导航配置", _settings.Navigation.Count > 0, $"Navigation 项数: {_settings.Navigation.Count}");
+
+        LastSelfCheckAt = DateTime.Now;
+        SelfCheckSummary = $"自检完成：{passed}/{total} 通过";
+
+        _logger.LogInformation("设置自检完成：{Passed}/{Total} 通过", passed, total);
+    }
+
+    private static bool EnsureWritable(string directory, out string detail)
+    {
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var probeFile = Path.Combine(directory, $".probe-{Guid.NewGuid():N}.tmp");
+            File.WriteAllText(probeFile, DateTime.Now.ToString("O"));
+            File.Delete(probeFile);
+            detail = directory;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            detail = $"{directory}（{ex.Message}）";
+            return false;
+        }
+    }
+}
+
+public class SelfCheckItem
+{
+    public string Name { get; set; } = string.Empty;
+    public bool IsPassed { get; set; }
+    public string Detail { get; set; } = string.Empty;
+    public string StatusText => IsPassed ? "通过" : "失败";
+    public string StatusIcon => IsPassed ? "✅" : "❌";
+    public IBrush StatusBrush => IsPassed
+        ? new SolidColorBrush(Color.Parse("#3BB346"))
+        : new SolidColorBrush(Color.Parse("#F93920"));
 }

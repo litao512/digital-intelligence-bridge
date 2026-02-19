@@ -150,6 +150,47 @@
                 </StackPanel>
             </Border>
 
+            <!-- 自检面板 -->
+            <Border Classes="Card" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="15">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="系统自检" FontSize="16" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding SelfCheckSummary}" FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
+                            <TextBlock Text="{Binding LastSelfCheckAt, StringFormat='最近执行: {0:yyyy-MM-dd HH:mm:ss}'}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                               Content="运行自检"
+                               Classes="Primary"
+                               Command="{Binding RunSelfCheckCommand}"
+                               VerticalAlignment="Top"/>
+                    </Grid>
+
+                    <ItemsControl ItemsSource="{Binding SelfCheckItems}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="vm:SelfCheckItem">
+                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,4,0,0">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                        <TextBlock Grid.Column="0" Text="{Binding StatusIcon}" FontSize="14" VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="1" Spacing="2">
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{Binding StatusText}"
+                                                   Foreground="{Binding StatusBrush}"
+                                                   FontWeight="Bold"
+                                                   VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
             <!-- 保存按钮 -->
             <Button Content="保存设置"
                    Command="{Binding SaveSettingsCommand}"
