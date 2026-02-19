@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Media;
@@ -124,6 +125,7 @@ public class SettingsViewModel : ViewModelBase
     public DelegateCommand CheckUpdateCommand { get; }
     public DelegateCommand OpenLogFolderCommand { get; }
     public DelegateCommand RunSelfCheckCommand { get; }
+    public DelegateCommand ExportSelfCheckReportCommand { get; }
 
     public SettingsViewModel(
         IApplicationService appService,
@@ -147,6 +149,7 @@ public class SettingsViewModel : ViewModelBase
         CheckUpdateCommand = new DelegateCommand(CheckUpdate);
         OpenLogFolderCommand = new DelegateCommand(OpenLogFolder);
         RunSelfCheckCommand = new DelegateCommand(RunSelfCheck);
+        ExportSelfCheckReportCommand = new DelegateCommand(ExportSelfCheckReport);
 
         RunSelfCheck();
 
@@ -289,6 +292,49 @@ public class SettingsViewModel : ViewModelBase
         SelfCheckSummary = $"自检完成：{passed}/{total} 通过";
 
         _logger.LogInformation("设置自检完成：{Passed}/{Total} 通过", passed, total);
+    }
+
+    private void ExportSelfCheckReport()
+    {
+        try
+        {
+            if (SelfCheckItems.Count == 0)
+            {
+                RunSelfCheck();
+            }
+
+            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var reportDir = Path.Combine(appDataPath, "UniversalTrayTool", "logs");
+            Directory.CreateDirectory(reportDir);
+
+            var fileName = $"selfcheck-{DateTime.Now:yyyyMMdd-HHmmss}.md";
+            var filePath = Path.Combine(reportDir, fileName);
+
+            var sb = new StringBuilder();
+            sb.AppendLine("# 自检报告");
+            sb.AppendLine();
+            sb.AppendLine($"- 应用: {AppName}");
+            sb.AppendLine($"- 版本: {AppVersion}");
+            sb.AppendLine($"- 时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            sb.AppendLine($"- 汇总: {SelfCheckSummary}");
+            sb.AppendLine();
+            sb.AppendLine("| 项目 | 状态 | 详情 |");
+            sb.AppendLine("|---|---|---|");
+            foreach (var item in SelfCheckItems)
+            {
+                var status = item.IsPassed ? "通过" : "失败";
+                var detail = item.Detail.Replace("|", "\\|");
+                sb.AppendLine($"| {item.Name} | {status} | {detail} |");
+            }
+
+            File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
+            _logger.LogInformation("已导出自检报告: {Path}", filePath);
+            SelfCheckSummary = $"{SelfCheckSummary}（已导出报告）";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "导出自检报告失败");
+        }
     }
 
     private static bool EnsureWritable(string directory, out string detail)

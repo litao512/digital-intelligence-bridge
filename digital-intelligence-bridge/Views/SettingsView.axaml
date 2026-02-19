@@ -168,6 +168,16 @@
                                VerticalAlignment="Top"/>
                     </Grid>
 
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="导出报告"
+                               Classes="Secondary"
+                               Command="{Binding ExportSelfCheckReportCommand}"/>
+                        <TextBlock Text="报告保存到 LocalAppData/UniversalTrayTool/logs"
+                                   FontSize="11"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+
                     <ItemsControl ItemsSource="{Binding SelfCheckItems}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="vm:SelfCheckItem">
