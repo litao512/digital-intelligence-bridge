@@ -12,19 +12,37 @@ namespace DigitalIntelligenceBridge.Configuration;
 public static class ConfigurationExtensions
 {
     /// <summary>
+    /// 获取应用配置根目录（默认 LocalAppData，可通过环境变量 DIB_CONFIG_DIR 覆盖）
+    /// </summary>
+    public static string GetConfigRootDirectory()
+    {
+        var overrideDir = Environment.GetEnvironmentVariable("DIB_CONFIG_DIR");
+        if (!string.IsNullOrWhiteSpace(overrideDir))
+        {
+            Directory.CreateDirectory(overrideDir);
+            return overrideDir;
+        }
+
+        var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var appFolder = Path.Combine(appDataPath, "UniversalTrayTool");
+        Directory.CreateDirectory(appFolder);
+        return appFolder;
+    }
+
+    /// <summary>
     /// 获取应用程序配置文件的完整路径
     /// </summary>
     public static string GetConfigFilePath()
     {
-        var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var appFolder = Path.Combine(appDataPath, "UniversalTrayTool");
+        return Path.Combine(GetConfigRootDirectory(), "appsettings.json");
+    }
 
-        if (!Directory.Exists(appFolder))
-        {
-            Directory.CreateDirectory(appFolder);
-        }
-
-        return Path.Combine(appFolder, "appsettings.json");
+    /// <summary>
+    /// 获取运行时配置文件路径（用于部署后下发敏感配置）
+    /// </summary>
+    public static string GetRuntimeConfigFilePath()
+    {
+        return Path.Combine(GetConfigRootDirectory(), "appsettings.runtime.json");
     }
 
     /// <summary>
@@ -34,6 +52,7 @@ public static class ConfigurationExtensions
     {
         // 获取用户配置路径
         var userConfigPath = GetConfigFilePath();
+        var runtimeConfigPath = GetRuntimeConfigFilePath();
 
         // 如果用户配置文件不存在，从程序目录复制默认配置
         if (!File.Exists(userConfigPath))
@@ -49,6 +68,8 @@ public static class ConfigurationExtensions
             .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
             .AddJsonFile(userConfigPath, optional: true, reloadOnChange: true)
+            .AddJsonFile(runtimeConfigPath, optional: true, reloadOnChange: true)
+            .AddEnvironmentVariables()
             .Build();
 
         services.AddSingleton<IConfiguration>(configuration);

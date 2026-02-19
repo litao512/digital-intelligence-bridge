@@ -89,6 +89,8 @@ public class SupabaseConfig
 {
     public string Url { get; set; } = "http://localhost:54321";
     public string AnonKey { get; set; } = string.Empty;
+    public string ServiceRoleKey { get; set; } = string.Empty;
+    public string Schema { get; set; } = "dib";
 }
 
 // 注：WebApplicationConfig 已移除，WebView 功能将作为可选插件在后续版本提供
