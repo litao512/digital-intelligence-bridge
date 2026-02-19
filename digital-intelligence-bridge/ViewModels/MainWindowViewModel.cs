@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using DigitalIntelligenceBridge.Configuration;
 using DigitalIntelligenceBridge.Models;
 using DigitalIntelligenceBridge.Services;
@@ -82,6 +83,7 @@ public class MainWindowViewModel : ViewModelBase
 {
     private readonly ILoggerService<MainWindowViewModel> _logger;
     private readonly AppSettings _settings;
+    private readonly ITodoRepository? _todoRepository;
 
     // 集合
     public ObservableCollection<TodoItem> TodoItems { get; } = new();
@@ -308,16 +310,18 @@ public class MainWindowViewModel : ViewModelBase
     public DelegateCommand<TabItemModel?> CloseTabCommand { get; }
 
     public MainWindowViewModel(ILoggerService<MainWindowViewModel> logger)
-        : this(logger, null)
+        : this(logger, null, null)
     {
     }
 
     public MainWindowViewModel(
         ILoggerService<MainWindowViewModel> logger,
-        IOptions<AppSettings>? appSettings)
+        IOptions<AppSettings>? appSettings,
+        ITodoRepository? todoRepository = null)
     {
         _logger = logger;
         _settings = appSettings?.Value ?? new AppSettings();
+        _todoRepository = todoRepository;
 
         // 初始化命令
         AddTodoCommand = new DelegateCommand(OnAddTodo, CanAddTodo);
@@ -343,8 +347,9 @@ public class MainWindowViewModel : ViewModelBase
         // 初始化菜单项
         InitializeMenuItems();
 
-        // 添加示例数据
+        // 初始化 Todo 数据（优先仓储，失败回退示例数据）
         InitializeSampleData();
+        _ = LoadTodosFromRepositoryAsync();
 
         // 初始筛选
         ApplyFilter();
@@ -354,6 +359,35 @@ public class MainWindowViewModel : ViewModelBase
         UpdateMenuSelection(CurrentView);
 
         _logger.LogInformation("主窗口视图模型已初始化");
+    }
+
+    private async Task LoadTodosFromRepositoryAsync()
+    {
+        if (_todoRepository == null)
+        {
+            return;
+        }
+
+        try
+        {
+            var todos = await _todoRepository.GetAllAsync();
+            TodoItems.Clear();
+            foreach (var item in todos)
+            {
+                TodoItems.Add(item);
+            }
+
+            _logger.LogInformation("已从仓储加载 Todo：{Count}", TodoItems.Count);
+            RaisePropertyChanged(nameof(TotalCount));
+            RaisePropertyChanged(nameof(CompletedCount));
+            RaisePropertyChanged(nameof(PendingCount));
+            RaisePropertyChanged(nameof(OverdueCount));
+            ApplyFilter();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("从仓储加载 Todo 失败，将回退到示例数据: {Message}", ex.Message);
+        }
     }
 
     /// <summary>
@@ -735,6 +769,7 @@ public class MainWindowViewModel : ViewModelBase
         };
 
         TodoItems.Add(newItem);
+        _ = PersistAddAsync(newItem);
 
         // 清空输入
         NewTodoTitle = string.Empty;
@@ -757,6 +792,7 @@ public class MainWindowViewModel : ViewModelBase
         if (item != null)
         {
             TodoItems.Remove(item);
+            _ = PersistDeleteAsync(item.Id);
             RaisePropertyChanged(nameof(TotalCount));
             RaisePropertyChanged(nameof(CompletedCount));
             RaisePropertyChanged(nameof(PendingCount));
@@ -778,6 +814,7 @@ public class MainWindowViewModel : ViewModelBase
             {
                 item.CompletedAt = null;
             }
+            _ = PersistUpdateAsync(item);
             RaisePropertyChanged(nameof(CompletedCount));
             RaisePropertyChanged(nameof(PendingCount));
             ApplyFilter();
@@ -795,7 +832,60 @@ public class MainWindowViewModel : ViewModelBase
         RaisePropertyChanged(nameof(TotalCount));
         RaisePropertyChanged(nameof(CompletedCount));
         ApplyFilter();
+        _ = PersistClearCompletedAsync();
         _logger.LogInformation($"清除 {completedItems.Count} 个已完成任务");
+    }
+
+    private async Task PersistAddAsync(TodoItem item)
+    {
+        if (_todoRepository == null)
+        {
+            return;
+        }
+
+        var ok = await _todoRepository.AddAsync(item);
+        if (!ok)
+        {
+            _logger.LogWarning("Todo 已在本地更新，但写入 Supabase 失败: {Id}", item.Id);
+        }
+    }
+
+    private async Task PersistUpdateAsync(TodoItem item)
+    {
+        if (_todoRepository == null)
+        {
+            return;
+        }
+
+        var ok = await _todoRepository.UpdateAsync(item);
+        if (!ok)
+        {
+            _logger.LogWarning("Todo 已在本地更新，但同步 Supabase 失败: {Id}", item.Id);
+        }
+    }
+
+    private async Task PersistDeleteAsync(Guid id)
+    {
+        if (_todoRepository == null)
+        {
+            return;
+        }
+
+        var ok = await _todoRepository.DeleteAsync(id);
+        if (!ok)
+        {
+            _logger.LogWarning("Todo 已在本地删除，但同步 Supabase 失败: {Id}", id);
+        }
+    }
+
+    private async Task PersistClearCompletedAsync()
+    {
+        if (_todoRepository == null)
+        {
+            return;
+        }
+
+        await _todoRepository.ClearCompletedAsync();
     }
 
     /// <summary>
@@ -875,3 +965,4 @@ public class MainWindowViewModel : ViewModelBase
         };
     }
 }
+

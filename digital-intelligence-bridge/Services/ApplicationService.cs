@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using System;
 using System.IO;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace DigitalIntelligenceBridge.Services;
@@ -18,6 +19,7 @@ public class ApplicationService : IApplicationService
     private readonly IConfiguration _configuration;
     private readonly IOptions<AppSettings> _appSettings;
     private readonly ITrayService _trayService;
+    private readonly ISupabaseService _supabaseService;
     private bool _isInitialized = false;
 
     public bool IsInitialized => _isInitialized;
@@ -26,12 +28,14 @@ public class ApplicationService : IApplicationService
         ILogger<ApplicationService> logger,
         IConfiguration configuration,
         IOptions<AppSettings> appSettings,
-        ITrayService trayService)
+        ITrayService trayService,
+        ISupabaseService supabaseService)
     {
         _logger = logger;
         _configuration = configuration;
         _appSettings = appSettings;
         _trayService = trayService;
+        _supabaseService = supabaseService;
     }
 
     public async Task InitializeAsync()
@@ -76,12 +80,49 @@ public class ApplicationService : IApplicationService
     {
         _logger.LogInformation("应用程序已启动");
 
-        // 可以在这里加载插件、连接服务器等
+        if (!_supabaseService.IsConfigured)
+        {
+            _logger.LogWarning("Supabase 未配置，已跳过启动连通性检测。");
+            return;
+        }
 
-        await Task.CompletedTask;
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var connectionResult = await _supabaseService.CheckConnectionAsync(cts.Token).ConfigureAwait(false);
+
+        if (!connectionResult.IsReachable)
+        {
+            _logger.LogWarning("Supabase 不可达：{Message}", connectionResult.Message);
+            return;
+        }
+
+        if (!connectionResult.IsSuccess)
+        {
+            _logger.LogWarning(
+                "Supabase 已连接但认证/权限异常。Status={StatusCode}, Message={Message}",
+                connectionResult.StatusCode,
+                connectionResult.Message);
+            return;
+        }
+
+        var tableResult = await _supabaseService.CheckTableAccessAsync("todos", cts.Token).ConfigureAwait(false);
+        var schema = string.IsNullOrWhiteSpace(_appSettings.Value.Supabase.Schema)
+            ? "public"
+            : _appSettings.Value.Supabase.Schema;
+
+        if (tableResult.IsSuccess)
+        {
+            _logger.LogInformation("Supabase 表访问正常：{Schema}.todos", schema);
+        }
+        else
+        {
+            _logger.LogWarning(
+                "Supabase 表访问失败：{Schema}.todos, Status={StatusCode}, Message={Message}",
+                schema,
+                tableResult.StatusCode,
+                tableResult.Message);
+        }
     }
-
-    public async Task OnShutdownAsync()
+public async Task OnShutdownAsync()
     {
         _logger.LogInformation("应用程序正在关闭...");
 
@@ -171,3 +212,4 @@ public class ApplicationService : IApplicationService
         }
     }
 }
+

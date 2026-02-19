@@ -22,6 +22,7 @@ public class TrayService : ITrayService
     private readonly ILogger<TrayService> _logger;
     private readonly Dictionary<string, NativeMenuItem> _menuItems = new();
     private bool _isExiting = false;
+    private bool _autoHideEnabled = false;
 
     public bool IsWindowVisible => _mainWindow?.IsVisible ?? false;
     public bool IsExiting => _isExiting;
@@ -54,7 +55,10 @@ public class TrayService : ITrayService
         _trayIcon.Clicked += OnTrayIconClicked;
 
         // 处理窗口关闭事件
-        _mainWindow.Closing += OnWindowClosing;
+        if (_autoHideEnabled)
+        {
+            _mainWindow.Closing += OnWindowClosing;
+        }
 
         // 将托盘图标添加到应用
         if (TrayIcon.GetIcons(Application.Current!) is TrayIcons icons)
@@ -168,7 +172,7 @@ public class TrayService : ITrayService
         }
 
         // 移除窗口事件处理
-        if (_mainWindow != null)
+        if (_mainWindow != null && _autoHideEnabled)
         {
             _mainWindow.Closing -= OnWindowClosing;
         }

@@ -18,6 +18,8 @@ using Prism.Ioc;
 using Prism.Modularity;
 using Serilog;
 using System.IO;
+using System.Net.Http;
+using System.Threading.Tasks;
 
 namespace DigitalIntelligenceBridge;
 
@@ -53,6 +55,12 @@ public partial class App : PrismApplication
         // 注册应用程序服务
         containerRegistry.RegisterSingleton<ITrayService, TrayService>();
         containerRegistry.RegisterSingleton<IApplicationService, ApplicationService>();
+        containerRegistry.RegisterInstance(new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(8)
+        });
+        containerRegistry.RegisterSingleton<ISupabaseService, SupabaseService>();
+        containerRegistry.RegisterSingleton<ITodoRepository, SupabaseTodoRepository>();
 
         // 注：WebView 服务已移除，将作为可选插件在后续版本提供
 
@@ -66,13 +74,8 @@ public partial class App : PrismApplication
     private void RegisterConfiguration(IContainerRegistry containerRegistry)
     {
         // 获取用户配置路径
-        var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var appFolder = Path.Combine(appDataPath, "UniversalTrayTool");
-        if (!Directory.Exists(appFolder))
-        {
-            Directory.CreateDirectory(appFolder);
-        }
-        var userConfigPath = Path.Combine(appFolder, "appsettings.json");
+        var userConfigPath = DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.GetConfigFilePath();
+        var runtimeConfigPath = DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.GetRuntimeConfigFilePath();
 
         // 如果用户配置文件不存在，从程序目录复制默认配置
         if (!File.Exists(userConfigPath))
@@ -89,6 +92,8 @@ public partial class App : PrismApplication
             .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
             .AddJsonFile(userConfigPath, optional: true, reloadOnChange: true)
+            .AddJsonFile(runtimeConfigPath, optional: true, reloadOnChange: true)
+            .AddEnvironmentVariables()
             .Build();
 
         // 注册 IConfiguration
@@ -127,14 +132,19 @@ public partial class App : PrismApplication
                 // 设置关机模式
                 desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
-                // 初始化应用程序服务
-                appService.InitializeAsync().Wait();
+                if (_mainWindow != null)
+                {
+                    desktop.MainWindow = _mainWindow;
+                    _mainWindow.Show();
+                    _mainWindow.WindowState = WindowState.Normal;
+                    _mainWindow.Activate();
+                }
 
                 // 初始化托盘服务
                 trayService.Initialize(_mainWindow!);
 
-                // 应用程序启动完成
-                appService.OnStartedAsync().Wait();
+                // 启动后台异步初始化，避免在 UI 线程上阻塞。
+                _ = InitializeApplicationAsync(appService, logger);
 
                 logger.LogInformation("应用程序框架初始化完成");
 
@@ -144,7 +154,7 @@ public partial class App : PrismApplication
                     try
                     {
                         logger.LogInformation("应用程序正在退出...");
-                        appService.OnShutdownAsync().Wait();
+                        appService.OnShutdownAsync().GetAwaiter().GetResult();
                     }
                     catch (Exception ex)
                     {
@@ -171,6 +181,19 @@ public partial class App : PrismApplication
                 rollingInterval: RollingInterval.Day,
                 retainedFileCountLimit: 7)
             .CreateLogger();
+    }
+
+    private static async Task InitializeApplicationAsync(IApplicationService appService, ILoggerService<App> logger)
+    {
+        try
+        {
+            await appService.InitializeAsync().ConfigureAwait(false);
+            await appService.OnStartedAsync().ConfigureAwait(false);
+        }
+        catch (Exception startupEx)
+        {
+            logger.LogError($"应用程序启动后处理失败: {startupEx}");
+        }
     }
 
     /// <summary>

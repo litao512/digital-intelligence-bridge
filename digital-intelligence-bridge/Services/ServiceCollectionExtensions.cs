@@ -1,3 +1,5 @@
+using System;
+using System.Net.Http;
 using DigitalIntelligenceBridge.Configuration;
 using DigitalIntelligenceBridge.ViewModels;
 using DigitalIntelligenceBridge.Views;
@@ -35,6 +37,14 @@ public static class ServiceCollectionExtensions
 
         // 注册托盘服务
         services.AddSingleton<ITrayService, TrayService>();
+
+        // 注册 Supabase 服务
+        services.AddSingleton(new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(8)
+        });
+        services.AddSingleton<ISupabaseService, SupabaseService>();
+        services.AddSingleton<ITodoRepository, SupabaseTodoRepository>();
 
         // 注：WebView 服务已移除，将作为可选插件在后续版本提供
 
