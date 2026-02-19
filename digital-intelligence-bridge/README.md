@@ -210,6 +210,12 @@ dotnet run
 ./scripts/verify-supabase-runtime.ps1
 ```
 
+同步 GitHub Actions Secrets（从本机用户配置读取）：
+
+```powershell
+./scripts/sync-github-secrets.ps1
+```
+
 ## 测试
 
 ### 标准单元测试（推荐）
