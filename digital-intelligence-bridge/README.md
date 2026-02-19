@@ -190,6 +190,26 @@ cd DigitalIntelligenceBridge
 dotnet run
 ```
 
+## 测试
+
+### 标准单元测试（推荐）
+
+```bash
+dotnet restore digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj
+dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug
+```
+
+当前覆盖范围聚焦 `MainWindowViewModel` 的核心行为（导航、Tab、筛选、空状态）。
+
+### 轻量回归程序（过渡方案）
+
+```bash
+dotnet build digital-intelligence-bridge.Tests/digital-intelligence-bridge.Tests.csproj -c Debug
+dotnet digital-intelligence-bridge.Tests/bin/Debug/net10.0/digital-intelligence-bridge.Tests.dll
+```
+
+说明：`digital-intelligence-bridge.Tests` 为历史过渡方案，建议逐步迁移到 `digital-intelligence-bridge.UnitTests`。
+
 ## 学习建议
 
 1. **从简单的绑定开始** - 先理解 `{Binding 属性名}` 的工作原理

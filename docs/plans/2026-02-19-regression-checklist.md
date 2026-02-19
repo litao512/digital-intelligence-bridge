@@ -9,6 +9,7 @@
 | 启动冒烟 | `dotnet run --project digital-intelligence-bridge/digital-intelligence-bridge.csproj`（超时退出） | 可启动 |
 | 托盘初始化日志 | 检查 `bin/Debug/net10.0/logs/app-20260219.log` 最新段 | 通过（无“加载托盘图标失败”） |
 | ViewModel 自动化测试 | `dotnet digital-intelligence-bridge.Tests/bin/Debug/net10.0/digital-intelligence-bridge.Tests.dll` | 通过（5/5） |
+| xUnit 单元测试 | `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug` | 通过（5/5） |
 
 ## 2. 手动回归（需在桌面环境确认）
 
