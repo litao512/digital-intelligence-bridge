@@ -190,6 +190,26 @@ cd DigitalIntelligenceBridge
 dotnet run
 ```
 
+## 运行时配置（Supabase）
+
+- 模板文件：`digital-intelligence-bridge/appsettings.runtime.template.json`
+- 本机运行时配置路径：`%LOCALAPPDATA%/UniversalTrayTool/appsettings.runtime.json`
+
+生成运行时配置（避免把密钥写进仓库）：
+
+```powershell
+./scripts/new-runtime-config.ps1 `
+  -SupabaseUrl "http://your-supabase-host:8000" `
+  -SupabaseAnonKey "<anon-key>" `
+  -Schema "dib"
+```
+
+验证运行时配置可访问 Supabase REST：
+
+```powershell
+./scripts/verify-supabase-runtime.ps1
+```
+
 ## 测试
 
 ### 标准单元测试（推荐）

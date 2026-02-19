@@ -1,4 +1,4 @@
-name: Unit Tests
+name: CI
 
 on:
   push:
@@ -18,12 +18,38 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      - name: Restore App
+        run: dotnet restore digital-intelligence-bridge/digital-intelligence-bridge.csproj
+
       - name: Restore UnitTests
         run: dotnet restore digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj
 
       - name: Build App
         run: dotnet build digital-intelligence-bridge/digital-intelligence-bridge.csproj -c Debug --no-restore
 
+      - name: Build App (Release)
+        run: dotnet build digital-intelligence-bridge/digital-intelligence-bridge.csproj -c Release --no-restore
+
       - name: Test
         run: dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --no-build --logger "trx;LogFileName=test-results.trx"
 
+      - name: Validate Runtime Template JSON
+        shell: pwsh
+        run: |
+          $raw = Get-Content "digital-intelligence-bridge/appsettings.runtime.template.json" -Raw
+          if (-not ($raw | Test-Json)) {
+            throw "runtime template is not valid JSON"
+          }
+
+      - name: Smoke Runtime Config Script
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP "appsettings.runtime.json"
+          ./scripts/new-runtime-config.ps1 -SupabaseUrl "http://localhost:54321" -SupabaseAnonKey "dummy-anon-key" -Schema "dib" -OutputPath $out
+          if (-not (Test-Path $out)) {
+            throw "runtime config was not generated"
+          }
+          $json = Get-Content $out -Raw | ConvertFrom-Json
+          if ($json.Supabase.Url -ne "http://localhost:54321" -or $json.Supabase.Schema -ne "dib") {
+            throw "runtime config content mismatch"
+          }
