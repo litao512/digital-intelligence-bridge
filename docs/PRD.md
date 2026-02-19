@@ -1,7 +1,7 @@
 # Universal Tray Tool (UTT) - 通用工具箱
 ## 产品需求文档 (Product Requirements Document)
 
-**文档版本**: v1.0.2  
+**文档版本**: v1.0.3  
 **发布日期**: 2026-02-19  
 **文档状态**: 草案（UI 同步版）
 
@@ -81,7 +81,11 @@ Universal Tray Tool (UTT) 是一款基于 Avalonia UI + Prism 的跨平台桌面
 | DI | DryIoc | Prism 集成 |
 | 配置 | Microsoft.Extensions.Configuration | 9.0.x |
 | 日志 | Serilog | 4.x |
+| 后端服务 | Supabase（本地服务器部署） | self-hosted |
+| 数据库 | PostgreSQL（由 Supabase 管理） | Supabase 默认版本 |
 | 运行时 | .NET | 10.0 |
+
+> 说明：后端与数据库统一采用本地服务器部署的 Supabase（self-hosted）方案，应用通过 Supabase API 访问认证、存储与数据库能力。
 
 ### 3.2 目录结构
 ```text
@@ -148,6 +152,12 @@ digital-intelligence-bridge/
 - `Tray.IconPath / ShowNotifications`
 - `Plugin.PluginDirectory / AutoLoad / AllowUnsigned`
 - `Logging.LogLevel / LogPath`
+- `Supabase.Url / AnonKey / ServiceRoleKey / Schema`
+
+Supabase 部署约束：
+- 开发、测试、生产环境均使用本地服务器部署的 Supabase 实例。
+- 严禁将 `AnonKey`、`ServiceRoleKey` 明文提交到仓库，需改用环境变量或安全配置注入。
+- 若涉及数据库结构变更，需同步提供迁移脚本与回滚方案。
 
 ### 5.2 日志策略
 - 使用 Serilog 输出到控制台 + 文件
@@ -229,6 +239,7 @@ digital-intelligence-bridge/
 ### 变更记录
 | 日期 | 版本 | 变更说明 |
 |---|---|---|
+| 2026-02-19 | v1.0.3 | 增加技术栈说明：后端与数据库采用本地部署 Supabase |
 | 2026-02-19 | v1.0.2 | 同步 UI 改造：导航激活态、空状态、快捷入口、Tab 过渡 |
 | 2026-02-19 | v1.0.1 | 重建 PRD 内容并修复 UTF-8 乱码 |
 | 2026-02-19 | v1.0.0 | 初版创建 |
