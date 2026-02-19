@@ -85,6 +85,76 @@ public class SupabaseTodoRepositoryTests
     }
 
     [Fact]
+    public async Task GetAllAsync_ShouldAttachAuthAndSchemaHeaders_WhenConfigured()
+    {
+        HttpRequestMessage? captured = null;
+        var repository = CreateRepository(
+            new AppSettings
+            {
+                Supabase = new SupabaseConfig
+                {
+                    Url = "http://localhost:54321",
+                    AnonKey = "anon-key",
+                    Schema = "dib"
+                }
+            },
+            req =>
+            {
+                captured = req;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("[]", Encoding.UTF8, "application/json")
+                };
+            },
+            configured: true);
+
+        _ = await repository.GetAllAsync();
+
+        Assert.NotNull(captured);
+        Assert.NotNull(captured!.RequestUri);
+        Assert.Contains("/rest/v1/todos", captured.RequestUri!.ToString());
+        Assert.Equal("Bearer", captured.Headers.Authorization?.Scheme);
+        Assert.Equal("anon-key", captured.Headers.Authorization?.Parameter);
+        Assert.True(captured.Headers.Contains("apikey"));
+        Assert.True(captured.Headers.Contains("Accept-Profile"));
+        Assert.True(captured.Headers.Contains("Content-Profile"));
+        Assert.Equal("dib", captured.Headers.GetValues("Accept-Profile").Single());
+        Assert.Equal("dib", captured.Headers.GetValues("Content-Profile").Single());
+        Assert.Contains(captured.Headers.Accept, x => x.MediaType == "application/json");
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ShouldUsePublicSchema_WhenSchemaIsEmpty()
+    {
+        HttpRequestMessage? captured = null;
+        var repository = CreateRepository(
+            new AppSettings
+            {
+                Supabase = new SupabaseConfig
+                {
+                    Url = "http://localhost:54321",
+                    AnonKey = "anon-key",
+                    Schema = string.Empty
+                }
+            },
+            req =>
+            {
+                captured = req;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("[]", Encoding.UTF8, "application/json")
+                };
+            },
+            configured: true);
+
+        _ = await repository.GetAllAsync();
+
+        Assert.NotNull(captured);
+        Assert.Equal("public", captured!.Headers.GetValues("Accept-Profile").Single());
+        Assert.Equal("public", captured.Headers.GetValues("Content-Profile").Single());
+    }
+
+    [Fact]
     public async Task AddAsync_ShouldKeepDataInFallback_WhenPostFails()
     {
         var item = new TodoItem
