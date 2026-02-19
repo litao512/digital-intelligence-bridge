@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Media;
+using Avalonia.Platform;
 using DigitalIntelligenceBridge.Configuration;
 using DigitalIntelligenceBridge.Services;
 using Microsoft.Extensions.Options;
@@ -306,8 +307,8 @@ public class SettingsViewModel : ViewModelBase
             var defaultConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
             AddResult("默认配置文件", File.Exists(defaultConfigPath), defaultConfigPath);
 
-            var trayIconPath = Path.Combine(AppContext.BaseDirectory, _settings.Tray.IconPath);
-            AddResult("托盘图标文件", File.Exists(trayIconPath), trayIconPath);
+            var iconAvailable = IsTrayIconAvailable(_settings.Tray.IconPath, out var iconDetail);
+            AddResult("托盘图标文件", iconAvailable, iconDetail);
 
             var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             var appFolder = Path.Combine(appDataPath, "UniversalTrayTool");
@@ -417,6 +418,30 @@ public class SettingsViewModel : ViewModelBase
         catch (Exception ex)
         {
             detail = $"{directory}（{ex.Message}）";
+            return false;
+        }
+    }
+
+    private static bool IsTrayIconAvailable(string iconPath, out string detail)
+    {
+        var fullPath = Path.Combine(AppContext.BaseDirectory, iconPath);
+        if (File.Exists(fullPath))
+        {
+            detail = fullPath;
+            return true;
+        }
+
+        try
+        {
+            var assemblyName = typeof(SettingsViewModel).Assembly.GetName().Name;
+            var uri = new Uri($"avares://{assemblyName}/{iconPath}");
+            using var _ = AssetLoader.Open(uri);
+            detail = $"{uri}（通过资源加载）";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            detail = $"{fullPath}（文件不存在，且资源加载失败: {ex.Message}）";
             return false;
         }
     }
