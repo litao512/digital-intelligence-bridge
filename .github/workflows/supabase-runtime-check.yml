@@ -1,0 +1,26 @@
+name: Supabase Runtime Check
+
+on:
+  workflow_dispatch:
+
+jobs:
+  verify-runtime:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify Supabase Runtime Connectivity
+        shell: pwsh
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SCHEMA: ${{ secrets.SUPABASE_SCHEMA }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:SUPABASE_URL) -or [string]::IsNullOrWhiteSpace($env:SUPABASE_ANON_KEY)) {
+            throw "Missing required secrets: SUPABASE_URL / SUPABASE_ANON_KEY"
+          }
+
+          $schema = if ([string]::IsNullOrWhiteSpace($env:SUPABASE_SCHEMA)) { "dib" } else { $env:SUPABASE_SCHEMA }
+          ./scripts/verify-supabase-runtime.ps1 -SupabaseUrl $env:SUPABASE_URL -SupabaseAnonKey $env:SUPABASE_ANON_KEY -Schema $schema
