@@ -29,6 +29,11 @@ public class AppSettings
     public SupabaseConfig Supabase { get; set; } = new();
 
     /// <summary>
+    /// 导航菜单配置
+    /// </summary>
+    public List<NavigationMenuItemConfig> Navigation { get; set; } = new();
+
+    /// <summary>
     /// 日志配置
     /// </summary>
     public LoggingConfig Logging { get; set; } = new();
@@ -62,6 +67,19 @@ public class PluginConfig
     public string PluginDirectory { get; set; } = "plugins";
     public bool AutoLoad { get; set; } = true;
     public bool AllowUnsigned { get; set; } = false;
+}
+
+/// <summary>
+/// 导航菜单项配置
+/// </summary>
+public class NavigationMenuItemConfig
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Icon { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
+    public bool IsInstalled { get; set; } = true;
+    public int Order { get; set; } = 0;
 }
 
 /// <summary>

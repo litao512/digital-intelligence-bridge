@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
+using DigitalIntelligenceBridge.Configuration;
 using DigitalIntelligenceBridge.Models;
 using DigitalIntelligenceBridge.Services;
+using Microsoft.Extensions.Options;
 using Prism.Commands;
 using Prism.Mvvm;
 
@@ -78,6 +81,7 @@ public class TabItemModel : BindableBase
 public class MainWindowViewModel : ViewModelBase
 {
     private readonly ILoggerService<MainWindowViewModel> _logger;
+    private readonly AppSettings _settings;
 
     // 集合
     public ObservableCollection<TodoItem> TodoItems { get; } = new();
@@ -304,8 +308,16 @@ public class MainWindowViewModel : ViewModelBase
     public DelegateCommand<TabItemModel?> CloseTabCommand { get; }
 
     public MainWindowViewModel(ILoggerService<MainWindowViewModel> logger)
+        : this(logger, null)
+    {
+    }
+
+    public MainWindowViewModel(
+        ILoggerService<MainWindowViewModel> logger,
+        IOptions<AppSettings>? appSettings)
     {
         _logger = logger;
+        _settings = appSettings?.Value ?? new AppSettings();
 
         // 初始化命令
         AddTodoCommand = new DelegateCommand(OnAddTodo, CanAddTodo);
@@ -522,47 +534,135 @@ public class MainWindowViewModel : ViewModelBase
 
     private void InitializeMenuItems()
     {
-        MenuItems.Add(new MenuItem
-        {
-            Id = "home",
-            Name = "首页",
-            Icon = "🏠",
-            ViewType = MainViewType.Home,
-            IsInstalled = true
-        });
+        var configuredItems = _settings.Navigation ?? new List<NavigationMenuItemConfig>();
+        var installedPluginIds = DiscoverInstalledPluginIds();
+        var hasConfiguredMenu = configuredItems.Count > 0;
 
-        MenuItems.Add(new MenuItem
+        if (hasConfiguredMenu)
         {
-            Id = "todo",
-            Name = "待办事项",
-            Icon = "📋",
-            ViewType = MainViewType.Todo,
-            IsInstalled = true
-        });
+            foreach (var config in configuredItems.OrderBy(x => x.Order))
+            {
+                if (!TryMapViewType(config.Type, out var viewType))
+                {
+                    _logger.LogWarning("忽略未知导航类型: {Type}", config.Type);
+                    continue;
+                }
 
-        // 占位插件 - 患者管理
-        MenuItems.Add(new MenuItem
-        {
-            Id = "patient",
-            Name = "患者管理",
-            Icon = "👤",
-            ViewType = MainViewType.PatientMgmt,
-            IsInstalled = false,
-            IsPlaceholder = true
-        });
+                var isBuiltIn = viewType is MainViewType.Home or MainViewType.Todo;
+                var isInstalled = isBuiltIn ||
+                                  config.IsInstalled ||
+                                  installedPluginIds.Contains(config.Id);
 
-        // 占位插件 - 日程安排
-        MenuItems.Add(new MenuItem
+                MenuItems.Add(new MenuItem
+                {
+                    Id = config.Id,
+                    Name = string.IsNullOrWhiteSpace(config.Name) ? config.Id : config.Name,
+                    Icon = string.IsNullOrWhiteSpace(config.Icon) ? GetDefaultIcon(viewType) : config.Icon,
+                    ViewType = viewType,
+                    IsInstalled = isInstalled,
+                    IsPlaceholder = !isInstalled
+                });
+            }
+        }
+
+        if (MenuItems.Count == 0)
         {
-            Id = "schedule",
-            Name = "日程安排",
-            Icon = "📅",
-            ViewType = MainViewType.Schedule,
-            IsInstalled = false,
-            IsPlaceholder = true
-        });
+            // 配置缺失时使用内置默认导航
+            MenuItems.Add(new MenuItem
+            {
+                Id = "home",
+                Name = "首页",
+                Icon = "🏠",
+                ViewType = MainViewType.Home,
+                IsInstalled = true
+            });
+
+            MenuItems.Add(new MenuItem
+            {
+                Id = "todo",
+                Name = "待办事项",
+                Icon = "📋",
+                ViewType = MainViewType.Todo,
+                IsInstalled = true
+            });
+
+            MenuItems.Add(new MenuItem
+            {
+                Id = "patient",
+                Name = "患者管理",
+                Icon = "👤",
+                ViewType = MainViewType.PatientMgmt,
+                IsInstalled = installedPluginIds.Contains("patient"),
+                IsPlaceholder = !installedPluginIds.Contains("patient")
+            });
+
+            MenuItems.Add(new MenuItem
+            {
+                Id = "schedule",
+                Name = "日程安排",
+                Icon = "📅",
+                ViewType = MainViewType.Schedule,
+                IsInstalled = installedPluginIds.Contains("schedule"),
+                IsPlaceholder = !installedPluginIds.Contains("schedule")
+            });
+        }
 
         _logger.LogInformation("菜单项初始化完成，共 {Count} 项", MenuItems.Count);
+    }
+
+    private HashSet<string> DiscoverInstalledPluginIds()
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var appFolder = Path.Combine(appDataPath, "UniversalTrayTool");
+            var pluginRoot = Path.Combine(appFolder, _settings.Plugin.PluginDirectory);
+            if (!Directory.Exists(pluginRoot))
+            {
+                return result;
+            }
+
+            foreach (var dir in Directory.GetDirectories(pluginRoot))
+            {
+                result.Add(Path.GetFileName(dir));
+            }
+
+            foreach (var dll in Directory.GetFiles(pluginRoot, "*.dll", SearchOption.TopDirectoryOnly))
+            {
+                result.Add(Path.GetFileNameWithoutExtension(dll));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("扫描插件目录失败: {Message}", ex.Message);
+        }
+
+        return result;
+    }
+
+    private static bool TryMapViewType(string type, out MainViewType viewType)
+    {
+        if (Enum.TryParse(type, true, out viewType))
+        {
+            return true;
+        }
+
+        viewType = MainViewType.Home;
+        return false;
+    }
+
+    private static string GetDefaultIcon(MainViewType viewType)
+    {
+        return viewType switch
+        {
+            MainViewType.Home => "🏠",
+            MainViewType.Todo => "📋",
+            MainViewType.PatientMgmt => "👤",
+            MainViewType.Schedule => "📅",
+            MainViewType.Settings => "⚙",
+            _ => "•"
+        };
     }
 
     private void InitializeSampleData()
