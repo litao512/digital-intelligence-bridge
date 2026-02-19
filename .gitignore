@@ -20,3 +20,6 @@ Thumbs.db
 # Temporary placeholder files seen in this repo
 nul
 AvaloniaDemo/nul
+
+# Local helper tools
+.tools/
