@@ -9,6 +9,8 @@
 | 运行时配置生成 | `./scripts/new-runtime-config.ps1 -SupabaseUrl ... -SupabaseAnonKey ... -Schema dib` | 通过（写入 `%LOCALAPPDATA%/UniversalTrayTool/appsettings.runtime.json`） |
 | Supabase 运行时连通性 | `./scripts/verify-supabase-runtime.ps1` | 通过（HTTP 200） |
 | 配置模板有效性 | `Get-Content digital-intelligence-bridge/appsettings.runtime.template.json -Raw \| Test-Json` | 通过 |
+| GitHub CI（主分支） | `CI` run `22184801875`（attempt 2/3/4） | 连续通过 |
+| GitHub Supabase Runtime Check | run `22185147286` | 通过 |
 
 ## 2. 手动回归（需在桌面环境确认）
 
@@ -26,5 +28,6 @@
 ## 3. 备注
 
 - 本次已完成 Supabase 真实环境 API 验收（`/rest/v1/todos?select=id&limit=1` 返回 `200`）。
+- 主分支 `CI` 已修复 `--no-build` 误用问题，并在同一 run 的多次重跑中连续通过。
 - 已新增运行时配置模板与脚本，避免将敏感信息提交到仓库。
 - 手动项建议在 Windows 桌面实际会话中逐条勾验，尤其是托盘显示行为（受系统“任务栏角落图标”设置影响）。

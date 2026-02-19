@@ -16,6 +16,7 @@
 - Supabase 验证接口：`GET /rest/v1/todos?select=id&limit=1`
 - 返回状态：`200`
 - 返回体：非空数组（至少包含一个 `id`）
+- GitHub Actions `Supabase Runtime Check`：`22185147286`（`success`）
 
 ## 结论
 - 当前机器上的运行时配置链路可用。
