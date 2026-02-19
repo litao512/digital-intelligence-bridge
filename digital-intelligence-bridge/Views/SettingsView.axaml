@@ -12,12 +12,18 @@
     </Design.DataContext>
 
     <ScrollViewer>
-        <StackPanel Margin="20" Spacing="20">
-            <!-- 页面标题 -->
-            <!-- <TextBlock Text="设置" FontSize="24" FontWeight="Bold"/> -->
+        <StackPanel Margin="18" Spacing="16">
+            <Border Classes="Card" Padding="18">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="设置中心" FontSize="24" FontWeight="Bold"/>
+                    <TextBlock Text="管理应用外观、托盘行为与数据策略"
+                               FontSize="12"
+                               Foreground="{StaticResource TextMutedBrush}"/>
+                </StackPanel>
+            </Border>
 
             <!-- 外观设置 -->
-            <Border Classes="Card" Background="#f8f9fa" CornerRadius="8" Padding="15">
+            <Border Classes="Card" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="15">
                 <StackPanel Spacing="15">
                     <TextBlock Text="外观" FontSize="16" FontWeight="SemiBold"/>
 
@@ -58,7 +64,7 @@
             </Border>
 
             <!-- 托盘设置 -->
-            <Border Classes="Card" Background="#f8f9fa" CornerRadius="8" Padding="15">
+            <Border Classes="Card" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="15">
                 <StackPanel Spacing="15">
                     <TextBlock Text="系统托盘" FontSize="16" FontWeight="SemiBold"/>
 
@@ -87,7 +93,7 @@
             </Border>
 
             <!-- 数据设置 -->
-            <Border Classes="Card" Background="#f8f9fa" CornerRadius="8" Padding="15">
+            <Border Classes="Card" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="15">
                 <StackPanel Spacing="15">
                     <TextBlock Text="数据管理" FontSize="16" FontWeight="SemiBold"/>
 
@@ -120,7 +126,7 @@
             </Border>
 
             <!-- 关于 -->
-            <Border Classes="Card" Background="#f8f9fa" CornerRadius="8" Padding="15">
+            <Border Classes="Card" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="15">
                 <StackPanel Spacing="10">
                     <TextBlock Text="关于" FontSize="16" FontWeight="SemiBold"/>
 

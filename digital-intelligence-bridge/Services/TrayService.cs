@@ -41,10 +41,12 @@ public class TrayService : ITrayService
         // 添加默认菜单项
         AddDefaultMenuItems();
 
+        var trayIcon = LoadIcon("Assets/avalonia-logo.ico") ?? _mainWindow.Icon;
+
         // 创建托盘图标
         _trayIcon = new TrayIcon
         {
-            Icon = LoadIcon("Assets/avalonia-logo.ico"),
+            Icon = trayIcon,
             ToolTipText = "通用工具箱",
             Menu = _trayMenu
         };
@@ -93,7 +95,8 @@ public class TrayService : ITrayService
             }
 
             // 尝试从资源加载
-            var uri = new Uri($"avares://DigitalIntelligenceBridge/{iconPath}");
+            var assemblyName = typeof(TrayService).Assembly.GetName().Name;
+            var uri = new Uri($"avares://{assemblyName}/{iconPath}");
             var asset = AssetLoader.Open(uri);
             return new WindowIcon(asset);
         }

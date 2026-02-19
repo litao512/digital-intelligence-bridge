@@ -3,9 +3,7 @@
         xmlns:vm="using:DigitalIntelligenceBridge.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:models="using:DigitalIntelligenceBridge.Models"
         xmlns:views="using:DigitalIntelligenceBridge.Views"
-        xmlns:configuration="using:DigitalIntelligenceBridge.Configuration"
         xmlns:prism="http://prismlibrary.com/"
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="700"
         x:Class="DigitalIntelligenceBridge.Views.MainWindow"
@@ -14,6 +12,7 @@
         Icon="/Assets/avalonia-logo.ico"
         Title="通用工具箱 - Universal Tray Tool"
         Width="1200" Height="700"
+        MinWidth="980" MinHeight="620"
         WindowStartupLocation="CenterScreen"
         prism:ViewModelLocator.AutoWireViewModel="True">
 
@@ -32,9 +31,11 @@
         <!-- 导航按钮样式 -->
         <Style Selector="Button.NavButton">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Foreground" Value="#D7DEE8"/>
+            <Setter Property="CornerRadius" Value="8"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Margin" Value="0,2"/>
             <Setter Property="Transitions">
                 <Transitions>
                     <BrushTransition Property="Background" Duration="0:0:0.2"/>
@@ -43,7 +44,14 @@
             </Setter>
         </Style>
         <Style Selector="Button.NavButton:pointerover">
-            <Setter Property="Background" Value="#404040"/>
+            <Setter Property="Background" Value="{StaticResource NavHoverBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="Button.NavButton.active">
+            <Setter Property="Background" Value="#203E78D8"/>
+            <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
+            <Setter Property="BorderThickness" Value="3,0,0,0"/>
+            <Setter Property="Foreground" Value="White"/>
         </Style>
         <Style Selector="Button.NavButton.SubNav">
             <Setter Property="Background" Value="Transparent"/>
@@ -51,46 +59,8 @@
             <Setter Property="FontSize" Value="13"/>
         </Style>
         <Style Selector="Button.NavButton.SubNav:pointerover">
-            <Setter Property="Background" Value="#404040"/>
+            <Setter Property="Background" Value="{StaticResource NavHoverBrush}"/>
             <Setter Property="Foreground" Value="White"/>
-        </Style>
-
-        <!-- 卡片悬停效果 -->
-        <Style Selector="Border.Card">
-            <Setter Property="Transitions">
-                <Transitions>
-                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2"/>
-                    <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2"/>
-                </Transitions>
-            </Setter>
-            <Setter Property="RenderTransform" Value="none"/>
-            <Setter Property="BoxShadow" Value="0 2 4 0 #10000000"/>
-        </Style>
-        <Style Selector="Border.Card:pointerover">
-            <Setter Property="RenderTransform" Value="scale(1.01)"/>
-            <Setter Property="BoxShadow" Value="0 4 12 0 #20000000"/>
-        </Style>
-
-        <!-- 按钮点击反馈动画 -->
-        <Style Selector="Button">
-            <Setter Property="RenderTransform" Value="none"/>
-            <Setter Property="Transitions">
-                <Transitions>
-                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1"/>
-                </Transitions>
-            </Setter>
-        </Style>
-        <Style Selector="Button:pressed">
-            <Setter Property="RenderTransform" Value="scale(0.97)"/>
-        </Style>
-
-        <!-- 输入框聚焦动画 -->
-        <Style Selector="TextBox">
-            <Setter Property="Transitions">
-                <Transitions>
-                    <BrushTransition Property="BorderBrush" Duration="0:0:0.2"/>
-                </Transitions>
-            </Setter>
         </Style>
     </Window.Styles>
 
@@ -99,13 +69,13 @@
 
         <!-- ========== 左侧导航栏 ========== -->
         <Border Grid.Column="0"
-                Background="#2d2d2d"
-                BorderBrush="#1a1a1a"
+                Background="{StaticResource NavBgBrush}"
+                BorderBrush="#171A1F"
                 BorderThickness="0,0,1,0">
             <Grid RowDefinitions="Auto,*,Auto">
                 <!-- 应用标题 -->
                 <Border Grid.Row="0"
-                        Background="#1a1a1a"
+                        Background="#171A1F"
                         Padding="15,20">
                     <StackPanel Spacing="5">
                         <TextBlock Text="通用工具箱"
@@ -128,7 +98,7 @@
                         <TextBlock Text="核心功能"
                                   FontSize="11"
                                   FontWeight="Bold"
-                                  Foreground="#888"
+                                  Foreground="#96A0AA"
                                   Margin="10,10,10,5"/>
 
                         <ItemsControl ItemsSource="{Binding MenuItems}"
@@ -136,14 +106,14 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="vm:MenuItem">
                                     <Button Classes="NavButton"
+                                           Classes.active="{Binding IsSelected}"
                                            HorizontalAlignment="Stretch"
                                            HorizontalContentAlignment="Left"
-                                           Padding="12,10"
                                            Opacity="{Binding IsInstalled, Converter={StaticResource BoolToOpacityConverter}}"
                                            Command="{Binding #Root.((vm:MainWindowViewModel)DataContext).NavigateCommand}"
                                            CommandParameter="{Binding ViewType}">
                                         <StackPanel Orientation="Horizontal" Spacing="10">
-                                            <TextBlock Text="{Binding Icon}" FontFamily="{StaticResource SymbolThemeFontFamily}"/>
+                                            <TextBlock Text="{Binding Icon}"/>
                                             <TextBlock Text="{Binding Name}"/>
                                         </StackPanel>
                                     </Button>
@@ -151,17 +121,17 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <Separator Background="#404040" Margin="10,15"/>
+                        <Separator Background="#3B414A" Margin="10,15"/>
 
                         <!-- 设置 -->
                         <Button Classes="NavButton"
                                x:Name="SettingsButton"
+                               Classes.active="{Binding #Root.((vm:MainWindowViewModel)DataContext).IsSettingsViewVisible}"
                                HorizontalAlignment="Stretch"
                                HorizontalContentAlignment="Left"
-                               Padding="12,10"
                                Click="SettingsButton_Click">
                             <StackPanel Orientation="Horizontal" Spacing="10">
-                                <TextBlock Text="&#xf013;" FontFamily="{StaticResource SymbolThemeFontFamily}"/>
+                                <TextBlock Text="⚙"/>
                                 <TextBlock Text="设置"/>
                             </StackPanel>
                         </Button>
@@ -172,7 +142,7 @@
 
                 <!-- 底部信息 -->
                 <Border Grid.Row="2"
-                        Background="#1a1a1a"
+                        Background="#171A1F"
                         Padding="15,10">
                     <TextBlock Text="v1.0.0"
                               FontSize="10"
@@ -184,17 +154,18 @@
         </Border>
 
         <!-- ========== 中间主要内容区域（TabControl） ========== -->
-        <Border Grid.Column="1" Background="#fafafa">
-            <TabControl ItemsSource="{Binding OpenTabs}"
+        <Border Grid.Column="1" Background="{StaticResource PageBgBrush}">
+            <TabControl x:Name="MainTabControl"
+                       SelectionChanged="MainTabControl_SelectionChanged"
+                       ItemsSource="{Binding OpenTabs}"
                        SelectedItem="{Binding SelectedTab}"
-                       Margin="10"
+                       Margin="12"
                        TabStripPlacement="Top">
                 <TabControl.ItemTemplate>
                     <DataTemplate DataType="vm:TabItemModel">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <TextBlock Text="{Binding Title}" VerticalAlignment="Center"/>
-                            <Button Content="&#xf00d;"
-                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                            <Button Content="×"
                                     Classes="Tertiary"
                                     Padding="4,2"
                                     FontSize="10"
@@ -207,13 +178,10 @@
                 <TabControl.ContentTemplate>
                     <DataTemplate DataType="vm:TabItemModel">
                         <!-- 根据标签页类型显示不同内容 -->
-                        <Grid Margin="10">
+                        <Grid Margin="12">
                             <!-- 首页视图 -->
                             <Border IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=Home}"
-                                    Classes="Card"
-                                    BorderBrush="#e0e0e0"
-                                    BorderThickness="1"
-                                    CornerRadius="8">
+                                    Classes="Card">
                                 <views:HomeView />
                             </Border>
 
@@ -225,25 +193,18 @@
 
                             <!-- 设置视图 -->
                             <Border IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=Settings}"
-                                    Classes="Card"
-                                    BorderBrush="#e0e0e0"
-                                    BorderThickness="1"
-                                    CornerRadius="8">
+                                    Classes="Card">
                                 <views:SettingsView />
                             </Border>
 
                             <!-- 患者管理视图（占位） -->
                             <Border IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=PatientMgmt}"
-                                    Classes="Card"
-                                    BorderBrush="#e0e0e0"
-                                    BorderThickness="1"
-                                    CornerRadius="8">
-                                <Border Background="White" CornerRadius="8">
+                                    Classes="Card">
+                                <Border Background="{StaticResource CardBgBrush}" CornerRadius="12">
                                     <StackPanel VerticalAlignment="Center"
                                                HorizontalAlignment="Center"
                                                Spacing="15">
-                                        <TextBlock Text="&#xf0c0;"
-                                                  FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                        <TextBlock Text="👤"
                                                   FontSize="64"
                                                   Opacity="0.3"
                                                   HorizontalAlignment="Center"/>
@@ -261,16 +222,12 @@
 
                             <!-- 日程安排视图（占位） -->
                             <Border IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=Schedule}"
-                                    Classes="Card"
-                                    BorderBrush="#e0e0e0"
-                                    BorderThickness="1"
-                                    CornerRadius="8">
-                                <Border Background="White" CornerRadius="8">
+                                    Classes="Card">
+                                <Border Background="{StaticResource CardBgBrush}" CornerRadius="12">
                                     <StackPanel VerticalAlignment="Center"
                                                HorizontalAlignment="Center"
                                                Spacing="15">
-                                        <TextBlock Text="&#xf133;"
-                                                  FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                        <TextBlock Text="📅"
                                                   FontSize="64"
                                                   Opacity="0.3"
                                                   HorizontalAlignment="Center"/>

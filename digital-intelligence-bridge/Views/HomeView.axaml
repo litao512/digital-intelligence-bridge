@@ -12,26 +12,124 @@
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,Auto,*" RowSpacing="14" Margin="14">
         <Border Grid.Row="0"
-                Background="#f8f9fa"
-                BorderBrush="#e0e0e0"
-                BorderThickness="0,0,0,1"
-                CornerRadius="8,8,0,0"
-                Padding="15,12">
-            <TextBlock Text="首页"
-                      FontWeight="Bold"
-                      VerticalAlignment="Center"/>
+                Classes="Card"
+                Padding="20">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="欢迎使用通用工具箱"
+                               FontSize="24"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextMainBrush}"/>
+                    <TextBlock Text="统一入口管理你的常用模块，保持轻量、清晰、可扩展。"
+                               FontSize="13"
+                               Foreground="{StaticResource TextMutedBrush}"/>
+                </StackPanel>
+                <Border Grid.Column="1"
+                        Background="#110077FA"
+                        CornerRadius="10"
+                        Padding="14,8"
+                        VerticalAlignment="Center">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="v1.0.1"
+                                   FontWeight="Bold"
+                                   Foreground="{StaticResource PrimaryBrush}"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="稳定版"
+                                   FontSize="12"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
         </Border>
-        <!-- 首页内容区域 -->
-        <Border Grid.Row="1"
-                Background="White"
-                CornerRadius="0,0,8,8">
-            <TextBlock Text="欢迎使用 UniversalTrayTool"
-                      HorizontalAlignment="Center"
-                      VerticalAlignment="Center"
-                      FontSize="20"
-                      Opacity="0.6"/>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,*,*" ColumnSpacing="12">
+            <Border Grid.Column="0" Classes="Card" Padding="16">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="快速开始" FontWeight="SemiBold"/>
+                    <TextBlock Text="从左侧导航进入待办或设置模块。"
+                               FontSize="12"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="1" Classes="Card" Padding="16">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="托盘常驻" FontWeight="SemiBold"/>
+                    <TextBlock Text="关闭窗口后应用可继续后台运行。"
+                               FontSize="12"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Classes="Card" Padding="16">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="插件扩展" FontWeight="SemiBold"/>
+                    <TextBlock Text="后续可从插件仓库接入更多业务模块。"
+                               FontSize="12"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="2"
+                Classes="Card"
+                Padding="20">
+            <Grid RowDefinitions="Auto,*" RowSpacing="12">
+                <TextBlock Text="今日概览"
+                           FontSize="18"
+                           FontWeight="SemiBold"/>
+                <Grid Grid.Row="1" ColumnDefinitions="2*,*,*" ColumnSpacing="12">
+                    <Border Grid.Column="0"
+                            Background="#F7FAFF"
+                            BorderBrush="#D9E8FF"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Padding="14">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="建议下一步"
+                                       FontSize="12"
+                                       Foreground="{StaticResource TextMutedBrush}"/>
+                            <TextBlock Text="进入“待办事项”整理今日任务优先级。"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
+                                <Button Content="打开待办"
+                                       Command="{Binding ShowTodoViewCommand}"
+                                       Classes="Primary"/>
+                                <Button Content="打开设置"
+                                       Command="{Binding ShowSettingsViewCommand}"
+                                       Classes="Secondary"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="1"
+                            Background="#F4FBF4"
+                            BorderBrush="#D8F2DA"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Padding="14">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="状态" FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
+                            <TextBlock Text="运行中" FontSize="20" FontWeight="Bold" Foreground="{StaticResource SuccessBrush}"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="2"
+                            Background="#FFF9F0"
+                            BorderBrush="#FFE7BE"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Padding="14">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="平台" FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
+                            <TextBlock Text=".NET + Avalonia" FontSize="16" FontWeight="Bold" Foreground="{StaticResource WarningBrush}"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
         </Border>
     </Grid>
 </UserControl>

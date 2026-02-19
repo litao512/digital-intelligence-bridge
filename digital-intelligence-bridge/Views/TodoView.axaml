@@ -18,9 +18,19 @@
             <Setter Property="FontSize" Value="24"/>
             <Setter Property="FontWeight" Value="Bold"/>
         </Style>
+        <Style Selector="TextBlock.TodoTitle.completed">
+            <Setter Property="TextDecorations" Value="Strikethrough"/>
+            <Setter Property="Opacity" Value="0.55"/>
+        </Style>
+        <Style Selector="TextBlock.TodoDescription.completed">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+        <Style Selector="Border.TodoItem.completed">
+            <Setter Property="Opacity" Value="0.82"/>
+        </Style>
     </UserControl.Styles>
 
-    <Grid ColumnDefinitions="300,*">
+    <Grid ColumnDefinitions="320,*" ColumnSpacing="14">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -29,63 +39,68 @@
         <!-- 统计面板 -->
         <Border Grid.Row="0"
                 Classes="Card"
-                Background="#f8f9fa"
-                CornerRadius="8"
-                Padding="15"
-                Margin="0,0,0,15"
+                Padding="16"
+                Margin="0,0,0,2"
                 Grid.ColumnSpan="2">
-            <Grid ColumnDefinitions="*,*,*,*">
-                <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+            <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="10">
+                <Border Grid.Column="0" Background="#F7FAFF" BorderBrush="#D9E8FF" BorderThickness="1" CornerRadius="10" Padding="10">
+                    <StackPanel HorizontalAlignment="Center">
                     <TextBlock Text="{Binding TotalCount}"
                               FontSize="20" FontWeight="Bold"
                               HorizontalAlignment="Center"
-                              Foreground="#0078D4"
+                              Foreground="{StaticResource PrimaryBrush}"
                               Classes="StatisticNumber"/>
                     <TextBlock Text="总计"
                               FontSize="12" Opacity="0.7"
                               HorizontalAlignment="Center"/>
-                </StackPanel>
-                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Background="#FFF9F0" BorderBrush="#FFE7BE" BorderThickness="1" CornerRadius="10" Padding="10">
+                    <StackPanel HorizontalAlignment="Center">
                     <TextBlock Text="{Binding PendingCount}"
                               FontSize="20" FontWeight="Bold"
-                              Foreground="#FFB900"
+                              Foreground="{StaticResource WarningBrush}"
                               HorizontalAlignment="Center"
                               Classes="StatisticNumber"/>
                     <TextBlock Text="进行中"
                               FontSize="12" Opacity="0.7"
                               HorizontalAlignment="Center"/>
-                </StackPanel>
-                <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Background="#F4FBF4" BorderBrush="#D8F2DA" BorderThickness="1" CornerRadius="10" Padding="10">
+                    <StackPanel HorizontalAlignment="Center">
                     <TextBlock Text="{Binding CompletedCount}"
                               FontSize="20" FontWeight="Bold"
-                              Foreground="#107C10"
+                              Foreground="{StaticResource SuccessBrush}"
                               HorizontalAlignment="Center"
                               Classes="StatisticNumber"/>
                     <TextBlock Text="已完成"
                               FontSize="12" Opacity="0.7"
                               HorizontalAlignment="Center"/>
-                </StackPanel>
-                <StackPanel Grid.Column="3" HorizontalAlignment="Center">
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="3" Background="#FFF5F4" BorderBrush="#FFD9D3" BorderThickness="1" CornerRadius="10" Padding="10">
+                    <StackPanel HorizontalAlignment="Center">
                     <TextBlock Text="{Binding OverdueCount}"
                               FontSize="20" FontWeight="Bold"
-                              Foreground="#D83B01"
+                              Foreground="{StaticResource DangerBrush}"
                               HorizontalAlignment="Center"
                               Classes="StatisticNumber"/>
                     <TextBlock Text="已逾期"
                               FontSize="12" Opacity="0.7"
                               HorizontalAlignment="Center"/>
-                </StackPanel>
+                    </StackPanel>
+                </Border>
             </Grid>
         </Border>
 
         <!-- 左侧：输入表单 -->
         <Border Grid.Row="1" Grid.Column="0"
                 Classes="Card"
-                BorderBrush="#e0e0e0"
+                BorderBrush="{StaticResource BorderBrush}"
                 BorderThickness="1"
-                CornerRadius="8"
                 Padding="15"
-                Margin="0,0,15,0">
+                Margin="0,0,0,0">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel Spacing="12">
                     <TextBlock Text="添加新任务" FontWeight="Bold" FontSize="16"/>
@@ -151,15 +166,14 @@
         <!-- 右侧：待办事项列表 -->
         <Border Grid.Row="1" Grid.Column="1"
                 Classes="Card"
-                BorderBrush="#e0e0e0"
-                BorderThickness="1"
-                CornerRadius="8">
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="1">
             <Grid RowDefinitions="Auto,*">
                 <Border Grid.Row="0"
-                        Background="#f8f9fa"
-                        BorderBrush="#e0e0e0"
+                        Background="#FAFBFC"
+                        BorderBrush="{StaticResource BorderBrush}"
                         BorderThickness="0,0,0,1"
-                        CornerRadius="8,8,0,0"
+                        CornerRadius="12,12,0,0"
                         Padding="15,12">
                     <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
                         <!-- 第一行：标题和清除按钮 -->
@@ -185,7 +199,7 @@
                                     Height="32"
                                     Margin="0,0,10,0">
                                 <TextBox.InnerLeftContent>
-                                    <TextBlock Text="&#xf002;" FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    <TextBlock Text="🔍"
                                               Margin="8,0,0,0" Opacity="0.5"/>
                                 </TextBox.InnerLeftContent>
                             </TextBox>
@@ -193,7 +207,7 @@
                             <!-- 优先级筛选 -->
                             <ComboBox Grid.Column="1"
                                      SelectedItem="{Binding FilterPriorityText}"
-                                     Width="80"
+                                     Width="88"
                                      Height="32"
                                      Margin="0,0,5,0"
                                      PlaceholderText="优先级">
@@ -206,7 +220,7 @@
                             <!-- 完成状态筛选 -->
                             <ComboBox Grid.Column="2"
                                      SelectedItem="{Binding FilterStatusText}"
-                                     Width="80"
+                                     Width="88"
                                      Height="32"
                                      Margin="0,0,5,0"
                                      PlaceholderText="状态">
@@ -217,8 +231,7 @@
 
                             <!-- 清除筛选按钮 -->
                             <Button Grid.Column="3"
-                                   Content="&#xf0b0;"
-                                   FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                   Content="筛"
                                    Command="{Binding ClearFilterCommand}"
                                    Classes="Tertiary"
                                    Padding="8,5"
@@ -227,98 +240,130 @@
                     </Grid>
                 </Border>
 
-                <ListBox Grid.Row="1"
-                        ItemsSource="{Binding FilteredTodoItems}"
-                        SelectedItem="{Binding SelectedTodoItem}"
-                        BorderThickness="0"
-                        Background="Transparent"
-                        Padding="10"
-                        ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate DataType="models:TodoItem">
-                            <Border Classes="Card"
-                                   Background="#f8f9fa"
-                                   CornerRadius="6"
-                                   Padding="12"
-                                   Margin="0,4">
-                                <Grid ColumnDefinitions="Auto,*,Auto">
-                                    <CheckBox Grid.Column="0"
-                                             IsChecked="{Binding IsCompleted}"
-                                             VerticalAlignment="Center"
-                                             Margin="0,0,10,0"/>
+                <Grid Grid.Row="1">
+                    <ListBox ItemsSource="{Binding FilteredTodoItems}"
+                            SelectedItem="{Binding SelectedTodoItem}"
+                            BorderThickness="0"
+                            Background="Transparent"
+                            Padding="10"
+                            ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="models:TodoItem">
+                                <Border Classes="Card TodoItem"
+                                       Classes.completed="{Binding IsCompleted}"
+                                       Background="#FCFDFE"
+                                       Padding="12"
+                                       Margin="0,5">
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <CheckBox Grid.Column="0"
+                                                 IsChecked="{Binding IsCompleted}"
+                                                 VerticalAlignment="Center"
+                                                 Margin="0,0,10,0"/>
 
-                                    <StackPanel Grid.Column="1">
-                                        <TextBlock Text="{Binding Title}"
-                                                  FontWeight="SemiBold"/>
-                                        <TextBlock Text="{Binding Description}"
-                                                  FontSize="12"
-                                                  Opacity="0.7"
-                                                  TextTrimming="CharacterEllipsis"
-                                                  MaxWidth="350"/>
-                                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
-                                            <Border Background="{Binding Priority, Converter={StaticResource PriorityToBrushConverter}}"
-                                                   CornerRadius="3"
-                                                   Padding="6,2">
-                                                <TextBlock Text="{Binding Priority}"
-                                                          FontSize="10"
-                                                          Foreground="White"
-                                                          FontWeight="Bold"/>
-                                            </Border>
-                                            <Border Background="#6c757d"
-                                                   CornerRadius="3"
-                                                   Padding="6,2">
-                                                <TextBlock Text="{Binding Category}"
-                                                          FontSize="10"
-                                                          Foreground="White"/>
-                                            </Border>
-                                            <TextBlock Text="{Binding CreatedAt, StringFormat='{}{0:MM-dd HH:mm}'}"
-                                                      FontSize="11"
-                                                      Opacity="0.5"/>
-                                        </StackPanel>
-
-                                        <!-- 标签和截止日期 -->
-                                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
-                                            <TextBlock Text="&#xf02b;"
-                                                      FontFamily="{StaticResource SymbolThemeFontFamily}"
-                                                      FontSize="10"
-                                                      Opacity="0.5"
-                                                      VerticalAlignment="Center"/>
-                                            <TextBlock Text="{Binding TagsDisplayText}"
-                                                      FontSize="10"
-                                                      Opacity="0.6"
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="{Binding Title}"
+                                                      Classes="TodoTitle"
+                                                      Classes.completed="{Binding IsCompleted}"
+                                                      FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding Description}"
+                                                      Classes="TodoDescription"
+                                                      Classes.completed="{Binding IsCompleted}"
+                                                      FontSize="12"
+                                                      Opacity="0.7"
                                                       TextTrimming="CharacterEllipsis"
-                                                      MaxWidth="200"/>
+                                                      MaxWidth="350"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                                                <Border Background="{Binding Priority, Converter={StaticResource PriorityToBrushConverter}}"
+                                                       CornerRadius="3"
+                                                       Padding="6,2">
+                                                    <TextBlock Text="{Binding Priority}"
+                                                              FontSize="10"
+                                                              Foreground="White"
+                                                              FontWeight="Bold"/>
+                                                </Border>
+                                                <Border Background="#6c757d"
+                                                       CornerRadius="4"
+                                                       Padding="6,2">
+                                                    <TextBlock Text="{Binding Category}"
+                                                              FontSize="10"
+                                                              Foreground="White"/>
+                                                </Border>
+                                                <TextBlock Text="{Binding CreatedAt, StringFormat='{}{0:MM-dd HH:mm}'}"
+                                                          FontSize="11"
+                                                          Opacity="0.5"/>
+                                            </StackPanel>
+
+                                            <!-- 标签和截止日期 -->
+                                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                                                <TextBlock Text="🏷"
+                                                          FontSize="10"
+                                                          Opacity="0.5"
+                                                          VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding TagsDisplayText}"
+                                                          FontSize="10"
+                                                          Opacity="0.6"
+                                                          TextTrimming="CharacterEllipsis"
+                                                          MaxWidth="200"/>
+                                            </StackPanel>
+
+                                            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,4,0,0">
+                                                <TextBlock Text="📅"
+                                                          FontSize="10"
+                                                          Opacity="0.5"
+                                                          VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding DueDateText}"
+                                                          FontSize="10"
+                                                          Opacity="0.6"/>
+                                                <TextBlock Text="(已逾期)"
+                                                          FontSize="10"
+                                                          Foreground="{StaticResource DangerBrush}"
+                                                          FontWeight="Bold"
+                                                          IsVisible="{Binding IsOverdue}"/>
+                                            </StackPanel>
                                         </StackPanel>
 
-                                        <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,4,0,0">
-                                            <TextBlock Text="&#xf073;"
-                                                      FontFamily="{StaticResource SymbolThemeFontFamily}"
-                                                      FontSize="10"
-                                                      Opacity="0.5"
-                                                      VerticalAlignment="Center"/>
-                                            <TextBlock Text="{Binding DueDateText}"
-                                                      FontSize="10"
-                                                      Opacity="0.6"/>
-                                            <TextBlock Text="(已逾期)"
-                                                      FontSize="10"
-                                                      Foreground="#D83B01"
-                                                      FontWeight="Bold"
-                                                      IsVisible="{Binding IsOverdue}"/>
-                                        </StackPanel>
-                                    </StackPanel>
+                                        <Button Grid.Column="2"
+                                               Content="删除"
+                                               Command="{Binding #Root.((vm:MainWindowViewModel)DataContext).DeleteTodoCommand}"
+                                               CommandParameter="{Binding}"
+                                               Classes="Danger"
+                                               Padding="10,5"
+                                               VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
 
-                                    <Button Grid.Column="2"
-                                           Content="删除"
-                                           Command="{Binding #Root.((vm:MainWindowViewModel)DataContext).DeleteTodoCommand}"
-                                           CommandParameter="{Binding}"
-                                           Classes="Danger"
-                                           Padding="10,5"
-                                           VerticalAlignment="Center"/>
-                                </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                    <Border IsVisible="{Binding IsTodoEmpty}"
+                            Background="#CCFFFFFF"
+                            CornerRadius="10"
+                            Margin="12"
+                            Padding="20">
+                        <StackPanel HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Spacing="8">
+                            <TextBlock Text="📭"
+                                      FontSize="38"
+                                      Opacity="0.25"
+                                      HorizontalAlignment="Center"/>
+                            <TextBlock Text="暂无可显示的任务"
+                                      FontSize="18"
+                                      FontWeight="SemiBold"
+                                      HorizontalAlignment="Center"/>
+                            <TextBlock Text="可以在左侧创建任务，或清空筛选后查看全部。"
+                                      FontSize="12"
+                                      Foreground="{StaticResource TextMutedBrush}"
+                                      HorizontalAlignment="Center"/>
+                            <Button Content="清空筛选"
+                                   IsVisible="{Binding IsTodoFilterEmpty}"
+                                   Command="{Binding ClearFilterCommand}"
+                                   Classes="Secondary"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
             </Grid>
         </Border>
     </Grid>

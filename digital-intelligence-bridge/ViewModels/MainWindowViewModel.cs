@@ -24,14 +24,21 @@ public enum MainViewType
 /// <summary>
 /// 导航菜单项
 /// </summary>
-public class MenuItem
+public class MenuItem : BindableBase
 {
+    private bool _isSelected;
+
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Icon { get; set; } = string.Empty;
     public MainViewType ViewType { get; set; }
     public bool IsInstalled { get; set; } = true;
     public bool IsPlaceholder { get; set; } = false;
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set => SetProperty(ref _isSelected, value);
+    }
 }
 
 /// <summary>
@@ -274,6 +281,9 @@ public class MainWindowViewModel : ViewModelBase
     public int CompletedCount => TodoItems.Count(x => x.IsCompleted);
     public int PendingCount => TodoItems.Count(x => !x.IsCompleted);
     public int OverdueCount => TodoItems.Count(x => x.IsOverdue);
+    public bool IsTodoEmpty => FilteredTodoItems.Count == 0;
+    public bool IsTodoFilterEmpty => FilteredTodoItems.Count == 0 && TodoItems.Count > 0;
+    public bool IsTodoDataEmpty => TodoItems.Count == 0;
 
     // Prism 命令
     public DelegateCommand AddTodoCommand { get; }
@@ -329,6 +339,7 @@ public class MainWindowViewModel : ViewModelBase
 
         // 初始化首页标签页
         InitializeHomeTab();
+        UpdateMenuSelection(CurrentView);
 
         _logger.LogInformation("主窗口视图模型已初始化");
     }
@@ -442,6 +453,7 @@ public class MainWindowViewModel : ViewModelBase
         {
             SelectedTab = existingTab;
             CurrentView = type;
+            UpdateMenuSelection(type);
             _logger.LogInformation("导航到视图: {View}, 标签页: {TabId}", type, existingTab.Id);
         }
     }
@@ -487,6 +499,15 @@ public class MainWindowViewModel : ViewModelBase
             TabItemType.Schedule => MainViewType.Schedule,
             _ => MainViewType.Home
         };
+        UpdateMenuSelection(CurrentView);
+    }
+
+    private void UpdateMenuSelection(MainViewType currentView)
+    {
+        foreach (var menuItem in MenuItems)
+        {
+            menuItem.IsSelected = menuItem.ViewType == currentView;
+        }
     }
 
     private void InitializeCategories()
@@ -505,7 +526,7 @@ public class MainWindowViewModel : ViewModelBase
         {
             Id = "home",
             Name = "首页",
-            Icon = "\uf015",
+            Icon = "🏠",
             ViewType = MainViewType.Home,
             IsInstalled = true
         });
@@ -514,7 +535,7 @@ public class MainWindowViewModel : ViewModelBase
         {
             Id = "todo",
             Name = "待办事项",
-            Icon = "\uf0ae",
+            Icon = "📋",
             ViewType = MainViewType.Todo,
             IsInstalled = true
         });
@@ -524,7 +545,7 @@ public class MainWindowViewModel : ViewModelBase
         {
             Id = "patient",
             Name = "患者管理",
-            Icon = "\uf0c0",
+            Icon = "👤",
             ViewType = MainViewType.PatientMgmt,
             IsInstalled = false,
             IsPlaceholder = true
@@ -535,7 +556,7 @@ public class MainWindowViewModel : ViewModelBase
         {
             Id = "schedule",
             Name = "日程安排",
-            Icon = "\uf133",
+            Icon = "📅",
             ViewType = MainViewType.Schedule,
             IsInstalled = false,
             IsPlaceholder = true
@@ -723,6 +744,10 @@ public class MainWindowViewModel : ViewModelBase
         {
             FilteredTodoItems.Add(item);
         }
+
+        RaisePropertyChanged(nameof(IsTodoEmpty));
+        RaisePropertyChanged(nameof(IsTodoFilterEmpty));
+        RaisePropertyChanged(nameof(IsTodoDataEmpty));
     }
 
     /// <summary>

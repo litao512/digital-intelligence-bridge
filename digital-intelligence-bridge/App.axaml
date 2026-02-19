@@ -9,10 +9,83 @@
         <converters:PriorityToBrushConverter x:Key="PriorityToBrushConverter" />
         <converters:BoolToOpacityConverter x:Key="BoolToOpacityConverter" />
         <converters:TabTypeToVisibilityConverter x:Key="TabTypeToVisibilityConverter" />
+
+        <!-- Brand palette -->
+        <Color x:Key="ColorPrimary">#0077FA</Color>
+        <Color x:Key="ColorSuccess">#3BB346</Color>
+        <Color x:Key="ColorWarning">#FCA321</Color>
+        <Color x:Key="ColorDanger">#F93920</Color>
+        <Color x:Key="ColorNavBg">#1F2329</Color>
+        <Color x:Key="ColorNavHover">#2F343C</Color>
+        <Color x:Key="ColorPageBg">#F0F2F5</Color>
+        <Color x:Key="ColorCardBg">#FFFFFF</Color>
+        <Color x:Key="ColorTextMain">#1F2329</Color>
+        <Color x:Key="ColorTextMuted">#8F959E</Color>
+        <Color x:Key="ColorBorder">#E6E8EB</Color>
+
+        <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource ColorPrimary}" />
+        <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource ColorSuccess}" />
+        <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource ColorWarning}" />
+        <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource ColorDanger}" />
+        <SolidColorBrush x:Key="NavBgBrush" Color="{StaticResource ColorNavBg}" />
+        <SolidColorBrush x:Key="NavHoverBrush" Color="{StaticResource ColorNavHover}" />
+        <SolidColorBrush x:Key="PageBgBrush" Color="{StaticResource ColorPageBg}" />
+        <SolidColorBrush x:Key="CardBgBrush" Color="{StaticResource ColorCardBg}" />
+        <SolidColorBrush x:Key="TextMainBrush" Color="{StaticResource ColorTextMain}" />
+        <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource ColorTextMuted}" />
+        <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource ColorBorder}" />
     </prism:PrismApplication.Resources>
 
     <prism:PrismApplication.Styles>
         <semi:SemiTheme />
+        <Style Selector="Border.Card">
+            <Setter Property="Background" Value="{StaticResource CardBgBrush}" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="BoxShadow" Value="0 2 8 0 #14000000" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" />
+                    <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.2" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.Card:pointerover">
+            <Setter Property="RenderTransform" Value="translateY(-1px)" />
+            <Setter Property="BoxShadow" Value="0 6 20 0 #20000000" />
+        </Style>
+
+        <Style Selector="Button">
+            <Setter Property="RenderTransform" Value="none" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.1" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button:pressed">
+            <Setter Property="RenderTransform" Value="scale(0.98)" />
+        </Style>
+
+        <Style Selector="TextBox">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.2" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="TextBox:focus">
+            <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
+        </Style>
+
+        <Style Selector="ComboBox">
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+
+        <Style Selector="DatePicker">
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
     </prism:PrismApplication.Styles>
 
     <!-- 系统托盘图标配置（由 TrayService 动态创建） -->
