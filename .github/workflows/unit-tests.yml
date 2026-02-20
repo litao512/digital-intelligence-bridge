@@ -1,12 +1,13 @@
-name: CI
+name: Quality Gate
 
 on:
   push:
     branches: ["main"]
   pull_request:
+  workflow_dispatch:
 
 jobs:
-  test:
+  quality-gate:
     runs-on: windows-latest
 
     steps:
@@ -21,6 +22,14 @@ jobs:
       - name: Check Docs Language Consistency
         shell: pwsh
         run: ./scripts/check-doc-lang.ps1
+
+      - name: Validate appsettings.json
+        shell: pwsh
+        run: |
+          $raw = Get-Content "digital-intelligence-bridge/appsettings.json" -Raw
+          if (-not ($raw | Test-Json)) {
+            throw "appsettings.json is not valid JSON"
+          }
 
       - name: Restore App
         run: dotnet restore digital-intelligence-bridge/digital-intelligence-bridge.csproj
@@ -60,3 +69,35 @@ jobs:
           if ($json.Supabase.Url -ne "http://localhost:54321" -or $json.Supabase.Schema -ne "dib") {
             throw "runtime config content mismatch"
           }
+
+      - name: Validate Runtime Config Schema (Template)
+        shell: pwsh
+        run: ./scripts/validate-runtime-config.ps1 -Path "digital-intelligence-bridge/appsettings.runtime.template.json"
+
+      - name: Validate Runtime Config Schema (Generated)
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP "appsettings.runtime.json"
+          ./scripts/new-runtime-config.ps1 -SupabaseUrl "http://localhost:54321" -SupabaseAnonKey "dummy-anon-key" -Schema "dib" -OutputPath $out
+          ./scripts/validate-runtime-config.ps1 -Path $out
+
+  supabase-runtime-connectivity:
+    needs: quality-gate
+    runs-on: windows-latest
+    if: |
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) &&
+      (secrets.SUPABASE_URL != '' && secrets.SUPABASE_ANON_KEY != '')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify Supabase Runtime Connectivity
+        shell: pwsh
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SCHEMA: ${{ secrets.SUPABASE_SCHEMA }}
+        run: |
+          $schema = if ([string]::IsNullOrWhiteSpace($env:SUPABASE_SCHEMA)) { "dib" } else { $env:SUPABASE_SCHEMA }
+          ./scripts/verify-supabase-runtime.ps1 -SupabaseUrl $env:SUPABASE_URL -SupabaseAnonKey $env:SUPABASE_ANON_KEY -Schema $schema
