@@ -13,12 +13,18 @@ public class ConfigurationExtensionsTests
     public void AddAppConfiguration_ShouldBindRuntimeConfig_WhenFilesPresent()
     {
         var originalConfigDir = Environment.GetEnvironmentVariable("DIB_CONFIG_DIR");
+        var originalSupabaseUrl = Environment.GetEnvironmentVariable("Supabase__Url");
+        var originalSupabaseAnonKey = Environment.GetEnvironmentVariable("Supabase__AnonKey");
+        var originalSupabaseSchema = Environment.GetEnvironmentVariable("Supabase__Schema");
         var tempRoot = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"dib-config-tests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempRoot);
 
         try
         {
             Environment.SetEnvironmentVariable("DIB_CONFIG_DIR", tempRoot);
+            Environment.SetEnvironmentVariable("Supabase__Url", null);
+            Environment.SetEnvironmentVariable("Supabase__AnonKey", null);
+            Environment.SetEnvironmentVariable("Supabase__Schema", null);
 
             var userConfigPath = ConfigurationExtensions.GetConfigFilePath();
             var runtimeConfigPath = ConfigurationExtensions.GetRuntimeConfigFilePath();
@@ -53,6 +59,56 @@ public class ConfigurationExtensionsTests
         finally
         {
             Environment.SetEnvironmentVariable("DIB_CONFIG_DIR", originalConfigDir);
+            Environment.SetEnvironmentVariable("Supabase__Url", originalSupabaseUrl);
+            Environment.SetEnvironmentVariable("Supabase__AnonKey", originalSupabaseAnonKey);
+            Environment.SetEnvironmentVariable("Supabase__Schema", originalSupabaseSchema);
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void AddAppConfiguration_ShouldCopyDefaultConfig_WhenUserConfigMissing()
+    {
+        var originalConfigDir = Environment.GetEnvironmentVariable("DIB_CONFIG_DIR");
+        var originalSupabaseUrl = Environment.GetEnvironmentVariable("Supabase__Url");
+        var originalSupabaseAnonKey = Environment.GetEnvironmentVariable("Supabase__AnonKey");
+        var originalSupabaseSchema = Environment.GetEnvironmentVariable("Supabase__Schema");
+        var tempRoot = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"dib-config-fallback-{Guid.NewGuid():N}");
+        var userConfigPath = System.IO.Path.Combine(tempRoot, "appsettings.json");
+        var runtimeConfigPath = System.IO.Path.Combine(tempRoot, "appsettings.runtime.json");
+
+        if (Directory.Exists(tempRoot))
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+
+        try
+        {
+            Environment.SetEnvironmentVariable("DIB_CONFIG_DIR", tempRoot);
+            Environment.SetEnvironmentVariable("Supabase__Url", null);
+            Environment.SetEnvironmentVariable("Supabase__AnonKey", null);
+            Environment.SetEnvironmentVariable("Supabase__Schema", null);
+
+            var services = new ServiceCollection();
+            services.AddAppConfiguration();
+            using var provider = services.BuildServiceProvider();
+
+            Assert.True(File.Exists(userConfigPath));
+            Assert.False(File.Exists(runtimeConfigPath));
+
+            var settings = provider.GetRequiredService<IOptions<AppSettings>>().Value;
+            Assert.Equal("通用工具箱", settings.Application.Name);
+            Assert.Equal("logs", settings.Logging.LogPath);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("DIB_CONFIG_DIR", originalConfigDir);
+            Environment.SetEnvironmentVariable("Supabase__Url", originalSupabaseUrl);
+            Environment.SetEnvironmentVariable("Supabase__AnonKey", originalSupabaseAnonKey);
+            Environment.SetEnvironmentVariable("Supabase__Schema", originalSupabaseSchema);
             if (Directory.Exists(tempRoot))
             {
                 Directory.Delete(tempRoot, recursive: true);
@@ -60,4 +116,3 @@ public class ConfigurationExtensionsTests
         }
     }
 }
-

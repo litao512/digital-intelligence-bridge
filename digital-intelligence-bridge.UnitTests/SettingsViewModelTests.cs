@@ -1,4 +1,6 @@
-﻿using DigitalIntelligenceBridge.Configuration;
+using System.IO;
+using System.Reflection;
+using DigitalIntelligenceBridge.Configuration;
 using DigitalIntelligenceBridge.Services;
 using DigitalIntelligenceBridge.ViewModels;
 using Microsoft.Extensions.Options;
@@ -29,6 +31,61 @@ public class SettingsViewModelTests
         vm.ExportSelfCheckReportCommand.Execute();
 
         Assert.Contains("已导出报告", vm.SelfCheckSummary);
+    }
+
+    [Fact]
+    public void IsTrayIconAvailable_ShouldReturnTrue_WhenFileExistsUnderBaseDirectory()
+    {
+        var relativePath = Path.Combine("test-icons", $"{Guid.NewGuid():N}.ico");
+        var fullPath = Path.Combine(AppContext.BaseDirectory, relativePath);
+        var directory = Path.GetDirectoryName(fullPath)!;
+        Directory.CreateDirectory(directory);
+        File.WriteAllText(fullPath, "fake-icon");
+
+        try
+        {
+            var result = InvokeIsTrayIconAvailable(relativePath, out var detail);
+
+            Assert.True(result);
+            Assert.Equal(fullPath, detail);
+        }
+        finally
+        {
+            if (File.Exists(fullPath))
+            {
+                File.Delete(fullPath);
+            }
+
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void IsTrayIconAvailable_ShouldReturnFalse_WhenFileAndAssetMissing()
+    {
+        var relativePath = Path.Combine("missing-icons", $"{Guid.NewGuid():N}.ico");
+
+        var result = InvokeIsTrayIconAvailable(relativePath, out var detail);
+
+        Assert.False(result);
+        Assert.StartsWith(Path.Combine(AppContext.BaseDirectory, relativePath), detail);
+        Assert.Contains("资源加载失败", detail);
+    }
+
+    private static bool InvokeIsTrayIconAvailable(string path, out string detail)
+    {
+        var method = typeof(SettingsViewModel).GetMethod(
+            "IsTrayIconAvailable",
+            BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var args = new object?[] { path, null };
+        var result = (bool)method!.Invoke(null, args)!;
+        detail = (string)args[1]!;
+        return result;
     }
 
     private static async Task WaitForSelfCheckAsync(SettingsViewModel vm)

@@ -37,6 +37,58 @@ public class MainWindowViewModelTests
     }
 
     [Fact]
+    public void NavigateCommand_ShouldReuseExistingTab_WhenNavigatingToSameView()
+    {
+        var vm = CreateVm();
+
+        vm.NavigateCommand.Execute(MainViewType.Todo);
+        var tabCount = vm.OpenTabs.Count;
+
+        vm.NavigateCommand.Execute(MainViewType.Todo);
+
+        Assert.Equal(tabCount, vm.OpenTabs.Count);
+        Assert.Equal(MainViewType.Todo, vm.CurrentView);
+        Assert.Equal(TabItemType.Todo, vm.SelectedTab!.TabType);
+    }
+
+    [Fact]
+    public void CloseTabCommand_ShouldSwitchToPreviousTabAndUpdateSelection()
+    {
+        var vm = CreateVm();
+
+        vm.NavigateCommand.Execute(MainViewType.Todo);
+        vm.NavigateCommand.Execute(MainViewType.Settings);
+
+        var closingTab = vm.SelectedTab;
+        vm.CloseTabCommand.Execute(closingTab);
+
+        Assert.NotNull(vm.SelectedTab);
+        Assert.Equal(TabItemType.Todo, vm.SelectedTab!.TabType);
+        Assert.Equal(MainViewType.Todo, vm.CurrentView);
+        Assert.Contains(vm.MenuItems, x => x.ViewType == MainViewType.Todo && x.IsSelected);
+        Assert.DoesNotContain(vm.MenuItems, x => x.ViewType == MainViewType.Settings && x.IsSelected);
+    }
+
+    [Fact]
+    public void SelectedTab_ShouldUpdatePageTitles_WhenChanged()
+    {
+        var vm = CreateVm();
+        var customTab = new TabItemModel
+        {
+            Id = "custom",
+            Title = "新的标题",
+            Subtitle = "子标题",
+            TabType = TabItemType.Schedule
+        };
+        vm.OpenTabs.Add(customTab);
+
+        vm.SelectedTab = customTab;
+
+        Assert.Equal("新的标题", vm.PageTitle);
+        Assert.Equal("子标题", vm.PageSubtitle);
+    }
+
+    [Fact]
     public void CloseTabCommand_ShouldKeepHomeTab_WhenOnlyHomeExists()
     {
         var vm = CreateVm();
