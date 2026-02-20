@@ -18,6 +18,10 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      - name: Check Docs Language Consistency
+        shell: pwsh
+        run: ./scripts/check-doc-lang.ps1
+
       - name: Restore App
         run: dotnet restore digital-intelligence-bridge/digital-intelligence-bridge.csproj
 

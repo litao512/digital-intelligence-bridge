@@ -96,9 +96,10 @@ public class MainWindowViewModel : ViewModelBase
     private string _newTodoTitle = string.Empty;
     private string _newTodoDescription = string.Empty;
     private TodoItem.PriorityLevel _selectedPriority = TodoItem.PriorityLevel.Normal;
+    private int _selectedPriorityIndex = 1;
     private string _selectedCategory = "默认";
     private string _newTags = string.Empty;
-    private DateTime? _selectedDueDate;
+    private DateTimeOffset? _selectedDueDate;
     private TodoItem? _selectedTodoItem;
     private string _title = "通用工具箱";
 
@@ -212,7 +213,41 @@ public class MainWindowViewModel : ViewModelBase
     public TodoItem.PriorityLevel SelectedPriority
     {
         get => _selectedPriority;
-        set => SetProperty(ref _selectedPriority, value);
+        set
+        {
+            if (SetProperty(ref _selectedPriority, value))
+            {
+                var index = value switch
+                {
+                    TodoItem.PriorityLevel.Low => 0,
+                    TodoItem.PriorityLevel.Normal => 1,
+                    TodoItem.PriorityLevel.High => 2,
+                    _ => 1
+                };
+                if (_selectedPriorityIndex != index)
+                {
+                    _selectedPriorityIndex = index;
+                    RaisePropertyChanged(nameof(SelectedPriorityIndex));
+                }
+            }
+        }
+    }
+
+    public int SelectedPriorityIndex
+    {
+        get => _selectedPriorityIndex;
+        set
+        {
+            if (SetProperty(ref _selectedPriorityIndex, value))
+            {
+                SelectedPriority = value switch
+                {
+                    0 => TodoItem.PriorityLevel.Low,
+                    2 => TodoItem.PriorityLevel.High,
+                    _ => TodoItem.PriorityLevel.Normal
+                };
+            }
+        }
     }
 
     public string SelectedCategory
@@ -227,7 +262,7 @@ public class MainWindowViewModel : ViewModelBase
         set => SetProperty(ref _newTags, value);
     }
 
-    public DateTime? SelectedDueDate
+    public DateTimeOffset? SelectedDueDate
     {
         get => _selectedDueDate;
         set => SetProperty(ref _selectedDueDate, value);
@@ -765,7 +800,7 @@ public class MainWindowViewModel : ViewModelBase
             Priority = SelectedPriority,
             Category = SelectedCategory,
             Tags = tags,
-            DueDate = SelectedDueDate
+            DueDate = SelectedDueDate?.Date
         };
 
         TodoItems.Add(newItem);

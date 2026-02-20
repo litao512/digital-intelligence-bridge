@@ -182,12 +182,12 @@
                             <!-- 首页视图 -->
                             <Border IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=Home}"
                                     Classes="Card">
-                                <views:HomeView />
+                                <views:HomeView DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" />
                             </Border>
 
                             <!-- 待办事项视图 -->
                             <Grid IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=Todo}">
-                                <views:TodoView />
+                                <views:TodoView DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" />
                             </Grid>
 
 

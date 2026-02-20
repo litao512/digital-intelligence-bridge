@@ -17,6 +17,15 @@ fi
 if [ $? -ne 0 ]; then
   exit 1
 fi
+
+if command -v pwsh >/dev/null 2>&1; then
+  pwsh -NoProfile -ExecutionPolicy Bypass -File "./scripts/check-doc-lang.ps1" -Staged
+else
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\check-doc-lang.ps1" -Staged
+fi
+if [ $? -ne 0 ]; then
+  exit 1
+fi
 '@
 
 [System.IO.File]::WriteAllText($hookPath, $hookContent, [System.Text.UTF8Encoding]::new($false))

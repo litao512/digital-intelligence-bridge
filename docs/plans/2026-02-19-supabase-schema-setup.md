@@ -1,23 +1,23 @@
-﻿# Supabase Schema Setup (`dib`)
+# Supabase Schema 配置说明（`dib`）
 
-Date: 2026-02-19
+日期：2026-02-19
 
-## Purpose
-Use an isolated schema `dib` for this project and avoid mixing tables with other projects.
+## 目的
+为本项目使用独立 schema `dib`，避免与其他项目表结构混用。
 
-## Apply migration
-1. Open Supabase SQL Editor for your self-hosted instance.
-2. Run: `database/migrations/2026-02-19-create-dib-schema-up.sql`
+## 应用迁移
+1. 打开本地部署 Supabase 实例的 SQL Editor。
+2. 执行：`database/migrations/2026-02-19-create-dib-schema-up.sql`
 
-## Rollback (if needed)
-Run: `database/migrations/2026-02-19-create-dib-schema-down.sql`
+## 回滚（如需）
+执行：`database/migrations/2026-02-19-create-dib-schema-down.sql`
 
-## Verify via REST
-- Endpoint: `GET /rest/v1/todos?select=id&limit=1`
-- Headers:
+## 通过 REST 验证
+- 接口：`GET /rest/v1/todos?select=id&limit=1`
+- 请求头：
   - `apikey: <anon key>`
   - `Authorization: Bearer <anon key>`
   - `Accept-Profile: dib`
 
-Expected:
-- `200` with array response (empty array is OK)
+预期结果：
+- 返回 `200` 且响应体为数组（空数组也视为正常）

@@ -123,7 +123,7 @@
 
                     <StackPanel Spacing="4">
                         <TextBlock Text="优先级" FontSize="12" Opacity="0.8"/>
-                        <ComboBox SelectedItem="{Binding SelectedPriority}"
+                        <ComboBox SelectedIndex="{Binding SelectedPriorityIndex}"
                                  HorizontalAlignment="Stretch"
                                  Height="35">
                             <ComboBoxItem>低</ComboBoxItem>

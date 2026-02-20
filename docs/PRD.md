@@ -1,5 +1,5 @@
-# Universal Tray Tool (UTT) - 通用工具箱
-## 产品需求文档 (Product Requirements Document)
+# 通用工具箱（Universal Tray Tool, UTT）
+## 产品需求文档（PRD）
 
 **文档版本**: v1.0.3  
 **发布日期**: 2026-02-19  
@@ -10,7 +10,7 @@
 ## 1. 产品概述
 
 ### 1.1 产品定位
-Universal Tray Tool (UTT) 是一款基于 Avalonia UI + Prism 的跨平台桌面托盘应用框架。  
+通用工具箱（Universal Tray Tool, UTT）是一款基于 Avalonia UI + Prism 的跨平台桌面托盘应用框架。  
 产品目标是在一个统一入口中整合多个工具模块，支持常驻托盘、快速唤起、标签页管理，并逐步演进为插件化工具平台。
 
 ### 1.2 核心价值
@@ -81,11 +81,11 @@ Universal Tray Tool (UTT) 是一款基于 Avalonia UI + Prism 的跨平台桌面
 | DI | DryIoc | Prism 集成 |
 | 配置 | Microsoft.Extensions.Configuration | 9.0.x |
 | 日志 | Serilog | 4.x |
-| 后端服务 | Supabase（本地服务器部署） | self-hosted |
+| 后端服务 | Supabase（本地服务器部署） | 本地部署（self-hosted） |
 | 数据库 | PostgreSQL（由 Supabase 管理） | Supabase 默认版本 |
 | 运行时 | .NET | 10.0 |
 
-> 说明：后端与数据库统一采用本地服务器部署的 Supabase（self-hosted）方案，应用通过 Supabase API 访问认证、存储与数据库能力。
+> 说明：后端与数据库统一采用本地服务器部署方案，应用通过 Supabase API 访问认证、存储与数据库能力。
 
 ### 3.2 目录结构
 ```text
@@ -246,20 +246,20 @@ Supabase 部署约束：
 
 ---
 
-## 11. Runtime Sensitive Config Delivery Plan (Draft)
+## 11. 运行时敏感配置交付方案（草案）
 
-### 11.1 Temporary phase (current)
-- For delivery progress, clients can read sensitive runtime config from `%LOCALAPPDATA%/UniversalTrayTool/appsettings.runtime.json`.
-- This file is local-machine only and must never be committed to repository.
-- Effective config loading order: `appsettings.json` -> user `appsettings.json` -> `appsettings.runtime.json` -> environment variables.
+### 11.1 临时阶段（当前）
+- 为保障交付进度，客户端可从 `%LOCALAPPDATA%/UniversalTrayTool/appsettings.runtime.json` 读取运行时敏感配置。
+- 该文件仅限本机使用，严禁提交到代码仓库。
+- 生效配置加载顺序：`appsettings.json` -> 用户 `appsettings.json` -> `appsettings.runtime.json` -> 环境变量。
 
-### 11.2 Target phase (to implement with plugin repository)
-- Introduce remote config distribution service for desktop clients.
-- Client fetches signed runtime config (Url/AnonKey/Schema/configVersion/expiresAt).
-- Client verifies signature with embedded public key before applying config.
-- Client persists last valid config as local cache and supports offline fallback.
-- ServiceRoleKey must stay server-side only; desktop client never stores it.
+### 11.2 目标阶段（随插件仓库能力实现）
+- 为桌面客户端引入远程配置分发服务。
+- 客户端拉取已签名的运行时配置（Url/AnonKey/Schema/configVersion/expiresAt）。
+- 客户端在应用配置前，使用内置公钥完成签名校验。
+- 客户端持久化最近一次有效配置作为本地缓存，并支持离线回退。
+- ServiceRoleKey 必须仅保留在服务端，桌面客户端不得存储。
 
-### 11.3 Rotation strategy
-- Support overlap window for old/new runtime config during key or endpoint rotation.
-- Add `minAppVersion` in remote config to coordinate forced upgrade when required.
+### 11.3 轮换策略
+- 在密钥或端点轮换期间，支持新旧运行时配置并行生效的重叠窗口。
+- 在远程配置中增加 `minAppVersion`，用于在必要时协调强制升级。
