@@ -34,6 +34,18 @@ public class ConfigurationExtensionsTests
                 """
                 {
                   "Supabase": { "Url": "http://localhost:54321", "AnonKey": "", "Schema": "dib" },
+                  "MedicalDrugImport": {
+                    "Enabled": true,
+                    "PostgresSchema": "etl",
+                    "SqlServer": {
+                      "Host": "sqlserver.local",
+                      "Port": 1433,
+                      "Database": "MedicalCatalog",
+                      "Username": "sa",
+                      "Password": "secret",
+                      "TrustServerCertificate": true
+                    }
+                  },
                   "Logging": { "LogLevel": { "Default": "Information", "Microsoft": "Warning" }, "LogPath": "logs" },
                   "Navigation": []
                 }
@@ -55,6 +67,14 @@ public class ConfigurationExtensionsTests
             Assert.Equal("https://example.test", settings.Supabase.Url);
             Assert.Equal("runtime-anon", settings.Supabase.AnonKey);
             Assert.Equal("dib", settings.Supabase.Schema);
+            Assert.True(settings.MedicalDrugImport.Enabled);
+            Assert.Equal("etl", settings.MedicalDrugImport.PostgresSchema);
+            Assert.Equal("sqlserver.local", settings.MedicalDrugImport.SqlServer.Host);
+            Assert.Equal(1433, settings.MedicalDrugImport.SqlServer.Port);
+            Assert.Equal("MedicalCatalog", settings.MedicalDrugImport.SqlServer.Database);
+            Assert.Equal("sa", settings.MedicalDrugImport.SqlServer.Username);
+            Assert.Equal("secret", settings.MedicalDrugImport.SqlServer.Password);
+            Assert.True(settings.MedicalDrugImport.SqlServer.TrustServerCertificate);
         }
         finally
         {

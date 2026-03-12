@@ -37,6 +37,11 @@ public class AppSettings
     /// 日志配置
     /// </summary>
     public LoggingConfig Logging { get; set; } = new();
+
+    /// <summary>
+    /// 医保药品导入同步工具配置
+    /// </summary>
+    public MedicalDrugImportConfig MedicalDrugImport { get; set; } = new();
 }
 
 /// <summary>
@@ -111,4 +116,27 @@ public class LogLevelConfig
 {
     public string Default { get; set; } = "Information";
     public string Microsoft { get; set; } = "Warning";
+}
+
+/// <summary>
+/// 医保药品导入同步工具配置
+/// </summary>
+public class MedicalDrugImportConfig
+{
+    public bool Enabled { get; set; } = false;
+    public string PostgresSchema { get; set; } = "etl";
+    public SqlServerConnectionConfig SqlServer { get; set; } = new();
+}
+
+/// <summary>
+/// SQL Server 连接配置
+/// </summary>
+public class SqlServerConnectionConfig
+{
+    public string Host { get; set; } = "localhost";
+    public int Port { get; set; } = 1433;
+    public string Database { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public bool TrustServerCertificate { get; set; } = true;
 }
