@@ -24,3 +24,7 @@ digital-intelligence-bridge/nul
 # Local helper tools
 .tools/
 .dotnet/
+.dotnet-cli-home/
+.appdata/
+.nuget/
+.worktrees/
