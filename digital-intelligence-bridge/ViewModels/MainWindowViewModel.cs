@@ -6,6 +6,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using DigitalIntelligenceBridge.Configuration;
 using DigitalIntelligenceBridge.Models;
+using DigitalIntelligenceBridge.Plugin.Abstractions;
+using DigitalIntelligenceBridge.Plugin.Host;
 using DigitalIntelligenceBridge.Services;
 using Microsoft.Extensions.Options;
 using Prism.Commands;
@@ -20,6 +22,8 @@ public enum MainViewType
 {
     Home,           // 首页
     Todo,           // 待办事项
+    PluginHost,     // 外部插件宿主
+    DrugImport,     // 医保药品导入
     PatientMgmt,    // 患者管理（占位）
     Schedule,       // 日程安排（占位）
     Settings        // 设置
@@ -33,11 +37,13 @@ public class MenuItem : BindableBase
     private bool _isSelected;
 
     public string Id { get; set; } = string.Empty;
+    public string TargetKey { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Icon { get; set; } = string.Empty;
     public MainViewType ViewType { get; set; }
     public bool IsInstalled { get; set; } = true;
     public bool IsPlaceholder { get; set; } = false;
+    public bool IsExternalPlugin { get; set; }
     public bool IsSelected
     {
         get => _isSelected;
@@ -52,6 +58,8 @@ public enum TabItemType
 {
     Home,       // 首页
     Todo,       // 待办事项
+    PluginHost, // 外部插件宿主
+    DrugImport, // 医保药品导入
     Settings,   // 设置
     PatientMgmt,// 患者管理
     Schedule    // 日程安排
@@ -67,6 +75,7 @@ public class TabItemModel : BindableBase
     private bool _isModified;
 
     public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string TargetKey { get; set; } = string.Empty;
     public string Title { get => _title; set => SetProperty(ref _title, value); }
     public string Subtitle { get => _subtitle; set => SetProperty(ref _subtitle, value); }
     public TabItemType TabType { get; set; }
@@ -84,6 +93,9 @@ public class MainWindowViewModel : ViewModelBase
     private readonly ILoggerService<MainWindowViewModel> _logger;
     private readonly AppSettings _settings;
     private readonly ITodoRepository? _todoRepository;
+    private readonly DrugImportViewModel? _drugImportViewModel;
+    private readonly IReadOnlyList<PluginMenuItem> _externalPluginMenus;
+    private readonly Dictionary<string, LoadedPlugin> _loadedPluginsByMenuId;
 
     // 集合
     public ObservableCollection<TodoItem> TodoItems { get; } = new();
@@ -175,6 +187,8 @@ public class MainWindowViewModel : ViewModelBase
         get => _pageSubtitle;
         set => SetProperty(ref _pageSubtitle, value);
     }
+
+    public DrugImportViewModel? DrugImportToolViewModel => _drugImportViewModel;
 
     /// <summary>
     /// 当前选中的标签页
@@ -336,7 +350,7 @@ public class MainWindowViewModel : ViewModelBase
     public DelegateCommand ShowHomeViewCommand { get; }
     public DelegateCommand ShowTodoViewCommand { get; }
     public DelegateCommand ShowSettingsViewCommand { get; }
-    public DelegateCommand<MainViewType?> NavigateCommand { get; }
+    public DelegateCommand<object?> NavigateCommand { get; }
 
     // 筛选命令
     public DelegateCommand ClearFilterCommand { get; }
@@ -345,18 +359,24 @@ public class MainWindowViewModel : ViewModelBase
     public DelegateCommand<TabItemModel?> CloseTabCommand { get; }
 
     public MainWindowViewModel(ILoggerService<MainWindowViewModel> logger)
-        : this(logger, null, null)
+        : this(logger, null, null, null, null)
     {
     }
 
     public MainWindowViewModel(
         ILoggerService<MainWindowViewModel> logger,
         IOptions<AppSettings>? appSettings,
-        ITodoRepository? todoRepository = null)
+        ITodoRepository? todoRepository = null,
+        DrugImportViewModel? drugImportViewModel = null,
+        IReadOnlyList<PluginMenuItem>? externalPluginMenus = null,
+        IReadOnlyList<LoadedPlugin>? loadedPlugins = null)
     {
         _logger = logger;
         _settings = appSettings?.Value ?? new AppSettings();
         _todoRepository = todoRepository;
+        _drugImportViewModel = drugImportViewModel;
+        _externalPluginMenus = externalPluginMenus ?? [];
+        _loadedPluginsByMenuId = BuildLoadedPluginIndex(loadedPlugins);
 
         // 初始化命令
         AddTodoCommand = new DelegateCommand(OnAddTodo, CanAddTodo);
@@ -368,7 +388,7 @@ public class MainWindowViewModel : ViewModelBase
         ShowHomeViewCommand = new DelegateCommand(() => NavigateTo(MainViewType.Home));
         ShowTodoViewCommand = new DelegateCommand(() => NavigateTo(MainViewType.Todo));
         ShowSettingsViewCommand = new DelegateCommand(() => NavigateTo(MainViewType.Settings));
-        NavigateCommand = new DelegateCommand<MainViewType?>(NavigateTo);
+        NavigateCommand = new DelegateCommand<object?>(NavigateTo);
 
         // 初始化筛选命令
         ClearFilterCommand = new DelegateCommand(ClearFilter);
@@ -433,6 +453,7 @@ public class MainWindowViewModel : ViewModelBase
         var homeTab = new TabItemModel
         {
             Id = "home",
+            TargetKey = "home",
             Title = "首页",
             Subtitle = "欢迎使用",
             TabType = TabItemType.Home
@@ -444,14 +465,40 @@ public class MainWindowViewModel : ViewModelBase
     /// <summary>
     /// 导航到指定视图类型
     /// </summary>
-    private void NavigateTo(MainViewType? viewType)
+    private void NavigateTo(object? target)
     {
-        if (!viewType.HasValue) return;
+        if (target is null)
+        {
+            return;
+        }
 
-        var type = viewType.Value;
+        if (target is MainViewType viewType)
+        {
+            NavigateToBuiltIn(viewType, GetBuiltInTargetKey(viewType));
+            return;
+        }
+
+        if (target is not string targetKey)
+        {
+            return;
+        }
+
+        if (TryMapTargetKeyToBuiltInViewType(targetKey, out var builtInViewType))
+        {
+            NavigateToBuiltIn(builtInViewType, targetKey);
+            return;
+        }
+
+        if (targetKey.StartsWith("plugin:", StringComparison.OrdinalIgnoreCase))
+        {
+            NavigateToPluginTarget(targetKey);
+        }
+    }
+
+    private void NavigateToBuiltIn(MainViewType type, string targetKey)
+    {
         TabItemModel? existingTab = null;
 
-        // 根据视图类型查找或创建标签页
         switch (type)
         {
             case MainViewType.Home:
@@ -461,6 +508,7 @@ public class MainWindowViewModel : ViewModelBase
                     existingTab = new TabItemModel
                     {
                         Id = "home",
+                        TargetKey = targetKey,
                         Title = "首页",
                         Subtitle = "欢迎使用",
                         TabType = TabItemType.Home
@@ -476,9 +524,26 @@ public class MainWindowViewModel : ViewModelBase
                     existingTab = new TabItemModel
                     {
                         Id = $"todo_{Guid.NewGuid():N}",
+                        TargetKey = targetKey,
                         Title = "待办事项",
                         Subtitle = "管理您的日常任务",
                         TabType = TabItemType.Todo
+                    };
+                    OpenTabs.Add(existingTab);
+                }
+                break;
+
+            case MainViewType.DrugImport:
+                existingTab = OpenTabs.FirstOrDefault(t => t.TabType == TabItemType.DrugImport);
+                if (existingTab == null)
+                {
+                    existingTab = new TabItemModel
+                    {
+                        Id = $"drug_import_{Guid.NewGuid():N}",
+                        TargetKey = targetKey,
+                        Title = "医保药品导入同步工具",
+                        Subtitle = "固定模板 Excel 导入与 SQL Server 同步",
+                        TabType = TabItemType.DrugImport
                     };
                     OpenTabs.Add(existingTab);
                 }
@@ -491,6 +556,7 @@ public class MainWindowViewModel : ViewModelBase
                     existingTab = new TabItemModel
                     {
                         Id = $"settings_{Guid.NewGuid():N}",
+                        TargetKey = targetKey,
                         Title = "设置",
                         Subtitle = "配置应用程序选项",
                         TabType = TabItemType.Settings
@@ -506,6 +572,7 @@ public class MainWindowViewModel : ViewModelBase
                     existingTab = new TabItemModel
                     {
                         Id = $"patient_{Guid.NewGuid():N}",
+                        TargetKey = targetKey,
                         Title = "患者管理",
                         Subtitle = "功能开发中...",
                         TabType = TabItemType.PatientMgmt
@@ -521,6 +588,7 @@ public class MainWindowViewModel : ViewModelBase
                     existingTab = new TabItemModel
                     {
                         Id = $"schedule_{Guid.NewGuid():N}",
+                        TargetKey = targetKey,
                         Title = "日程安排",
                         Subtitle = "功能开发中...",
                         TabType = TabItemType.Schedule
@@ -534,8 +602,62 @@ public class MainWindowViewModel : ViewModelBase
         {
             SelectedTab = existingTab;
             CurrentView = type;
-            UpdateMenuSelection(type);
+            UpdateMenuSelection(targetKey);
             _logger.LogInformation("导航到视图: {View}, 标签页: {TabId}", type, existingTab.Id);
+        }
+    }
+
+    private void NavigateToPluginTarget(string targetKey)
+    {
+        var menuItem = MenuItems.FirstOrDefault(item => string.Equals(item.TargetKey, targetKey, StringComparison.OrdinalIgnoreCase));
+        if (menuItem is null)
+        {
+            return;
+        }
+
+        var existingTab = OpenTabs.FirstOrDefault(t =>
+            t.TabType == TabItemType.PluginHost &&
+            string.Equals(t.TargetKey, targetKey, StringComparison.OrdinalIgnoreCase));
+
+        if (existingTab == null)
+        {
+            existingTab = new TabItemModel
+            {
+                Id = $"plugin_{Guid.NewGuid():N}",
+                TargetKey = targetKey,
+                Title = menuItem.Name,
+                Subtitle = "外部插件页面",
+                TabType = TabItemType.PluginHost,
+                Content = CreatePluginHostContent(menuItem)
+            };
+            OpenTabs.Add(existingTab);
+        }
+
+        SelectedTab = existingTab;
+        CurrentView = MainViewType.PluginHost;
+        UpdateMenuSelection(targetKey);
+        _logger.LogInformation("导航到外部插件: {Target}, 标签页: {TabId}", targetKey, existingTab.Id);
+    }
+
+    private PluginHostViewModel CreatePluginHostContent(MenuItem menuItem)
+    {
+        var menuId = menuItem.TargetKey.StartsWith("plugin:", StringComparison.OrdinalIgnoreCase)
+            ? menuItem.TargetKey["plugin:".Length..]
+            : menuItem.TargetKey;
+
+        if (!_loadedPluginsByMenuId.TryGetValue(menuId, out var loadedPlugin) || loadedPlugin.Module is null)
+        {
+            return PluginHostViewModel.CreateError($"未找到已加载插件页面: {menuId}");
+        }
+
+        try
+        {
+            return new PluginHostViewModel(loadedPlugin.Module.CreateContent(menuId));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "创建插件页面失败: {MenuId}", menuId);
+            return PluginHostViewModel.CreateError($"插件页面创建失败: {ex.Message}");
         }
     }
 
@@ -575,19 +697,26 @@ public class MainWindowViewModel : ViewModelBase
         {
             TabItemType.Home => MainViewType.Home,
             TabItemType.Todo => MainViewType.Todo,
+            TabItemType.PluginHost => MainViewType.PluginHost,
+            TabItemType.DrugImport => MainViewType.DrugImport,
             TabItemType.Settings => MainViewType.Settings,
             TabItemType.PatientMgmt => MainViewType.PatientMgmt,
             TabItemType.Schedule => MainViewType.Schedule,
             _ => MainViewType.Home
         };
-        UpdateMenuSelection(CurrentView);
+        UpdateMenuSelection(tab.TargetKey);
     }
 
     private void UpdateMenuSelection(MainViewType currentView)
     {
+        UpdateMenuSelection(GetBuiltInTargetKey(currentView));
+    }
+
+    private void UpdateMenuSelection(string currentTargetKey)
+    {
         foreach (var menuItem in MenuItems)
         {
-            menuItem.IsSelected = menuItem.ViewType == currentView;
+            menuItem.IsSelected = string.Equals(menuItem.TargetKey, currentTargetKey, StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -618,13 +747,15 @@ public class MainWindowViewModel : ViewModelBase
                 }
 
                 var isBuiltIn = viewType is MainViewType.Home or MainViewType.Todo;
-                var isInstalled = isBuiltIn ||
-                                  config.IsInstalled ||
-                                  installedPluginIds.Contains(config.Id);
+                var isMedicalDrugImport = viewType == MainViewType.DrugImport;
+                var isInstalled = isBuiltIn
+                                  || (isMedicalDrugImport && _settings.MedicalDrugImport.Enabled)
+                                  || (!isMedicalDrugImport && (config.IsInstalled || installedPluginIds.Contains(config.Id)));
 
                 MenuItems.Add(new MenuItem
                 {
                     Id = config.Id,
+                    TargetKey = GetBuiltInTargetKey(viewType),
                     Name = string.IsNullOrWhiteSpace(config.Name) ? config.Id : config.Name,
                     Icon = string.IsNullOrWhiteSpace(config.Icon) ? GetDefaultIcon(viewType) : config.Icon,
                     ViewType = viewType,
@@ -640,6 +771,7 @@ public class MainWindowViewModel : ViewModelBase
             MenuItems.Add(new MenuItem
             {
                 Id = "home",
+                TargetKey = "home",
                 Name = "首页",
                 Icon = "🏠",
                 ViewType = MainViewType.Home,
@@ -649,6 +781,7 @@ public class MainWindowViewModel : ViewModelBase
             MenuItems.Add(new MenuItem
             {
                 Id = "todo",
+                TargetKey = "todo",
                 Name = "待办事项",
                 Icon = "📋",
                 ViewType = MainViewType.Todo,
@@ -657,7 +790,18 @@ public class MainWindowViewModel : ViewModelBase
 
             MenuItems.Add(new MenuItem
             {
+                Id = "drug-import",
+                TargetKey = "drug-import",
+                Name = "医保药品导入",
+                Icon = "💊",
+                ViewType = MainViewType.DrugImport,
+                IsInstalled = _settings.MedicalDrugImport.Enabled
+            });
+
+            MenuItems.Add(new MenuItem
+            {
                 Id = "patient",
+                TargetKey = "patient",
                 Name = "患者管理",
                 Icon = "👤",
                 ViewType = MainViewType.PatientMgmt,
@@ -668,11 +812,27 @@ public class MainWindowViewModel : ViewModelBase
             MenuItems.Add(new MenuItem
             {
                 Id = "schedule",
+                TargetKey = "schedule",
                 Name = "日程安排",
                 Icon = "📅",
                 ViewType = MainViewType.Schedule,
                 IsInstalled = installedPluginIds.Contains("schedule"),
                 IsPlaceholder = !installedPluginIds.Contains("schedule")
+            });
+        }
+
+        foreach (var pluginMenu in _externalPluginMenus.OrderBy(item => item.Order))
+        {
+            MenuItems.Add(new MenuItem
+            {
+                Id = pluginMenu.Id,
+                TargetKey = $"plugin:{pluginMenu.Id}",
+                Name = string.IsNullOrWhiteSpace(pluginMenu.Name) ? pluginMenu.Id : pluginMenu.Name,
+                Icon = string.IsNullOrWhiteSpace(pluginMenu.Icon) ? GetDefaultIcon(MainViewType.PluginHost) : pluginMenu.Icon,
+                ViewType = MainViewType.PluginHost,
+                IsInstalled = true,
+                IsPlaceholder = false,
+                IsExternalPlugin = true
             });
         }
 
@@ -727,11 +887,78 @@ public class MainWindowViewModel : ViewModelBase
         {
             MainViewType.Home => "🏠",
             MainViewType.Todo => "📋",
+            MainViewType.PluginHost => "🧩",
+            MainViewType.DrugImport => "💊",
             MainViewType.PatientMgmt => "👤",
             MainViewType.Schedule => "📅",
             MainViewType.Settings => "⚙",
             _ => "•"
         };
+    }
+
+    private static bool TryMapTargetKeyToBuiltInViewType(string targetKey, out MainViewType viewType)
+    {
+        switch (targetKey)
+        {
+            case "home":
+                viewType = MainViewType.Home;
+                return true;
+            case "todo":
+                viewType = MainViewType.Todo;
+                return true;
+            case "drug-import":
+                viewType = MainViewType.DrugImport;
+                return true;
+            case "settings":
+                viewType = MainViewType.Settings;
+                return true;
+            case "patient":
+                viewType = MainViewType.PatientMgmt;
+                return true;
+            case "schedule":
+                viewType = MainViewType.Schedule;
+                return true;
+            default:
+                viewType = MainViewType.Home;
+                return false;
+        }
+    }
+
+    private static string GetBuiltInTargetKey(MainViewType viewType)
+    {
+        return viewType switch
+        {
+            MainViewType.Home => "home",
+            MainViewType.Todo => "todo",
+            MainViewType.DrugImport => "drug-import",
+            MainViewType.Settings => "settings",
+            MainViewType.PatientMgmt => "patient",
+            MainViewType.Schedule => "schedule",
+            MainViewType.PluginHost => "plugin-host",
+            _ => "home"
+        };
+    }
+
+    private static Dictionary<string, LoadedPlugin> BuildLoadedPluginIndex(IReadOnlyList<LoadedPlugin>? loadedPlugins)
+    {
+        var result = new Dictionary<string, LoadedPlugin>(StringComparer.OrdinalIgnoreCase);
+        if (loadedPlugins is null)
+        {
+            return result;
+        }
+
+        foreach (var plugin in loadedPlugins.Where(plugin => plugin.Module is not null))
+        {
+            foreach (var menu in plugin.Module!.CreateMenuItems())
+            {
+                if (!string.IsNullOrWhiteSpace(menu.Id))
+                {
+                    result[menu.Id] = plugin;
+                }
+            }
+        }
+
+        return result;
     }
 
     private void InitializeSampleData()

@@ -5,11 +5,13 @@ using Avalonia.Data.Core;
 using Avalonia.Data.Core.Plugins;
 using System.Linq;
 using Avalonia.Markup.Xaml;
+using DigitalIntelligenceBridge.Plugin.Host;
 using DigitalIntelligenceBridge.ViewModels;
 using DigitalIntelligenceBridge.Views;
 using DigitalIntelligenceBridge.Services;
 using DigitalIntelligenceBridge.Configuration;
 using System;
+using System.Collections.Generic;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -35,7 +37,27 @@ public partial class App : PrismApplication
 
     protected override AvaloniaObject CreateShell()
     {
+        var appSettings = Container.Resolve<IOptions<AppSettings>>();
+        var runtimePlugins = LoadRuntimePlugins(
+            AppContext.BaseDirectory,
+            appSettings,
+            Container.Resolve<PluginCatalogService>(),
+            Container.Resolve<PluginLoaderService>(),
+            Container.Resolve<ILoggerService<App>>());
+        var externalMenus = runtimePlugins
+            .Where(plugin => plugin.Module is not null)
+            .SelectMany(plugin => plugin.Module!.CreateMenuItems())
+            .OrderBy(menu => menu.Order)
+            .ToList();
+
         _mainWindow = Container.Resolve<MainWindow>();
+        _mainWindow.DataContext = new MainWindowViewModel(
+            Container.Resolve<ILoggerService<MainWindowViewModel>>(),
+            appSettings,
+            Container.Resolve<ITodoRepository>(),
+            Container.Resolve<DrugImportViewModel>(),
+            externalMenus,
+            runtimePlugins);
         return _mainWindow;
     }
 
@@ -61,6 +83,14 @@ public partial class App : PrismApplication
         });
         containerRegistry.RegisterSingleton<ISupabaseService, SupabaseService>();
         containerRegistry.RegisterSingleton<ITodoRepository, SupabaseTodoRepository>();
+        containerRegistry.RegisterSingleton<PluginCatalogService>();
+        containerRegistry.RegisterSingleton<PluginLoaderService>();
+        containerRegistry.RegisterSingleton<IDrugExcelImportService, DrugExcelImportService>();
+        containerRegistry.RegisterSingleton<IDrugImportRepository, DrugImportRepository>();
+        containerRegistry.RegisterSingleton<IDrugCatalogSyncRepository, DrugImportRepository>();
+        containerRegistry.RegisterSingleton<IDrugImportPipelineService, DrugImportPipelineService>();
+        containerRegistry.RegisterSingleton<ISqlServerDrugSyncService, SqlServerDrugSyncService>();
+        containerRegistry.RegisterSingleton<DrugImportViewModel>();
 
         // 注：WebView 服务已移除，将作为可选插件在后续版本提供
 
@@ -69,6 +99,7 @@ public partial class App : PrismApplication
         // 注册 Views 和 ViewModels
         containerRegistry.RegisterForNavigation<MainWindow, MainWindowViewModel>();
         containerRegistry.RegisterForNavigation<SettingsView, SettingsViewModel>();
+        containerRegistry.RegisterForNavigation<DrugImportView, DrugImportViewModel>();
     }
 
     private void RegisterConfiguration(IContainerRegistry containerRegistry)
@@ -256,5 +287,47 @@ public partial class App : PrismApplication
         {
             BindingPlugins.DataValidators.Remove(plugin);
         }
+    }
+
+    public static IReadOnlyList<LoadedPlugin> LoadRuntimePlugins(
+        string appBaseDirectory,
+        IOptions<AppSettings> appSettings,
+        PluginCatalogService catalogService,
+        PluginLoaderService loaderService,
+        ILoggerService<App> logger)
+    {
+        var pluginRoot = Path.Combine(appBaseDirectory, appSettings.Value.Plugin.PluginDirectory);
+        var discoveredPlugins = catalogService.DiscoverManifests(pluginRoot);
+        var hostVersion = typeof(App).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
+        var loadedPlugins = new List<LoadedPlugin>();
+
+        foreach (var plugin in discoveredPlugins)
+        {
+            var loadedPlugin = loaderService.LoadPlugin(plugin, hostVersion);
+            if (loadedPlugin.Module is null)
+            {
+                logger.LogWarning("插件加载失败: {PluginId} - {Error}", loadedPlugin.Manifest.Id, loadedPlugin.ErrorMessage);
+                loadedPlugins.Add(loadedPlugin);
+                continue;
+            }
+
+            try
+            {
+                loadedPlugin.Module.Initialize(new PluginHostContext(
+                    hostVersion,
+                    loadedPlugin.PluginDirectory,
+                    message => logger.LogInformation("[{PluginId}] {Message}", loadedPlugin.Manifest.Id, message)));
+            }
+            catch (Exception ex)
+            {
+                loadedPlugin.ErrorMessage = ex.Message;
+                loadedPlugin.Module = null;
+                logger.LogError(ex, "插件初始化失败: {PluginId}", loadedPlugin.Manifest.Id);
+            }
+
+            loadedPlugins.Add(loadedPlugin);
+        }
+
+        return loadedPlugins;
     }
 }

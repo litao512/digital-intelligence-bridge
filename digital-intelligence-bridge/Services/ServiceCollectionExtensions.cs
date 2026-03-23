@@ -1,6 +1,7 @@
 using System;
 using System.Net.Http;
 using DigitalIntelligenceBridge.Configuration;
+using DigitalIntelligenceBridge.Plugin.Host;
 using DigitalIntelligenceBridge.ViewModels;
 using DigitalIntelligenceBridge.Views;
 using Microsoft.Extensions.DependencyInjection;
@@ -45,6 +46,14 @@ public static class ServiceCollectionExtensions
         });
         services.AddSingleton<ISupabaseService, SupabaseService>();
         services.AddSingleton<ITodoRepository, SupabaseTodoRepository>();
+        services.AddSingleton<PluginCatalogService>();
+        services.AddSingleton<PluginLoaderService>();
+        services.AddSingleton<IDrugExcelImportService, DrugExcelImportService>();
+        services.AddSingleton<DrugImportRepository>();
+        services.AddSingleton<IDrugImportRepository>(provider => provider.GetRequiredService<DrugImportRepository>());
+        services.AddSingleton<IDrugCatalogSyncRepository>(provider => provider.GetRequiredService<DrugImportRepository>());
+        services.AddSingleton<IDrugImportPipelineService, DrugImportPipelineService>();
+        services.AddSingleton<ISqlServerDrugSyncService, SqlServerDrugSyncService>();
 
         // 注：WebView 服务已移除，将作为可选插件在后续版本提供
 
@@ -59,6 +68,7 @@ public static class ServiceCollectionExtensions
         // 注册主窗口
         services.AddSingleton<MainWindow>();
         services.AddSingleton<MainWindowViewModel>();
+        services.AddSingleton<DrugImportViewModel>();
 
         return services;
     }

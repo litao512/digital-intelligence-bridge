@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="DryIoc.dll" Version="5.4.3" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
@@ -21,5 +22,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\digital-intelligence-bridge\digital-intelligence-bridge.csproj" />
+    <ProjectReference Include="..\DigitalIntelligenceBridge.Plugin.Abstractions\DigitalIntelligenceBridge.Plugin.Abstractions.csproj" />
+    <ProjectReference Include="..\DigitalIntelligenceBridge.Plugin.Host\DigitalIntelligenceBridge.Plugin.Host.csproj" />
+    <ProjectReference Include="..\plugins-src\MedicalDrugImport.Plugin\MedicalDrugImport.Plugin.csproj" />
   </ItemGroup>
 </Project>

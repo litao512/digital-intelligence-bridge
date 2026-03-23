@@ -111,7 +111,7 @@
                                            HorizontalContentAlignment="Left"
                                            Opacity="{Binding IsInstalled, Converter={StaticResource BoolToOpacityConverter}}"
                                            Command="{Binding #Root.((vm:MainWindowViewModel)DataContext).NavigateCommand}"
-                                           CommandParameter="{Binding ViewType}">
+                                           CommandParameter="{Binding TargetKey}">
                                         <StackPanel Orientation="Horizontal" Spacing="10">
                                             <TextBlock Text="{Binding Icon}"/>
                                             <TextBlock Text="{Binding Name}"/>
@@ -188,6 +188,17 @@
                             <!-- 待办事项视图 -->
                             <Grid IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=Todo}">
                                 <views:TodoView DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" />
+                            </Grid>
+
+                            <!-- 医保药品导入视图 -->
+                            <Border IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=DrugImport}"
+                                    Classes="Card">
+                                <views:DrugImportView DataContext="{Binding #Root.DataContext.DrugImportToolViewModel}" />
+                            </Border>
+
+                            <!-- 外部插件宿主视图 -->
+                            <Grid IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=PluginHost}">
+                                <views:PluginHostView DataContext="{Binding Content}" />
                             </Grid>
 
 
