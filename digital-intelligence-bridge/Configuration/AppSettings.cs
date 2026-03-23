@@ -138,5 +138,6 @@ public class SqlServerConnectionConfig
     public string Database { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
+    public bool Encrypt { get; set; } = true;
     public bool TrustServerCertificate { get; set; } = true;
 }

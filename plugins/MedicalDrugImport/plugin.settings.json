@@ -1,0 +1,22 @@
+{
+  "Excel": {
+    "RequiredSheets": [
+      "总表（270419）",
+      "新增（559）",
+      "变更（449）",
+      "关联关系表"
+    ]
+  },
+  "Postgres": {
+    "ConnectionString": ""
+  },
+  "SqlServer": {
+    "ConnectionString": "",
+    "EnableWrites": false
+  },
+  "Import": {
+    "BatchSize": 50,
+    "MaxSyncRowsPerRun": 50,
+    "AllowUnsafeFullSync": false
+  }
+}

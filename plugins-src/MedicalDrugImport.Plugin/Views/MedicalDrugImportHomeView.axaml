@@ -1,0 +1,62 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:MedicalDrugImport.Plugin.ViewModels"
+             mc:Ignorable="d"
+             d:DesignWidth="720"
+             d:DesignHeight="480"
+             x:Class="MedicalDrugImport.Plugin.Views.MedicalDrugImportHomeView"
+             x:DataType="vm:DrugImportPluginViewModel">
+
+    <ScrollViewer>
+        <StackPanel Margin="18" Spacing="16">
+            <Border Padding="18">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="医保药品导入插件"
+                               FontSize="24"
+                               FontWeight="Bold"/>
+                    <TextBlock Text="当前为外部插件工具页骨架，后续将在此接入 Excel 预检、PostgreSQL 导入和 SQL Server 同步。"
+                               TextWrapping="Wrap"
+                               FontSize="12"/>
+                </StackPanel>
+            </Border>
+
+            <Border Padding="15">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="文件路径"
+                               FontSize="16"
+                               FontWeight="SemiBold"/>
+                    <TextBox Text="{Binding SelectedFilePath}" Watermark="请输入或粘贴 Excel 文件路径"/>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="预检" Click="OnValidateClick"/>
+                        <Button Content="导入入库" Click="OnImportClick"/>
+                        <Button Content="同步预检" Click="OnPreviewSyncClick"/>
+                        <Button Content="同步 SQL Server" Click="OnSyncClick" IsEnabled="{Binding CanSyncToSqlServer}"/>
+                        <Button Content="重试同步" Click="OnRetrySyncClick" IsEnabled="{Binding CanSyncToSqlServer}"/>
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding PreviewSummary}"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding ImportResult}"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding RawCount, StringFormat='原始行数: {0}'}"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding CleanCount, StringFormat='清洗成功: {0}'}"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding ErrorCount, StringFormat='错误行数: {0}'}"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding SyncGuardSummary}"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding SyncPreviewSummary}"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding SyncResult}"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding ErrorMessage}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

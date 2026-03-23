@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace DigitalIntelligenceBridge.Configuration;
@@ -70,6 +71,7 @@ public static class ConfigurationExtensions
             .AddJsonFile(userConfigPath, optional: true, reloadOnChange: true)
             .AddJsonFile(runtimeConfigPath, optional: true, reloadOnChange: true)
             .AddEnvironmentVariables()
+            .AddInMemoryCollection(GetLegacySqlServerEnvironmentOverrides())
             .Build();
 
         services.AddSingleton<IConfiguration>(configuration);
@@ -81,6 +83,36 @@ public static class ConfigurationExtensions
         });
 
         return services;
+    }
+
+    private static Dictionary<string, string?> GetLegacySqlServerEnvironmentOverrides()
+    {
+        var overrides = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+
+        MapLegacyEnv(overrides, "MSSQL_DB_SERVER", "MedicalDrugImport:SqlServer:Host");
+        MapLegacyEnv(overrides, "MSSQL_DB_PORT", "MedicalDrugImport:SqlServer:Port");
+        MapLegacyEnv(overrides, "MSSQL_DB_NAME", "MedicalDrugImport:SqlServer:Database");
+        MapLegacyEnv(overrides, "MSSQL_DB_USER", "MedicalDrugImport:SqlServer:Username");
+        MapLegacyEnv(overrides, "MSSQL_DB_PASSWORD", "MedicalDrugImport:SqlServer:Password");
+        MapLegacyEnv(overrides, "MSSQL_DB_ENCRYPT", "MedicalDrugImport:SqlServer:Encrypt");
+        MapLegacyEnv(
+            overrides,
+            "MSSQL_DB_TRUST_SERVER_CERTIFICATE",
+            "MedicalDrugImport:SqlServer:TrustServerCertificate");
+
+        return overrides;
+    }
+
+    private static void MapLegacyEnv(
+        IDictionary<string, string?> overrides,
+        string legacyName,
+        string configKey)
+    {
+        var value = Environment.GetEnvironmentVariable(legacyName);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            overrides[configKey] = value;
+        }
     }
 
     /// <summary>

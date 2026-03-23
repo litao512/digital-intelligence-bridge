@@ -1,0 +1,85 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DigitalIntelligenceBridge.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignWidth="760"
+             d:DesignHeight="560"
+             x:Class="DigitalIntelligenceBridge.Views.DrugImportView"
+             x:DataType="vm:DrugImportViewModel">
+
+    <ScrollViewer>
+        <StackPanel Margin="18" Spacing="16">
+            <Border Classes="Card" Padding="18">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="医保药品导入同步工具" FontSize="24" FontWeight="Bold"/>
+                    <TextBlock Text="执行固定模板 Excel 预检、PostgreSQL 导入和 SQL Server 同步"
+                               FontSize="12"
+                               Foreground="{StaticResource TextMutedBrush}"/>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="Card" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="15">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="文件路径" FontSize="16" FontWeight="SemiBold"/>
+                    <TextBox Text="{Binding SelectedFilePath}" Watermark="请输入或粘贴 Excel 文件路径"/>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="预检"
+                                Command="{Binding ValidateCommand}"
+                                Classes="Primary"/>
+                        <Button Content="导入入库"
+                                Command="{Binding ImportCommand}"
+                                Classes="Secondary"/>
+                        <Button Content="同步 SQL Server"
+                                Command="{Binding SyncCommand}"
+                                Classes="Secondary"/>
+                        <Button Content="重试同步"
+                                Command="{Binding RetrySyncCommand}"
+                                Classes="Tertiary"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="Card" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="15">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="预检结果" FontSize="16" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding PreviewSummary}" />
+                    <ItemsControl ItemsSource="{Binding SheetRowCounts}" />
+                </StackPanel>
+            </Border>
+
+            <Border Classes="Card" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="15">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="最近批次" FontSize="16" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding LastBatchIdText, StringFormat='批次 ID: {0}'}"/>
+                    <TextBlock Text="{Binding LastBatchSummary}" TextWrapping="Wrap"/>
+                    <TextBlock Text="同步失败后可直接重试，不会重新解析 Excel。"
+                               FontSize="11"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <Border Classes="Card" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="15">
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+                    <StackPanel Grid.Column="0" Spacing="6">
+                        <TextBlock Text="导入摘要" FontSize="16" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding BatchResult, StringFormat='结果: {0}'}"/>
+                        <TextBlock Text="{Binding RawCount, StringFormat='Raw: {0}'}"/>
+                        <TextBlock Text="{Binding CleanCount, StringFormat='Clean: {0}'}"/>
+                        <TextBlock Text="{Binding ErrorCount, StringFormat='Error: {0}'}"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Spacing="6">
+                        <TextBlock Text="同步摘要" FontSize="16" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding SyncResult, StringFormat='结果: {0}'}"/>
+                        <TextBlock Text="{Binding SyncUpdateCount, StringFormat='更新: {0}'}"/>
+                        <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap" Foreground="{StaticResource ErrorBrush}"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

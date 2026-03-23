@@ -14,6 +14,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\DigitalIntelligenceBridge.Plugin.Abstractions\DigitalIntelligenceBridge.Plugin.Abstractions.csproj" />
+    <ProjectReference Include="..\DigitalIntelligenceBridge.Plugin.Host\DigitalIntelligenceBridge.Plugin.Host.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.3.12" />
     <PackageReference Include="Avalonia.Desktop" Version="11.3.12" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.12" />
