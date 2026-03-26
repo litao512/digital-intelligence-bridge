@@ -28,3 +28,5 @@ digital-intelligence-bridge/nul
 .appdata/
 .nuget/
 .worktrees/
+.tmp/
+NuGet.Config
