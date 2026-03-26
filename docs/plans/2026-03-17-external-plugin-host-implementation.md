@@ -1,6 +1,6 @@
 # 外部插件宿主化改造实施计划
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **说明：** 需要按 `superpowers:executing-plans` 技能逐任务执行。
 
 **Goal:** 为当前 Avalonia 桌面应用建立第一版外部插件宿主能力，支持独立 DLL 插件发现、清单读取、菜单接入与页面承载，并以“医保药品导入”作为第一个外部插件样例。
 
@@ -32,7 +32,7 @@
 - `PluginManifest` 包含 `Id/Name/Version/EntryAssembly/EntryType/MinHostVersion`
 - `PluginMenuItem` 包含 `Id/Name/Icon/Order`
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter PluginAbstractionsContractTests`
 Expected: FAIL，提示契约项目或类型不存在
@@ -43,7 +43,7 @@ Expected: FAIL，提示契约项目或类型不存在
 - 仅放第一版最小宿主契约
 - 不放数据库、容器、Prism 特定类型
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter PluginAbstractionsContractTests`
 Expected: PASS
@@ -75,7 +75,7 @@ git commit -m "feat: add plugin abstractions project"
 - 清单缺关键字段时标记无效
 - 可返回规范化的插件清单集合
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter PluginCatalogServiceTests`
 Expected: FAIL
@@ -86,7 +86,7 @@ Expected: FAIL
 - 先只实现目录扫描与清单解析
 - `PluginLoaderService` 先保留最小入口，不急着做复杂错误边界
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter PluginCatalogServiceTests`
 Expected: PASS
@@ -114,7 +114,7 @@ git commit -m "feat: add plugin host catalog services"
 - 插件入口类型不实现契约时拒绝加载
 - 加载失败时返回可记录的错误结果，而不是直接抛到 UI
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter PluginLoaderServiceTests`
 Expected: FAIL
@@ -126,7 +126,7 @@ Expected: FAIL
 - 验证其实现了 `IPluginModule`
 - 返回 `LoadedPlugin`，包含清单、实例、目录和错误信息
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter PluginLoaderServiceTests`
 Expected: PASS
@@ -154,7 +154,7 @@ git commit -m "feat: implement plugin assembly loading"
 - 能提供基础日志入口
 - 不暴露主程序容器、主窗口或 ViewModel
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter PluginHostContextTests`
 Expected: FAIL
@@ -165,7 +165,7 @@ Expected: FAIL
 - 由宿主项目实现 `PluginHostContext`
 - 宿主只向插件暴露必要信息，不暴露 DryIoc/Prism
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter PluginHostContextTests`
 Expected: PASS
@@ -193,7 +193,7 @@ git commit -m "feat: add plugin host context"
 - 容器中可解析 `PluginCatalogService`、`PluginLoaderService`
 - 宿主启动时能够创建插件上下文服务
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter AppPluginRegistrationTests`
 Expected: FAIL
@@ -204,7 +204,7 @@ Expected: FAIL
 - 在 `App.axaml.cs` 和 `ServiceCollectionExtensions.cs` 注册插件宿主服务
 - 不在这一步耦合菜单或 UI
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter AppPluginRegistrationTests`
 Expected: PASS
@@ -231,7 +231,7 @@ git commit -m "feat: register plugin host services"
 - 插件菜单不再复用“已安装外部业务插件”那套模糊语义
 - 内置模块与外部插件菜单可同时存在
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MainWindowPluginNavigationTests`
 Expected: FAIL
@@ -244,7 +244,7 @@ Expected: FAIL
 - 新增插件菜单专用的 `MainViewType` 或 `TabType` 承载标识
 - 保持原“医保药品导入”内置模块逻辑不再继续扩散
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MainWindowPluginNavigationTests`
 Expected: PASS
@@ -274,7 +274,7 @@ git commit -m "feat: add plugin menu injection to main window"
 - 宿主视图能显示插件返回的 `Control`
 - 插件页面创建失败时显示错误占位，而不是主窗口崩溃
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter PluginHostViewTests`
 Expected: FAIL
@@ -286,7 +286,7 @@ Expected: FAIL
 - 在 `MainWindow.axaml` 的 Tab 内容模板中加入插件承载分支
 - 先只支持单页面插件内容，不做复杂页面路由
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter PluginHostViewTests`
 Expected: PASS
@@ -316,7 +316,7 @@ git commit -m "feat: add plugin host view"
 - `plugin.json` 与入口程序集、入口类型一致
 - 插件至少返回一个菜单项和一个简单页面
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MedicalDrugImportPluginContractTests`
 Expected: FAIL
@@ -327,7 +327,7 @@ Expected: FAIL
 - 页面只显示“医保药品导入插件加载成功”
 - 先不接 Excel、数据库、同步功能
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MedicalDrugImportPluginContractTests`
 Expected: PASS
@@ -355,7 +355,7 @@ git commit -m "feat: add external medical drug import plugin skeleton"
 - 宿主能用运行时目录加载示例插件
 - 插件目录缺文件时给出明确错误
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter PluginRuntimeDiscoveryTests`
 Expected: FAIL
@@ -366,7 +366,7 @@ Expected: FAIL
 - 增加最小发布步骤或复制步骤
 - README 补充插件目录规范和手工发布方式
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter PluginRuntimeDiscoveryTests`
 Expected: PASS
@@ -395,7 +395,7 @@ git commit -m "feat: publish sample plugin to runtime directory"
 - 点击菜单能打开插件页面
 - 插件页面失败时不影响 Home/Todo/Settings
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter PluginEndToEndNavigationTests`
 Expected: FAIL
@@ -407,7 +407,7 @@ Expected: FAIL
 - 点击插件菜单时创建 `PluginHostViewModel`
 - 插件页面成功打开
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter PluginEndToEndNavigationTests`
 Expected: PASS
@@ -436,7 +436,7 @@ git commit -m "feat: wire external plugin into app navigation"
 - 插件页面创建异常时显示错误视图
 - 单个插件失败不影响其他插件显示
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter PluginFailureHandlingTests`
 Expected: FAIL
@@ -447,7 +447,7 @@ Expected: FAIL
 - 增加加载失败状态与错误信息
 - 插件页面错误时回退到错误展示控件
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter PluginFailureHandlingTests`
 Expected: PASS
@@ -470,7 +470,7 @@ git commit -m "feat: add plugin failure boundaries"
 
 无自动化测试；改为整理人工验收清单。
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 无
 
@@ -484,7 +484,7 @@ git commit -m "feat: add plugin failure boundaries"
 - 插件失败时的表现
 - 下一阶段再迁移医保导入业务链路
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-doc-lang.ps1`
 Expected: PASS
@@ -509,7 +509,7 @@ git commit -m "docs: add external plugin host plan"
 
 无新增测试代码，执行完整回归。
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet build digital-intelligence-bridge/digital-intelligence-bridge.csproj -c Debug`
 Expected: 若有项目引用、加载、UI 绑定问题则失败
@@ -523,7 +523,7 @@ Expected: 若有项目引用、加载、UI 绑定问题则失败
 - 页面承载绑定错误
 - 插件菜单注入异常
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet build digital-intelligence-bridge/digital-intelligence-bridge.csproj -c Debug -p:UseSharedCompilation=false`
 Expected: PASS
@@ -568,3 +568,5 @@ git commit -m "feat: add first external plugin host pipeline"
 
 - 把 Excel 导入、PostgreSQL 入库、SQL Server 同步逐步迁入 `MedicalDrugImport.Plugin`
 - 为插件补充数据库连接工厂、配置读取和日志封装
+
+

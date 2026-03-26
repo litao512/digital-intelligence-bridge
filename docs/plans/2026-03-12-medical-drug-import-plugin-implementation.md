@@ -1,6 +1,6 @@
-# Medical Drug Import Plugin Implementation Plan
+# 医保药品导入插件实施计划
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **说明：** 需要按 `superpowers:executing-plans` 技能逐任务执行。
 
 **Goal:** 在当前 Avalonia 桌面应用中实现“医保药品导入同步工具”模块，支持固定模板 Excel 预检、导入 PostgreSQL、手工同步 SQL Server，并展示批次结果。
 
@@ -26,7 +26,7 @@
 - SQL Server 连接参数
 - 插件页开关或工具模块配置
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter ConfigurationExtensionsTests`
 Expected: FAIL，提示新增配置字段不存在或绑定为空
@@ -39,7 +39,7 @@ Expected: FAIL，提示新增配置字段不存在或绑定为空
   - `Npgsql`
   - `Microsoft.Data.SqlClient`
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter ConfigurationExtensionsTests`
 Expected: PASS
@@ -71,7 +71,7 @@ git commit -m "feat: add medical drug import configuration"
 - 错误消息
 - 统计摘要
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter ApplicationServiceTests`
 Expected: FAIL，提示相关类型不存在
@@ -80,7 +80,7 @@ Expected: FAIL，提示相关类型不存在
 
 创建导入批次、导入行、预检结果等模型，字段命名与后续数据库落点保持一致。
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter ApplicationServiceTests`
 Expected: PASS
@@ -108,7 +108,7 @@ git commit -m "feat: add drug import models"
 
 并能表达固定 sheet 与表头规则。
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MainWindowViewModelTests`
 Expected: FAIL，提示接口或模板类型不存在
@@ -119,7 +119,7 @@ Expected: FAIL，提示接口或模板类型不存在
 - 新增固定模板定义
 - 将 4 个工作表和预期列名固化到模板中
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MainWindowViewModelTests`
 Expected: PASS
@@ -147,7 +147,7 @@ git commit -m "feat: define drug excel import contract"
 - 正常文件可返回各 sheet 统计
 - 空行不会计入有效行数
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter DrugExcelImportServiceTests`
 Expected: FAIL，提示服务未实现
@@ -160,7 +160,7 @@ Expected: FAIL，提示服务未实现
 - 预检阶段只取表头和有效行计数
 - 不引入整表内存加载
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter DrugExcelImportServiceTests`
 Expected: PASS
@@ -190,7 +190,7 @@ git commit -m "feat: implement streaming excel validation"
 - 合并业务表
 - 查询批次影响记录
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter SupabaseServiceTests`
 Expected: FAIL，提示接口不存在
@@ -199,7 +199,7 @@ Expected: FAIL，提示接口不存在
 
 新增仓储接口，方法名直接围绕 `batch_id` 和现有表结构设计。
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter SupabaseServiceTests`
 Expected: PASS
@@ -226,7 +226,7 @@ git commit -m "feat: define drug import repository contracts"
 - error 写入包含错误码与消息
 - 合并阶段按 `drug_code` 执行 upsert
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter DrugImportRepositoryTests`
 Expected: FAIL
@@ -235,7 +235,7 @@ Expected: FAIL
 
 使用 `Npgsql` 实现仓储，并将 SQL 拼装与参数化执行封装到仓储层。
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter DrugImportRepositoryTests`
 Expected: PASS
@@ -264,7 +264,7 @@ git commit -m "feat: implement postgres drug import repository"
 - 导入结束后调用合并逻辑
 - 统计新增、更新、错误数量
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter DrugImportPipelineServiceTests`
 Expected: FAIL
@@ -278,7 +278,7 @@ Expected: FAIL
 - 调用仓储落 raw/clean/error
 - 最后执行业务表合并
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter DrugImportPipelineServiceTests`
 Expected: PASS
@@ -306,7 +306,7 @@ git commit -m "feat: add drug import pipeline service"
 - Excel 未提供值时不会无脑清空目标表已有值
 - 同步完成后写 `dbo.yb_同步记录`
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter SqlServerDrugSyncServiceTests`
 Expected: FAIL
@@ -320,7 +320,7 @@ Expected: FAIL
 - 同步摘要写入
 - 失败信息透出
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter SqlServerDrugSyncServiceTests`
 Expected: PASS
@@ -349,7 +349,7 @@ git commit -m "feat: add sql server drug sync service"
 - 执行期间按钮禁用
 - 错误信息和统计可正确更新
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter DrugImportViewModelTests`
 Expected: FAIL
@@ -358,7 +358,7 @@ Expected: FAIL
 
 新增独立 ViewModel，不把导入细节塞进现有 `MainWindowViewModel`。
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter DrugImportViewModelTests`
 Expected: PASS
@@ -385,7 +385,7 @@ git commit -m "feat: add drug import view model"
 - 能被定位器解析
 - 不影响现有页面切换
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MainWindowViewModelTests`
 Expected: FAIL
@@ -400,7 +400,7 @@ Expected: FAIL
 - 批次统计
 - 错误样例
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MainWindowViewModelTests`
 Expected: PASS
@@ -428,7 +428,7 @@ git commit -m "feat: add drug import view"
 - 新页面可打开并进入 Tab
 - 不破坏现有 Home/Todo/Settings
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MainWindowViewModelTests`
 Expected: FAIL
@@ -437,7 +437,7 @@ Expected: FAIL
 
 在主导航中新增“医保药品导入同步工具”入口，并为页面分配新的视图类型或工具页类型。
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MainWindowViewModelTests`
 Expected: PASS
@@ -464,7 +464,7 @@ git commit -m "feat: wire drug import tool into navigation"
 - SQL Server 同步失败后可对同一 `batch_id` 重试
 - 重试不会重新解析 Excel
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter DrugImportViewModelTests`
 Expected: FAIL
@@ -473,7 +473,7 @@ Expected: FAIL
 
 在 ViewModel 中增加最近批次上下文和“重试同步”命令。
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter DrugImportViewModelTests`
 Expected: PASS
@@ -495,7 +495,7 @@ git commit -m "feat: add drug import sync retry"
 
 无自动化测试；改为定义手工验证清单。
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 无
 
@@ -508,7 +508,7 @@ git commit -m "feat: add drug import sync retry"
 - SQL Server 配置要求
 - 重试同步说明
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 手工检查文档与实际实现一致。
 
@@ -529,7 +529,7 @@ git commit -m "docs: add drug import usage notes"
 
 无新增测试代码，执行完整回归。
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet build digital-intelligence-bridge/digital-intelligence-bridge.csproj -c Debug`
 Expected: 若有编译问题则失败
@@ -538,7 +538,7 @@ Expected: 若有编译问题则失败
 
 修复编译错误、绑定错误、注册遗漏和命令状态问题。
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet build digital-intelligence-bridge/digital-intelligence-bridge.csproj -c Debug`
 Expected: PASS
@@ -555,3 +555,5 @@ Expected: PASS
 git add .
 git commit -m "feat: complete medical drug import tool"
 ```
+
+

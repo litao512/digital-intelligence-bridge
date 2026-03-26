@@ -1,6 +1,6 @@
 # 医保药品导入插件外部化实施计划
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **说明：** 需要按 `superpowers:executing-plans` 技能逐任务执行。
 
 **Goal:** 将 `MedicalDrugImport.Plugin` 从样例插件扩展为具备独立配置、Excel 预检、PostgreSQL 导入和 SQL Server 同步能力的真实外部插件。
 
@@ -28,7 +28,7 @@
 - 环境变量能覆盖插件配置
 - 缺少配置文件时仍能返回默认配置对象
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MedicalDrugImportPluginConfigurationTests`
 Expected: FAIL
@@ -40,7 +40,7 @@ Expected: FAIL
 - 约定环境变量前缀 `MEDICAL_DRUG_IMPORT__`
 - 将 `plugin.settings.json` 复制到输出目录
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MedicalDrugImportPluginConfigurationTests`
 Expected: PASS
@@ -69,7 +69,7 @@ git commit -m "feat: add plugin-local configuration system"
 - 插件入口返回的页面不再是纯样例文本页
 - 页面加载不依赖宿主 ViewModel
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MedicalDrugImportPluginViewTests`
 Expected: FAIL
@@ -80,7 +80,7 @@ Expected: FAIL
 - 将样例页面改为真实工具页骨架
 - 插件返回该工具页
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MedicalDrugImportPluginViewTests`
 Expected: PASS
@@ -110,7 +110,7 @@ git commit -m "feat: replace sample plugin page with tool shell"
 - 插件能完成流式预检与行数统计
 - 插件 ViewModel 能展示预检摘要
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MedicalDrugImportPluginExcelTests`
 Expected: FAIL
@@ -121,7 +121,7 @@ Expected: FAIL
 - 保持低内存流式实现
 - 接入插件 ViewModel 的预检命令
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MedicalDrugImportPluginExcelTests`
 Expected: PASS
@@ -152,7 +152,7 @@ git commit -m "feat: move excel validation into plugin"
 - 可写入 `raw / clean / error`
 - 可执行批次合并并返回摘要
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MedicalDrugImportPluginPostgresTests`
 Expected: FAIL
@@ -163,7 +163,7 @@ Expected: FAIL
 - 插件从 `plugin.settings.json` / 环境变量读取 PostgreSQL 连接串
 - 接入插件 ViewModel 的“导入入库”
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MedicalDrugImportPluginPostgresTests`
 Expected: PASS
@@ -193,7 +193,7 @@ git commit -m "feat: move postgres import pipeline into plugin"
 - 可记录同步摘要
 - 同步失败时插件页展示错误而宿主不崩
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MedicalDrugImportPluginSqlServerTests`
 Expected: FAIL
@@ -204,7 +204,7 @@ Expected: FAIL
 - 插件从自身配置读取 SQL Server 连接串
 - 接入插件 ViewModel 的同步与重试同步命令
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter MedicalDrugImportPluginSqlServerTests`
 Expected: PASS
@@ -233,7 +233,7 @@ git commit -m "feat: move sql server sync into plugin"
 - 发布后的插件仍可被宿主发现
 - 插件目录缺少配置文件时仍能加载默认配置
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter PluginRuntimeDiscoveryTests`
 Expected: FAIL
@@ -244,7 +244,7 @@ Expected: FAIL
 - 更新 README 中的发布与配置说明
 - 同步设计文档中的已实现状态
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug --filter PluginRuntimeDiscoveryTests`
 Expected: PASS
@@ -268,7 +268,7 @@ git commit -m "docs: update plugin runtime packaging guidance"
 
 无新增测试代码，执行完整回归。
 
-**Step 2: Run test to verify it fails**
+**步骤 2：运行测试并确认先失败**
 
 Run: `dotnet build digital-intelligence-bridge/digital-intelligence-bridge.csproj -c Debug -p:UseSharedCompilation=false`
 Expected: 若插件依赖、配置、页面绑定存在问题则失败
@@ -282,7 +282,7 @@ Expected: 若插件依赖、配置、页面绑定存在问题则失败
 - PostgreSQL / SQL Server 配置读取错误
 - 运行时插件发布遗漏
 
-**Step 4: Run test to verify it passes**
+**步骤 4：运行测试并确认通过**
 
 Run: `dotnet build digital-intelligence-bridge/digital-intelligence-bridge.csproj -c Debug -p:UseSharedCompilation=false`
 Expected: PASS
@@ -302,3 +302,5 @@ Expected: PASS
 git add .
 git commit -m "feat: externalize medical drug import business plugin"
 ```
+
+
