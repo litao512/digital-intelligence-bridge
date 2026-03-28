@@ -1,0 +1,23 @@
+{
+  "Postgres": {
+    "ConnectionString": ""
+  },
+  "Registration": {
+    "EnableDirectPrint": true,
+    "RequireEmptyDiagnosticConfirmation": true,
+    "PrintTemplate": {
+      "HospitalName": "门诊",
+      "LogoPath": "",
+      "PaperWidthMm": 80,
+      "QrSizeMm": 46,
+      "TitleFontSizePx": 18,
+      "BodyFontSizePx": 12,
+      "ShowIdType": true,
+      "ShowNotes": true,
+      "TicketTitle": "门诊就诊身份码",
+      "TicketSubtitle": "用于接诊、巡视、完成等身份确认",
+      "FooterTip": "请妥善保管本单据",
+      "DiagnosticHint": "若系统未预填诊疗信息，医生扫码后可现场新增治疗项目。"
+    }
+  }
+}

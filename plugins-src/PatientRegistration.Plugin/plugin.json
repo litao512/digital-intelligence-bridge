@@ -1,0 +1,8 @@
+{
+  "id": "patient-registration",
+  "name": "就诊登记",
+  "version": "0.1.0",
+  "entryAssembly": "PatientRegistration.Plugin.dll",
+  "entryType": "PatientRegistration.Plugin.PatientRegistrationPlugin",
+  "minHostVersion": "1.0.0"
+}

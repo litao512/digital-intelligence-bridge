@@ -25,5 +25,6 @@
     <ProjectReference Include="..\DigitalIntelligenceBridge.Plugin.Abstractions\DigitalIntelligenceBridge.Plugin.Abstractions.csproj" />
     <ProjectReference Include="..\DigitalIntelligenceBridge.Plugin.Host\DigitalIntelligenceBridge.Plugin.Host.csproj" />
     <ProjectReference Include="..\plugins-src\MedicalDrugImport.Plugin\MedicalDrugImport.Plugin.csproj" />
+    <ProjectReference Include="..\plugins-src\PatientRegistration.Plugin\PatientRegistration.Plugin.csproj" />
   </ItemGroup>
 </Project>
