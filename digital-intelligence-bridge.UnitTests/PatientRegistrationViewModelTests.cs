@@ -18,11 +18,41 @@ public class PatientRegistrationViewModelTests
 
         Assert.False(result);
         Assert.Contains("基础信息", viewModel.StatusMessage, StringComparison.Ordinal);
+        Assert.Equal("姓名不能为空", viewModel.PatientNameError);
+        Assert.Equal("证件号不能为空", viewModel.IdNumberError);
+        Assert.Equal("出生日期不能为空", viewModel.BirthDateError);
         Assert.False(repository.SaveCalled);
     }
 
     [Fact]
-    public async Task SaveAsync_ShouldBlock_WhenDiagnosticInfoEmptyWithoutConfirmation()
+    public void CanSubmit_ShouldRemainTrue_WhenNotSavingEvenIfRequiredFieldsMissing()
+    {
+        var repository = new FakeRepository();
+        var printer = new FakePrinter();
+        var viewModel = new PatientRegistrationViewModel(repository, printer);
+
+        Assert.True(viewModel.CanSubmit);
+    }
+
+    [Fact]
+    public void IdCardInput_ShouldAutoFillBirthDateAndGender_WhenValid()
+    {
+        var repository = new FakeRepository();
+        var printer = new FakePrinter();
+        var viewModel = new PatientRegistrationViewModel(repository, printer)
+        {
+            IdType = "id_card"
+        };
+
+        viewModel.IdNumber = "110105199002142428";
+
+        Assert.Equal("female", viewModel.Gender);
+        Assert.NotNull(viewModel.BirthDate);
+        Assert.Equal(new DateTime(1990, 2, 14), viewModel.BirthDate!.Value.DateTime.Date);
+    }
+
+    [Fact]
+    public async Task SaveAsync_ShouldAllow_WhenDiagnosticInfoEmptyWithoutConfirmation()
     {
         var repository = new FakeRepository();
         var printer = new FakePrinter();
@@ -36,8 +66,40 @@ public class PatientRegistrationViewModelTests
 
         var result = await viewModel.SaveAsync(printRequested: false);
 
+        Assert.True(result);
+        Assert.True(repository.SaveCalled);
+        Assert.Contains("可在扫码时现场新增诊疗项目", viewModel.StatusMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SaveAsync_ShouldBlock_WhenIdCardNumberInvalid()
+    {
+        var repository = new FakeRepository();
+        var printer = new FakePrinter();
+        var viewModel = BuildValidViewModel(repository, printer);
+        viewModel.IdType = "id_card";
+        viewModel.IdNumber = "123456";
+
+        var result = await viewModel.SaveAsync(printRequested: false);
+
         Assert.False(result);
-        Assert.Contains("未填写诊疗信息", viewModel.StatusMessage, StringComparison.Ordinal);
+        Assert.Contains("身份证号格式不正确", viewModel.StatusMessage, StringComparison.Ordinal);
+        Assert.False(repository.SaveCalled);
+    }
+
+    [Fact]
+    public async Task SaveAsync_ShouldBlock_WhenPassportNumberInvalid()
+    {
+        var repository = new FakeRepository();
+        var printer = new FakePrinter();
+        var viewModel = BuildValidViewModel(repository, printer);
+        viewModel.IdType = "passport";
+        viewModel.IdNumber = "A12";
+
+        var result = await viewModel.SaveAsync(printRequested: false);
+
+        Assert.False(result);
+        Assert.Contains("护照号格式不正确", viewModel.StatusMessage, StringComparison.Ordinal);
         Assert.False(repository.SaveCalled);
     }
 
@@ -55,6 +117,7 @@ public class PatientRegistrationViewModelTests
         Assert.True(printer.PrintCalled);
         Assert.Equal("测试备注", printer.LastPayload?.Notes);
         Assert.Contains("已触发二维码打印", viewModel.StatusMessage, StringComparison.Ordinal);
+        Assert.False(string.IsNullOrWhiteSpace(viewModel.LastSavedRegistrationCode));
     }
 
     [Fact]
@@ -124,6 +187,47 @@ public class PatientRegistrationViewModelTests
     }
 
     [Fact]
+    public async Task SaveForNextAsync_ShouldResetIdentityFields_AndKeepDiagnosticDefaults()
+    {
+        var repository = new FakeRepository();
+        var printer = new FakePrinter();
+        var viewModel = BuildValidViewModel(repository, printer);
+
+        await viewModel.LoadRegistrationOptionsAsync();
+        viewModel.SelectedDepartment = "康复科";
+        viewModel.SelectedDoctorId = "doctor-1";
+        viewModel.VisitTimeRange = "上午";
+        viewModel.Notes = "登记备注";
+
+        var result = await viewModel.SaveForNextAsync(printRequested: false);
+
+        Assert.True(result);
+        Assert.Equal(string.Empty, viewModel.PatientName);
+        Assert.Equal(string.Empty, viewModel.IdNumber);
+        Assert.Null(viewModel.BirthDate);
+        Assert.Equal(string.Empty, viewModel.ContactPhone);
+        Assert.Equal(string.Empty, viewModel.Notes);
+        Assert.Equal("康复科", viewModel.SelectedDepartment);
+        Assert.Equal("doctor-1", viewModel.SelectedDoctorId);
+        Assert.Equal("上午", viewModel.VisitTimeRange);
+        Assert.True(viewModel.ConfirmEmptyDiagnosticInfo);
+    }
+
+    [Fact]
+    public async Task LoadRegistrationOptionsAsync_ShouldFilterDoctorsBySelectedDepartment()
+    {
+        var repository = new FakeRepository();
+        var printer = new FakePrinter();
+        var viewModel = BuildValidViewModel(repository, printer);
+
+        await viewModel.LoadRegistrationOptionsAsync();
+        viewModel.SelectedDepartment = "理疗科";
+
+        Assert.Single(viewModel.FilteredDoctors);
+        Assert.Equal("doctor-2", viewModel.FilteredDoctors[0].Id);
+    }
+
+    [Fact]
     public async Task ApplyRegistrationFilter_ShouldFilterByPatientAndIdSuffix()
     {
         var repository = new FakeRepository();
@@ -148,7 +252,7 @@ public class PatientRegistrationViewModelTests
         {
             PatientName = "测试患者",
             Gender = "female",
-            BirthDate = new DateTime(1990, 1, 1),
+            BirthDate = new DateTimeOffset(new DateTime(1990, 1, 1)),
             IdType = "id_card",
             IdNumber = "510101199001011234",
             ContactPhone = string.Empty,

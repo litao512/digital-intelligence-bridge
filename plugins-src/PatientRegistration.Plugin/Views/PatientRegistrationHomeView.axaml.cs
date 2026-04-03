@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using PatientRegistration.Plugin.ViewModels;
 
@@ -7,6 +8,19 @@ namespace PatientRegistration.Plugin.Views;
 
 public partial class PatientRegistrationHomeView : UserControl
 {
+    private static readonly string[] EnterFocusOrder =
+    [
+        "PatientNameBox",
+        "IdTypeBox",
+        "IdNumberBox",
+        "GenderBox",
+        "BirthDatePicker",
+        "ContactPhoneBox",
+        "DepartmentBox",
+        "DoctorBox",
+        "VisitTimeRangeBox"
+    ];
+
     public PatientRegistrationHomeView()
         : this(new PatientRegistrationViewModel(new DesignTimeRepository(), new DesignTimePrintService()))
     {
@@ -16,6 +30,7 @@ public partial class PatientRegistrationHomeView : UserControl
     {
         DataContext = viewModel;
         InitializeComponent();
+        KeyDown += OnViewKeyDown;
         AttachedToVisualTree += OnAttachedToVisualTree;
     }
 
@@ -44,6 +59,16 @@ public partial class PatientRegistrationHomeView : UserControl
         }
 
         await ViewModel.SaveAsync(printRequested: false);
+    }
+
+    private async void OnSaveAndNextClick(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel is null)
+        {
+            return;
+        }
+
+        await ViewModel.SaveForNextAsync(printRequested: true);
     }
 
     private async void OnRefreshRecordsClick(object? sender, RoutedEventArgs e)
@@ -78,8 +103,82 @@ public partial class PatientRegistrationHomeView : UserControl
             return;
         }
 
+        Focus();
         await ViewModel.LoadRegistrationOptionsAsync();
         await ViewModel.LoadRecentRegistrationsAsync();
+    }
+
+    private async void OnViewKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (ViewModel is null)
+        {
+            return;
+        }
+
+        if (e.Key == Key.Enter && e.KeyModifiers == KeyModifiers.None)
+        {
+            if (e.Source is TextBox textBox && textBox.AcceptsReturn)
+            {
+                return;
+            }
+
+            var focusedElement = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+            if (focusedElement is not Control focusedControl)
+            {
+                return;
+            }
+
+            if (MoveFocusToNextControl(focusedControl))
+            {
+                e.Handled = true;
+            }
+            return;
+        }
+
+        if (e.KeyModifiers != KeyModifiers.Control)
+        {
+            return;
+        }
+
+        if (e.Key == Key.S)
+        {
+            await ViewModel.SaveAsync(printRequested: false);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.P)
+        {
+            await ViewModel.SaveAsync(printRequested: true);
+            e.Handled = true;
+        }
+    }
+
+    private bool MoveFocusToNextControl(Control current)
+    {
+        var currentIndex = Array.FindIndex(EnterFocusOrder, name =>
+        {
+            var control = this.FindControl<Control>(name);
+            return ReferenceEquals(control, current);
+        });
+
+        if (currentIndex < 0)
+        {
+            return false;
+        }
+
+        for (var i = currentIndex + 1; i < EnterFocusOrder.Length; i++)
+        {
+            var next = this.FindControl<Control>(EnterFocusOrder[i]);
+            if (next is null || !next.IsEnabled || !next.IsVisible)
+            {
+                continue;
+            }
+
+            return next.Focus();
+        }
+
+        return false;
     }
 
     private sealed class DesignTimeRepository : Services.IPatientRegistrationRepository

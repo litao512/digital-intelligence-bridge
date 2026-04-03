@@ -6,104 +6,139 @@
              mc:Ignorable="d"
              d:DesignWidth="860"
              d:DesignHeight="620"
+             Focusable="True"
              x:Class="PatientRegistration.Plugin.Views.PatientRegistrationHomeView"
              x:DataType="vm:PatientRegistrationViewModel">
 
-    <ScrollViewer>
-        <StackPanel Margin="18" Spacing="16">
-            <Border Padding="18">
-                <StackPanel Spacing="4">
-                    <TextBlock Text="就诊登记（无手机患者）"
-                               FontSize="24"
-                               FontWeight="Bold"/>
-                    <TextBlock Text="先登记患者身份信息，诊疗信息可选；若不填诊疗信息，保存前需确认，医生扫码后可现场新增治疗项目。"
-                               TextWrapping="Wrap"
-                               FontSize="12"/>
-                </StackPanel>
-            </Border>
+    <DockPanel LastChildFill="True">
+        <Border DockPanel.Dock="Bottom" Padding="12">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Content="保存并打印二维码（Ctrl+P）" Click="OnSaveAndPrintClick" IsEnabled="{Binding CanSubmit}"/>
+                <Button Content="仅保存（Ctrl+S）" Click="OnSaveClick" IsEnabled="{Binding CanSubmit}"/>
+                <Button Content="保存并下一位" Click="OnSaveAndNextClick" IsEnabled="{Binding CanSubmit}"/>
+            </StackPanel>
+        </Border>
 
-            <Border Padding="16">
-                <StackPanel Spacing="10">
-                    <TextBlock Text="患者信息（必填）" FontSize="16" FontWeight="SemiBold"/>
-                    <TextBox Text="{Binding PatientName}" Watermark="姓名"/>
-                    <TextBox Text="{Binding Gender}" Watermark="性别：male / female / unknown"/>
-                    <DatePicker SelectedDate="{Binding BirthDate}"/>
-                    <TextBox Text="{Binding IdType}" Watermark="证件类型，例如 id_card"/>
-                    <TextBox Text="{Binding IdNumber}" Watermark="证件号"/>
-                    <TextBox Text="{Binding ContactPhone}" Watermark="联系方式（可选）"/>
-                </StackPanel>
-            </Border>
+        <ScrollViewer>
+            <StackPanel Margin="18" Spacing="16">
+                <Border Padding="18">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="就诊登记（无手机患者）"
+                                   FontSize="24"
+                                   FontWeight="Bold"/>
+                        <TextBlock Text="先录入身份信息并生成纸质身份码，诊疗信息可后补；医生扫码后可现场新增治疗项目。"
+                                   TextWrapping="Wrap"
+                                   FontSize="12"/>
+                    </StackPanel>
+                </Border>
 
-            <Border Padding="16">
-                <StackPanel Spacing="10">
-                    <TextBlock Text="诊疗信息（可选）" FontSize="16" FontWeight="SemiBold"/>
-                    <ComboBox ItemsSource="{Binding AvailableDepartments}"
-                              SelectedItem="{Binding SelectedDepartment}"
-                              PlaceholderText="请选择科室（可选）"/>
-                    <ComboBox ItemsSource="{Binding AvailableDoctors}"
-                              SelectedItem="{Binding SelectedDoctor}"
-                              PlaceholderText="请选择医生（可选）">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding DisplayText}"/>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <TextBox Text="{Binding VisitTimeRange}" Watermark="就诊时段（可选）"/>
-                    <Border Padding="8">
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="治疗项目（可多选）"/>
-                            <ItemsControl ItemsSource="{Binding AvailableTreatmentItems}">
-                                <ItemsControl.ItemTemplate>
+                <Expander Header="1. 身份信息（必填）" IsExpanded="True">
+                    <Border Padding="16">
+                        <StackPanel Spacing="10">
+                            <TextBox x:Name="PatientNameBox" Text="{Binding PatientName}" Watermark="姓名（必填）"/>
+                            <TextBlock Text="{Binding PatientNameError}" Foreground="#C62828" FontSize="12"/>
+                            <ComboBox x:Name="IdTypeBox"
+                                      ItemsSource="{Binding IdTypeOptions}"
+                                      SelectedItem="{Binding SelectedIdTypeOption}"
+                                      PlaceholderText="请选择证件类型（必填）">
+                                <ComboBox.ItemTemplate>
                                     <DataTemplate>
-                                        <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected}"/>
+                                        <TextBlock Text="{Binding DisplayText}"/>
                                     </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Text="{Binding IdTypeError}" Foreground="#C62828" FontSize="12"/>
+                            <TextBox x:Name="IdNumberBox" Text="{Binding IdNumber}" Watermark="证件号（必填）"/>
+                            <TextBlock Text="{Binding IdNumberError}" Foreground="#C62828" FontSize="12"/>
+                            <ComboBox x:Name="GenderBox"
+                                      ItemsSource="{Binding GenderOptions}"
+                                      SelectedItem="{Binding SelectedGenderOption}"
+                                      PlaceholderText="请选择性别（必填）">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding DisplayText}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <DatePicker x:Name="BirthDatePicker" SelectedDate="{Binding BirthDate}"/>
+                            <TextBlock Text="{Binding BirthDateError}" Foreground="#C62828" FontSize="12"/>
+                            <TextBox x:Name="ContactPhoneBox" Text="{Binding ContactPhone}" Watermark="联系方式（可选）"/>
                         </StackPanel>
                     </Border>
-                    <TextBox Text="{Binding Notes}" Watermark="登记备注（可选）" AcceptsReturn="True" Height="72"/>
+                </Expander>
 
-                    <CheckBox IsChecked="{Binding ConfirmEmptyDiagnosticInfo}"
-                              Content="若未填写诊疗信息，已确认医生扫码时现场新增项目"/>
-                </StackPanel>
-            </Border>
+                <Expander Header="2. 诊疗信息（可选）" IsExpanded="False">
+                    <Border Padding="16">
+                        <StackPanel Spacing="10">
+                            <ComboBox x:Name="DepartmentBox"
+                                      ItemsSource="{Binding AvailableDepartments}"
+                                      SelectedItem="{Binding SelectedDepartment}"
+                                      PlaceholderText="请选择科室（可选）"/>
+                            <ComboBox x:Name="DoctorBox"
+                                      ItemsSource="{Binding FilteredDoctors}"
+                                      SelectedItem="{Binding SelectedDoctor}"
+                                      PlaceholderText="请选择医生（可选）">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding DisplayText}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBox x:Name="VisitTimeRangeBox" Text="{Binding VisitTimeRange}" Watermark="就诊时段（可选）"/>
+                            <Border Padding="8">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="治疗项目（可多选）"/>
+                                    <ItemsControl ItemsSource="{Binding AvailableTreatmentItems}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected}"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+                            <TextBox Text="{Binding Notes}" Watermark="登记备注（可选）" AcceptsReturn="True" Height="72"/>
 
-            <StackPanel Orientation="Horizontal" Spacing="10">
-                <Button Content="保存并打印二维码" Click="OnSaveAndPrintClick" IsEnabled="{Binding CanSubmit}"/>
-                <Button Content="仅保存" Click="OnSaveClick" IsEnabled="{Binding CanSubmit}"/>
-            </StackPanel>
+                            <CheckBox IsChecked="{Binding ConfirmEmptyDiagnosticInfo}"
+                                      Content="若未填写诊疗信息，已确认医生扫码时现场新增项目"/>
+                        </StackPanel>
+                    </Border>
+                </Expander>
 
-            <Border Padding="12">
-                <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap"/>
-            </Border>
-
-            <Border Padding="16">
-                <StackPanel Spacing="10">
-                    <TextBlock Text="登记记录（补打）" FontSize="16" FontWeight="SemiBold"/>
-                    <StackPanel Orientation="Horizontal" Spacing="10">
-                        <TextBox Width="180"
-                                 Text="{Binding SearchPatientKeyword}"
-                                 Watermark="按患者姓名搜索"/>
-                        <TextBox Width="160"
-                                 Text="{Binding SearchIdSuffix}"
-                                 Watermark="按证件后四位搜索"/>
-                        <Button Content="清空筛选" Click="OnClearFilterClick"/>
-                        <Button Content="刷新记录" Click="OnRefreshRecordsClick"/>
-                        <Button Content="补打选中二维码" Click="OnReprintClick" IsEnabled="{Binding CanReprintSelected}"/>
+                <Border Padding="12">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding LastSavedRegistrationCode, StringFormat=最近登记号：{0}}" FontWeight="SemiBold"/>
                     </StackPanel>
+                </Border>
 
-                    <ListBox ItemsSource="{Binding FilteredRecentRegistrations}"
-                             SelectedItem="{Binding SelectedRegistration}"
-                             Height="180">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </StackPanel>
-            </Border>
-        </StackPanel>
-    </ScrollViewer>
+                <Border Padding="16">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="登记记录（补打）" FontSize="16" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBox Width="180"
+                                     Text="{Binding SearchPatientKeyword}"
+                                     Watermark="按患者姓名搜索"/>
+                            <TextBox Width="160"
+                                     Text="{Binding SearchIdSuffix}"
+                                     Watermark="按证件后四位搜索"/>
+                            <Button Content="清空筛选" Click="OnClearFilterClick"/>
+                            <Button Content="刷新记录" Click="OnRefreshRecordsClick"/>
+                            <Button Content="补打选中二维码" Click="OnReprintClick" IsEnabled="{Binding CanReprintSelected}"/>
+                        </StackPanel>
+
+                        <ListBox ItemsSource="{Binding FilteredRecentRegistrations}"
+                                 SelectedItem="{Binding SelectedRegistration}"
+                                 Height="180">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding DisplayText}" TextWrapping="Wrap"/>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
 </UserControl>
