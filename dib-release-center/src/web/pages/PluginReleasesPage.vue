@@ -8,30 +8,69 @@
       <span class="panel-count">{{ versions.length }} 条记录</span>
     </header>
 
-    <form class="release-form" @submit.prevent>
-      <div class="field-grid">
+    <form class="release-form" @submit.prevent="submitDraft">
+      <div class="field-grid field-grid-wide">
         <label>
-          <span>插件 ID</span>
-          <input :value="draft.pluginId" readonly>
+          <span>插件定义</span>
+          <select v-model="draft.packageId">
+            <option value="">请选择插件</option>
+            <option v-for="item in packages" :key="item.id" :value="item.id">
+              {{ item.pluginName }} / {{ item.pluginCode }}
+            </option>
+          </select>
+        </label>
+        <label>
+          <span>发布渠道</span>
+          <select v-model="draft.channelId">
+            <option value="">请选择渠道</option>
+            <option v-for="item in channels" :key="item.id" :value="item.id">
+              {{ item.channelName }} / {{ item.channelCode }}
+            </option>
+          </select>
+        </label>
+        <label>
+          <span>资产 ID</span>
+          <input v-model="draft.assetId" placeholder="release_assets.id">
         </label>
         <label>
           <span>版本号</span>
-          <input :value="draft.version" readonly>
-        </label>
-        <label>
-          <span>渠道</span>
-          <input :value="draft.channel" readonly>
+          <input v-model="draft.version" placeholder="1.0.0">
         </label>
         <label>
           <span>DIB 最低版本</span>
-          <input :value="draft.dibMinVersion" readonly>
+          <input v-model="draft.dibMinVersion" placeholder="1.0.0">
         </label>
         <label>
-          <span>资产 URL</span>
-          <input :value="draft.packageUrl" readonly>
+          <span>DIB 最高版本</span>
+          <input v-model="draft.dibMaxVersion" placeholder="1.9.99">
         </label>
       </div>
-      <p class="form-tip">第一阶段先展示只读最小发布表单，下一步接入新增/发布动作。</p>
+
+      <label class="textarea-field">
+        <span>manifest JSON</span>
+        <textarea v-model="draft.manifestJsonText" rows="4" placeholder='{"entry":"PatientRegistration.Plugin"}' />
+      </label>
+
+      <label class="textarea-field">
+        <span>发布说明</span>
+        <textarea v-model="draft.releaseNotes" rows="3" placeholder="记录本次插件发布说明" />
+      </label>
+
+      <div class="toggle-row">
+        <label class="checkbox-field">
+          <input v-model="draft.isPublished" type="checkbox">
+          <span>立即标记为已发布</span>
+        </label>
+        <label class="checkbox-field">
+          <input v-model="draft.isMandatory" type="checkbox">
+          <span>强制升级</span>
+        </label>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit">新增插件版本</button>
+      </div>
+      <p class="form-tip">第一阶段先用资产 ID 关联已上传文件，Storage 上传入口下一轮补上。</p>
     </form>
 
     <div v-if="versions.length" class="table-wrap">
@@ -67,31 +106,54 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { PluginVersion } from '@/contracts/release-types'
+import { reactive, watch } from 'vue'
+import type { PluginPackage, PluginVersion, ReleaseChannel } from '@/contracts/release-types'
+import type { PluginVersionDraftInput } from '@/services/releaseDraftService'
 
 const props = defineProps<{
   versions: PluginVersion[]
+  channels: ReleaseChannel[]
+  packages: PluginPackage[]
 }>()
 
-const draft = computed(() => {
-  const first = props.versions[0]
-  if (!first) {
-    return {
-      pluginId: '',
-      version: '',
-      channel: '',
-      dibMinVersion: '',
-      packageUrl: '',
-    }
-  }
+const emit = defineEmits<{
+  submit: [draft: PluginVersionDraftInput]
+}>()
 
-  return {
-    pluginId: first.pluginCode,
-    version: first.version,
-    channel: first.channelCode,
-    dibMinVersion: first.dibMinVersion,
-    packageUrl: first.packageUrl,
-  }
+const draft = reactive<PluginVersionDraftInput>({
+  packageId: '',
+  channelId: '',
+  assetId: '',
+  version: '',
+  dibMinVersion: '1.0.0',
+  dibMaxVersion: '9999.9999.9999',
+  releaseNotes: '',
+  manifestJsonText: '{}',
+  isPublished: false,
+  isMandatory: false,
 })
+
+watch(
+  () => props.packages,
+  (packages) => {
+    if (!draft.packageId && packages.length > 0) {
+      draft.packageId = packages[0]?.id ?? ''
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  () => props.channels,
+  (channels) => {
+    if (!draft.channelId && channels.length > 0) {
+      draft.channelId = channels[0]?.id ?? ''
+    }
+  },
+  { immediate: true },
+)
+
+function submitDraft(): void {
+  emit('submit', { ...draft })
+}
 </script>

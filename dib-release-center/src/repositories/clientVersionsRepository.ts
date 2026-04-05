@@ -1,4 +1,5 @@
 import type { PostgrestError } from '@supabase/supabase-js'
+import type { ClientVersionInsertPayload } from '@/services/releaseDraftService'
 import { getSupabaseClient, RELEASE_SCHEMA } from '@/services/supabase'
 import type { ClientVersion } from '@/contracts/release-types'
 
@@ -90,4 +91,13 @@ export async function listClientVersions(): Promise<ClientVersion[]> {
 
   throwIfError(error, '查询客户端版本')
   return (data ?? []).map((row: unknown) => toClientVersion(row as ClientVersionRow))
+}
+
+export async function createClientVersion(payload: ClientVersionInsertPayload): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .schema(RELEASE_SCHEMA)
+    .from('client_versions')
+    .insert(payload)
+
+  throwIfError(error, '新增客户端版本')
 }

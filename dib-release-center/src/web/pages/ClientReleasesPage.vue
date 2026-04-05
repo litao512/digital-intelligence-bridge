@@ -8,26 +8,51 @@
       <span class="panel-count">{{ versions.length }} 条记录</span>
     </header>
 
-    <form class="release-form" @submit.prevent>
+    <form class="release-form" @submit.prevent="submitDraft">
       <div class="field-grid">
         <label>
-          <span>版本号</span>
-          <input :value="draft.version" readonly>
+          <span>发布渠道</span>
+          <select v-model="draft.channelId">
+            <option value="">请选择渠道</option>
+            <option v-for="item in channels" :key="item.id" :value="item.id">
+              {{ item.channelName }} / {{ item.channelCode }}
+            </option>
+          </select>
         </label>
         <label>
-          <span>渠道</span>
-          <input :value="draft.channel" readonly>
+          <span>资产 ID</span>
+          <input v-model="draft.assetId" placeholder="release_assets.id">
+        </label>
+        <label>
+          <span>版本号</span>
+          <input v-model="draft.version" placeholder="1.0.0">
         </label>
         <label>
           <span>最低升级版本</span>
-          <input :value="draft.minUpgradeVersion" readonly>
-        </label>
-        <label>
-          <span>资产 URL</span>
-          <input :value="draft.packageUrl" readonly>
+          <input v-model="draft.minUpgradeVersion" placeholder="0.9.0">
         </label>
       </div>
-      <p class="form-tip">当前为第一阶段只读展示，下一步接入客户端发布录入与 manifest 发布。</p>
+
+      <label class="textarea-field">
+        <span>发布说明</span>
+        <textarea v-model="draft.releaseNotes" rows="3" placeholder="记录本次客户端发布说明" />
+      </label>
+
+      <div class="toggle-row">
+        <label class="checkbox-field">
+          <input v-model="draft.isPublished" type="checkbox">
+          <span>立即标记为已发布</span>
+        </label>
+        <label class="checkbox-field">
+          <input v-model="draft.isMandatory" type="checkbox">
+          <span>强制升级</span>
+        </label>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit">新增客户端版本</button>
+      </div>
+      <p class="form-tip">第一阶段先使用资产 ID 录入客户端包，后续补 Storage 直传。</p>
     </form>
 
     <div v-if="versions.length" class="table-wrap">
@@ -58,29 +83,40 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { ClientVersion } from '@/contracts/release-types'
+import { reactive, watch } from 'vue'
+import type { ClientVersion, ReleaseChannel } from '@/contracts/release-types'
+import type { ClientVersionDraftInput } from '@/services/releaseDraftService'
 
 const props = defineProps<{
   versions: ClientVersion[]
+  channels: ReleaseChannel[]
 }>()
 
-const draft = computed(() => {
-  const first = props.versions[0]
-  if (!first) {
-    return {
-      version: '',
-      channel: '',
-      minUpgradeVersion: '',
-      packageUrl: '',
-    }
-  }
+const emit = defineEmits<{
+  submit: [draft: ClientVersionDraftInput]
+}>()
 
-  return {
-    version: first.version,
-    channel: first.channelCode,
-    minUpgradeVersion: first.minUpgradeVersion,
-    packageUrl: first.packageUrl,
-  }
+const draft = reactive<ClientVersionDraftInput>({
+  channelId: '',
+  assetId: '',
+  version: '',
+  minUpgradeVersion: '0.0.0',
+  releaseNotes: '',
+  isPublished: false,
+  isMandatory: false,
 })
+
+watch(
+  () => props.channels,
+  (channels) => {
+    if (!draft.channelId && channels.length > 0) {
+      draft.channelId = channels[0]?.id ?? ''
+    }
+  },
+  { immediate: true },
+)
+
+function submitDraft(): void {
+  emit('submit', { ...draft })
+}
 </script>

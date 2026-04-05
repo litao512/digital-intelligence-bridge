@@ -1,4 +1,5 @@
 import type { PostgrestError } from '@supabase/supabase-js'
+import type { PluginVersionInsertPayload } from '@/services/releaseDraftService'
 import { getSupabaseClient, RELEASE_SCHEMA } from '@/services/supabase'
 import type { PluginVersion } from '@/contracts/release-types'
 
@@ -106,4 +107,13 @@ export async function listPluginVersions(): Promise<PluginVersion[]> {
 
   throwIfError(error, '查询插件版本')
   return (data ?? []).map((row: unknown) => toPluginVersion(row as PluginVersionRow))
+}
+
+export async function createPluginVersion(payload: PluginVersionInsertPayload): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .schema(RELEASE_SCHEMA)
+    .from('plugin_versions')
+    .insert(payload)
+
+  throwIfError(error, '新增插件版本')
 }
