@@ -39,6 +39,10 @@
       </article>
     </section>
 
+    <section v-if="statusMessage" class="banner success">{{ statusMessage }}</section>
+    <section v-if="loadError" class="banner error">{{ loadError }}</section>
+    <section v-else-if="isLoading" class="banner">正在加载发布中心数据...</section>
+
     <nav class="tabbar" aria-label="release center tabs">
       <button
         v-for="tab in tabs"
@@ -52,22 +56,71 @@
       </button>
     </nav>
 
-    <section v-if="loadError" class="banner error">{{ loadError }}</section>
-    <section v-else-if="isLoading" class="banner">正在加载发布中心数据...</section>
+    <section class="preview-bar">
+      <label>
+        <span>manifest 预览渠道</span>
+        <select v-model="previewChannelCode">
+          <option v-for="item in channels" :key="item.id" :value="item.channelCode">
+            {{ item.channelName }} / {{ item.channelCode }}
+          </option>
+        </select>
+      </label>
+      <button type="button" class="ghost-button" @click="refreshPreview">刷新预览</button>
+    </section>
+
+    <section class="manifest-grid">
+      <article class="panel manifest-card">
+        <header class="panel-header tight">
+          <div>
+            <p class="panel-kicker">Client Manifest</p>
+            <h2>客户端清单预览</h2>
+          </div>
+        </header>
+        <pre>{{ clientManifestText }}</pre>
+      </article>
+      <article class="panel manifest-card">
+        <header class="panel-header tight">
+          <div>
+            <p class="panel-kicker">Plugin Manifest</p>
+            <h2>插件清单预览</h2>
+          </div>
+        </header>
+        <pre>{{ pluginManifestText }}</pre>
+      </article>
+    </section>
 
     <ChannelsPage v-if="activeTab === 'channels'" :channels="channels" />
-    <PluginReleasesPage v-else-if="activeTab === 'plugins'" :versions="pluginVersions" />
-    <ClientReleasesPage v-else :versions="clientVersions" />
+    <PluginReleasesPage
+      v-else-if="activeTab === 'plugins'"
+      :versions="pluginVersions"
+      :channels="channels"
+      :packages="pluginPackages"
+      @submit="handleCreatePluginVersion"
+    />
+    <ClientReleasesPage
+      v-else
+      :versions="clientVersions"
+      :channels="channels"
+      @submit="handleCreateClientVersion"
+    />
   </main>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import type { ClientVersion, PluginVersion, ReleaseChannel } from '@/contracts/release-types'
-import { listClientVersions } from '@/repositories/clientVersionsRepository'
-import { listPluginVersions } from '@/repositories/pluginVersionsRepository'
+import { computed, onMounted, ref, watch } from 'vue'
+import type { ClientVersion, PluginPackage, PluginVersion, ReleaseChannel } from '@/contracts/release-types'
+import { createClientVersion, listClientVersions } from '@/repositories/clientVersionsRepository'
+import { listPluginPackages } from '@/repositories/pluginPackagesRepository'
+import { createPluginVersion, listPluginVersions } from '@/repositories/pluginVersionsRepository'
 import { listReleaseChannels } from '@/repositories/releaseChannelsRepository'
 import { isSupabaseConfigured } from '@/services/supabase'
+import {
+  buildClientVersionInsert,
+  buildManifestPreview,
+  buildPluginVersionInsert,
+  type ClientVersionDraftInput,
+  type PluginVersionDraftInput,
+} from '@/services/releaseDraftService'
 import ChannelsPage from '@/web/pages/ChannelsPage.vue'
 import ClientReleasesPage from '@/web/pages/ClientReleasesPage.vue'
 import PluginReleasesPage from '@/web/pages/PluginReleasesPage.vue'
@@ -83,9 +136,12 @@ type TabId = (typeof tabs)[number]['id']
 const activeTab = ref<TabId>('channels')
 const isLoading = ref(false)
 const loadError = ref('')
+const statusMessage = ref('')
 const channels = ref<ReleaseChannel[]>([])
+const pluginPackages = ref<PluginPackage[]>([])
 const pluginVersions = ref<PluginVersion[]>([])
 const clientVersions = ref<ClientVersion[]>([])
+const previewChannelCode = ref('stable')
 
 const envMessage = computed(() => {
   if (isSupabaseConfigured()) {
@@ -97,7 +153,7 @@ const envMessage = computed(() => {
 
 const connectionMessage = computed(() => {
   if (loadError.value) {
-    return '连接失败，需先修复配置或数据库权限。'
+    return '连接失败，需先修复配置、认证或数据库权限。'
   }
 
   if (isLoading.value) {
@@ -108,12 +164,30 @@ const connectionMessage = computed(() => {
     return '尚未配置 Supabase 客户端，页面处于静态展示模式。'
   }
 
-  return '已接入 prod101 Supabase，可读取发布渠道与版本记录。'
+  return '已接入 prod101 Supabase，可读取和提交发布中心元数据。'
+})
+
+const preview = computed(() => {
+  try {
+    return buildManifestPreview(previewChannelCode.value, pluginVersions.value, clientVersions.value)
+  } catch {
+    return buildManifestPreview('stable', [], [])
+  }
+})
+
+const clientManifestText = computed(() => JSON.stringify(preview.value.clientManifest, null, 2))
+const pluginManifestText = computed(() => JSON.stringify(preview.value.pluginManifest, null, 2))
+
+watch(channels, (items) => {
+  if (!items.some((item) => item.channelCode === previewChannelCode.value)) {
+    previewChannelCode.value = items[0]?.channelCode ?? 'stable'
+  }
 })
 
 async function loadData(): Promise<void> {
   if (!isSupabaseConfigured()) {
     channels.value = []
+    pluginPackages.value = []
     pluginVersions.value = []
     clientVersions.value = []
     return
@@ -123,13 +197,15 @@ async function loadData(): Promise<void> {
   loadError.value = ''
 
   try {
-    const [channelData, pluginVersionData, clientVersionData] = await Promise.all([
+    const [channelData, packageData, pluginVersionData, clientVersionData] = await Promise.all([
       listReleaseChannels(),
+      listPluginPackages(),
       listPluginVersions(),
       listClientVersions(),
     ])
 
     channels.value = channelData
+    pluginPackages.value = packageData
     pluginVersions.value = pluginVersionData
     clientVersions.value = clientVersionData
   } catch (error) {
@@ -137,6 +213,38 @@ async function loadData(): Promise<void> {
   } finally {
     isLoading.value = false
   }
+}
+
+async function handleCreatePluginVersion(draft: PluginVersionDraftInput): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await createPluginVersion(buildPluginVersionInsert(draft))
+    statusMessage.value = '插件版本已提交，请在列表和 manifest 预览中确认结果。'
+    await loadData()
+    activeTab.value = 'plugins'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '新增插件版本失败。'
+  }
+}
+
+async function handleCreateClientVersion(draft: ClientVersionDraftInput): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await createClientVersion(buildClientVersionInsert(draft))
+    statusMessage.value = '客户端版本已提交，请在列表和 manifest 预览中确认结果。'
+    await loadData()
+    activeTab.value = 'clients'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '新增客户端版本失败。'
+  }
+}
+
+function refreshPreview(): void {
+  statusMessage.value = `已刷新 ${previewChannelCode.value} 渠道的 manifest 预览。`
 }
 
 onMounted(() => {
@@ -165,7 +273,8 @@ onMounted(() => {
   min-height: 100vh;
 }
 
-:global(code) {
+:global(code),
+:global(pre) {
   font-family: 'Cascadia Code', 'Consolas', monospace;
 }
 
@@ -189,7 +298,9 @@ onMounted(() => {
   color: #52708f;
 }
 
-:global(input) {
+:global(input),
+:global(select),
+:global(textarea) {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid #c7d7e7;
@@ -198,11 +309,24 @@ onMounted(() => {
   color: #17324d;
 }
 
+:global(textarea) {
+  resize: vertical;
+}
+
 :global(label span) {
   display: block;
   margin-bottom: 8px;
   font-size: 0.86rem;
   color: #47637f;
+}
+
+:global(button) {
+  padding: 11px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #0a7ac9 0%, #0b9f79 100%);
+  color: #fff;
+  cursor: pointer;
 }
 
 .shell {
@@ -279,11 +403,17 @@ h1 {
   color: #103253;
 }
 
-.status-grid {
+.status-grid,
+.manifest-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   margin-top: 20px;
+}
+
+.manifest-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 20px;
 }
 
 .status-card {
@@ -314,7 +444,6 @@ h1 {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.78);
   color: #305171;
-  cursor: pointer;
 }
 
 .tab.active {
@@ -336,6 +465,23 @@ h1 {
   color: #bf3d36;
 }
 
+.banner.success {
+  background: #edf9f2;
+  color: #0b7b55;
+}
+
+.preview-bar {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.ghost-button {
+  background: #e9f4fb;
+  color: #0a5f99;
+}
+
 .panel {
   padding: 24px;
 }
@@ -346,6 +492,10 @@ h1 {
   gap: 12px;
   align-items: flex-start;
   margin-bottom: 18px;
+}
+
+.panel-header.tight {
+  margin-bottom: 12px;
 }
 
 .panel-kicker {
@@ -383,6 +533,33 @@ h1 {
   gap: 16px;
 }
 
+.field-grid-wide {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.textarea-field {
+  display: block;
+  margin-top: 16px;
+}
+
+.toggle-row,
+.form-actions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.checkbox-field {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.checkbox-field input {
+  width: auto;
+}
+
 .form-tip,
 .empty,
 .subline {
@@ -395,18 +572,33 @@ h1 {
   font-size: 0.88rem;
 }
 
+.manifest-card pre {
+  margin: 0;
+  min-height: 220px;
+  overflow: auto;
+  padding: 16px;
+  border-radius: 16px;
+  background: #0f1f33;
+  color: #dbe9f5;
+}
+
 @media (max-width: 920px) {
   .hero,
-  .status-grid {
+  .status-grid,
+  .manifest-grid,
+  .field-grid,
+  .field-grid-wide {
     grid-template-columns: 1fr;
   }
 
-  .hero-side,
-  .field-grid {
+  .hero-side {
     grid-template-columns: 1fr;
   }
 
-  .tabbar {
+  .tabbar,
+  .preview-bar,
+  .toggle-row,
+  .form-actions {
     flex-wrap: wrap;
   }
 }
