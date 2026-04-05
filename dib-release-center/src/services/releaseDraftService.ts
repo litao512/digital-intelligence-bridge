@@ -1,7 +1,12 @@
 import type { ClientManifest } from '@/contracts/client-manifest'
 import type { PluginManifest } from '@/contracts/plugin-manifest'
-import type { ClientVersion, PluginVersion } from '@/contracts/release-types'
+import type {
+  ClientVersion,
+  PluginVersion,
+  ReleaseAssetKind,
+} from '@/contracts/release-types'
 import { buildClientManifest, buildPluginManifest } from '@/services/manifestService'
+import { computeSha256Hex, assertSha256Hex } from '@/utils/hash'
 
 export interface PluginVersionDraftInput {
   packageId: string
@@ -24,6 +29,16 @@ export interface ClientVersionDraftInput {
   releaseNotes: string
   isPublished: boolean
   isMandatory: boolean
+}
+
+export interface ReleaseAssetDraftInput {
+  bucketName: string
+  storagePath: string
+  fileName: string
+  assetKind: ReleaseAssetKind
+  sha256: string
+  sizeBytes: string
+  mimeType: string
 }
 
 export interface ReleaseManifestPreview {
@@ -56,6 +71,28 @@ export interface ClientVersionInsertPayload {
   published_at: string | null
 }
 
+export interface ReleaseAssetInsertPayload {
+  bucket_name: string
+  storage_path: string
+  file_name: string
+  asset_kind: ReleaseAssetKind
+  sha256: string
+  size_bytes: number
+  mime_type: string
+}
+
+export interface ManifestAssetPublishPlanItem {
+  fileName: string
+  storagePath: string
+  content: string
+  payload: ReleaseAssetInsertPayload
+}
+
+export interface ManifestPublishPlan {
+  channelCode: string
+  assets: ManifestAssetPublishPlanItem[]
+}
+
 function requireValue(value: string, message: string): string {
   const normalized = value.trim()
   if (!normalized) {
@@ -81,6 +118,20 @@ function parseManifestJson(value: string): Record<string, unknown> {
 
 function resolvePublishedAt(isPublished: boolean): string | null {
   return isPublished ? new Date().toISOString() : null
+}
+
+function parseSizeBytes(value: string): number {
+  const normalized = requireValue(value, '资产大小不能为空')
+  const parsed = Number(normalized)
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error('资产大小必须是非负整数')
+  }
+
+  return parsed
+}
+
+function stringifyJson(value: unknown): string {
+  return `${JSON.stringify(value, null, 2)}\n`
 }
 
 export function buildPluginVersionInsert(input: PluginVersionDraftInput): PluginVersionInsertPayload {
@@ -112,6 +163,18 @@ export function buildClientVersionInsert(input: ClientVersionDraftInput): Client
   }
 }
 
+export function buildReleaseAssetInsert(input: ReleaseAssetDraftInput): ReleaseAssetInsertPayload {
+  return {
+    bucket_name: requireValue(input.bucketName, '资产 bucket 不能为空'),
+    storage_path: requireValue(input.storagePath, '资产路径不能为空'),
+    file_name: requireValue(input.fileName, '资产文件名不能为空'),
+    asset_kind: input.assetKind,
+    sha256: assertSha256Hex(input.sha256, '资产'),
+    size_bytes: parseSizeBytes(input.sizeBytes),
+    mime_type: input.mimeType.trim(),
+  }
+}
+
 export function buildManifestPreview(
   channelCode: string,
   pluginVersions: PluginVersion[],
@@ -128,5 +191,58 @@ export function buildManifestPreview(
       normalizedChannelCode,
       pluginVersions.filter((item) => item.channelCode === normalizedChannelCode),
     ),
+  }
+}
+
+export async function buildManifestPublishPlan(
+  channelCode: string,
+  pluginVersions: PluginVersion[],
+  clientVersions: ClientVersion[],
+): Promise<ManifestPublishPlan> {
+  const normalizedChannelCode = requireValue(channelCode, '发布渠道不能为空')
+  const preview = buildManifestPreview(normalizedChannelCode, pluginVersions, clientVersions)
+
+  const clientContent = stringifyJson(preview.clientManifest)
+  const pluginContent = stringifyJson(preview.pluginManifest)
+
+  const clientStoragePath = `manifests/${normalizedChannelCode}/client-manifest.json`
+  const pluginStoragePath = `manifests/${normalizedChannelCode}/plugin-manifest.json`
+
+  const clientPayload: ReleaseAssetInsertPayload = {
+    bucket_name: 'dib-releases',
+    storage_path: clientStoragePath,
+    file_name: 'client-manifest.json',
+    asset_kind: 'manifest',
+    sha256: await computeSha256Hex(clientContent),
+    size_bytes: new TextEncoder().encode(clientContent).byteLength,
+    mime_type: 'application/json',
+  }
+
+  const pluginPayload: ReleaseAssetInsertPayload = {
+    bucket_name: 'dib-releases',
+    storage_path: pluginStoragePath,
+    file_name: 'plugin-manifest.json',
+    asset_kind: 'manifest',
+    sha256: await computeSha256Hex(pluginContent),
+    size_bytes: new TextEncoder().encode(pluginContent).byteLength,
+    mime_type: 'application/json',
+  }
+
+  return {
+    channelCode: normalizedChannelCode,
+    assets: [
+      {
+        fileName: clientPayload.file_name,
+        storagePath: clientPayload.storage_path,
+        content: clientContent,
+        payload: clientPayload,
+      },
+      {
+        fileName: pluginPayload.file_name,
+        storagePath: pluginPayload.storage_path,
+        content: pluginContent,
+        payload: pluginPayload,
+      },
+    ],
   }
 }

@@ -10,6 +10,21 @@ export interface ReleaseChannel {
   updatedAt: string
 }
 
+export type ReleaseAssetKind = 'plugin_package' | 'client_package' | 'manifest'
+
+export interface ReleaseAsset {
+  id: string
+  bucketName: string
+  storagePath: string
+  fileName: string
+  assetKind: ReleaseAssetKind
+  sha256: string
+  sizeBytes: number
+  mimeType: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface PluginPackage {
   id: string
   pluginCode: string
@@ -44,7 +59,7 @@ export interface PluginVersion {
   bucketName: string
   storagePath: string
   fileName: string
-  assetKind: 'plugin_package' | 'client_package' | 'manifest'
+  assetKind: ReleaseAssetKind
   sha256: string
   sizeBytes: number
   mimeType: string
@@ -68,7 +83,7 @@ export interface ClientVersion {
   bucketName: string
   storagePath: string
   fileName: string
-  assetKind: 'plugin_package' | 'client_package' | 'manifest'
+  assetKind: ReleaseAssetKind
   sha256: string
   sizeBytes: number
   mimeType: string

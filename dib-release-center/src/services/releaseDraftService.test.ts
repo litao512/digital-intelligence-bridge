@@ -3,7 +3,9 @@ import type { ClientVersion, PluginVersion } from '@/contracts/release-types'
 import {
   buildClientVersionInsert,
   buildManifestPreview,
+  buildManifestPublishPlan,
   buildPluginVersionInsert,
+  buildReleaseAssetInsert,
 } from '@/services/releaseDraftService'
 
 function createPluginVersion(overrides: Partial<PluginVersion> = {}): PluginVersion {
@@ -123,5 +125,43 @@ describe('releaseDraftService', () => {
     expect(preview.pluginManifest.channel).toBe('stable')
     expect(preview.pluginManifest.plugins).toHaveLength(1)
     expect(preview.pluginManifest.plugins[0]?.version).toBe('1.0.1')
+  })
+
+  it('buildReleaseAssetInsert should normalize asset metadata payload', () => {
+    const payload = buildReleaseAssetInsert({
+      bucketName: 'dib-releases',
+      storagePath: 'plugins/patient-registration/stable/1.0.1/package.zip',
+      fileName: 'package.zip',
+      assetKind: 'plugin_package',
+      sha256: 'ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890',
+      sizeBytes: '4096',
+      mimeType: 'application/zip',
+    })
+
+    expect(payload).toEqual({
+      bucket_name: 'dib-releases',
+      storage_path: 'plugins/patient-registration/stable/1.0.1/package.zip',
+      file_name: 'package.zip',
+      asset_kind: 'plugin_package',
+      sha256: 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
+      size_bytes: 4096,
+      mime_type: 'application/zip',
+    })
+  })
+
+  it('buildManifestPublishPlan should create two manifest assets for the channel', async () => {
+    const plan = await buildManifestPublishPlan('stable', [
+      createPluginVersion({ id: 'plugin-version-2', version: '1.0.1', publishedAt: '2026-04-05T13:00:00Z' }),
+    ], [
+      createClientVersion({ id: 'client-version-2', version: '1.1.0', publishedAt: '2026-04-05T14:00:00Z' }),
+    ])
+
+    expect(plan.assets).toHaveLength(2)
+    expect(plan.assets[0]?.storagePath).toBe('manifests/stable/client-manifest.json')
+    expect(plan.assets[1]?.storagePath).toBe('manifests/stable/plugin-manifest.json')
+    expect(plan.assets[0]?.payload.asset_kind).toBe('manifest')
+    expect(plan.assets[0]?.payload.sha256).toHaveLength(64)
+    expect(plan.assets[0]?.content).toContain('"latestVersion": "1.1.0"')
+    expect(plan.assets[1]?.content).toContain('"pluginId": "patient-registration"')
   })
 })
