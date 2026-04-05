@@ -109,6 +109,7 @@
         :channels="channels"
         :packages="pluginPackages"
         @submit="handleCreatePluginVersion"
+        @create-package="handleCreatePluginPackage"
       />
       <ClientReleasesPage
         v-else-if="activeTab === 'clients'"
@@ -131,7 +132,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Session } from '@supabase/supabase-js'
 import type { ClientVersion, PluginPackage, PluginVersion, ReleaseAsset, ReleaseChannel } from '@/contracts/release-types'
 import { createClientVersion, listClientVersions } from '@/repositories/clientVersionsRepository'
-import { listPluginPackages } from '@/repositories/pluginPackagesRepository'
+import { createPluginPackage, listPluginPackages } from '@/repositories/pluginPackagesRepository'
 import { createPluginVersion, listPluginVersions } from '@/repositories/pluginVersionsRepository'
 import {
   createReleaseAsset,
@@ -153,10 +154,12 @@ import {
   buildClientVersionInsert,
   buildManifestPreview,
   buildManifestPublishPlan,
+  buildPluginPackageInsert,
   buildPluginVersionInsert,
   buildReleaseAssetInsert,
   buildReleaseAssetUploadPlan,
   type ClientVersionDraftInput,
+  type PluginPackageDraftInput,
   type PluginVersionDraftInput,
   type ReleaseAssetDraftInput,
   type ReleaseAssetUploadInput,
@@ -336,6 +339,20 @@ async function handleSignOut(): Promise<void> {
     statusMessage.value = '已退出发布中心登录。'
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '退出登录失败。'
+  }
+}
+
+async function handleCreatePluginPackage(draft: PluginPackageDraftInput): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await createPluginPackage(buildPluginPackageInsert(draft))
+    statusMessage.value = '插件定义已提交，请在插件版本下拉中确认结果。'
+    await loadData()
+    activeTab.value = 'plugins'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '新增插件定义失败。'
   }
 }
 

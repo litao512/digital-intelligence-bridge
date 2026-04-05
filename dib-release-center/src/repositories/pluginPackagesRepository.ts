@@ -1,6 +1,7 @@
 import type { PostgrestError } from '@supabase/supabase-js'
 import { getSupabaseClient, RELEASE_SCHEMA } from '@/services/supabase'
 import type { PluginPackage } from '@/contracts/release-types'
+import type { PluginPackageInsertPayload } from '@/services/releaseDraftService'
 
 interface PluginPackageRow {
   id: string
@@ -43,4 +44,13 @@ export async function listPluginPackages(): Promise<PluginPackage[]> {
 
   throwIfError(error, '查询插件定义')
   return (data ?? []).map((row: unknown) => toPluginPackage(row as PluginPackageRow))
+}
+
+export async function createPluginPackage(payload: PluginPackageInsertPayload): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .schema(RELEASE_SCHEMA)
+    .from('plugin_packages')
+    .insert(payload)
+
+  throwIfError(error, '新增插件定义')
 }
