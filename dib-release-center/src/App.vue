@@ -1,123 +1,133 @@
 <template>
   <main class="shell">
-    <section class="hero">
-      <div>
-        <p class="eyebrow">Digital Intelligence Bridge</p>
-        <h1>DIB 发布中心</h1>
-        <p class="description">
-          第一阶段已接入 prod101 的 Supabase 元数据结构，当前页面聚焦发布渠道、插件版本、资产登记与 manifest 发布的最小闭环。
-        </p>
-      </div>
-      <div class="hero-side">
-        <div class="metric-card">
-          <span>渠道</span>
-          <strong>{{ channels.length }}</strong>
+    <ReleaseAuthPanel
+      v-if="isSupabaseConfigured() && (!sessionReady || !isAuthenticatedAdmin)"
+      :message="authMessage"
+      @submit="handleSignIn"
+    />
+
+    <template v-else>
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Digital Intelligence Bridge</p>
+          <h1>DIB 发布中心</h1>
+          <p class="description">
+            第一阶段已接入 prod101 的 Supabase 元数据结构，当前页面聚焦发布渠道、插件版本、资产登记与 manifest 发布的最小闭环。
+          </p>
         </div>
-        <div class="metric-card">
-          <span>插件版本</span>
-          <strong>{{ pluginVersions.length }}</strong>
-        </div>
-        <div class="metric-card">
-          <span>客户端版本</span>
-          <strong>{{ clientVersions.length }}</strong>
-        </div>
-        <div class="metric-card">
-          <span>发布资产</span>
-          <strong>{{ releaseAssets.length }}</strong>
-        </div>
-      </div>
-    </section>
-
-    <section class="status-grid">
-      <article class="status-card">
-        <h2>连接状态</h2>
-        <p>{{ connectionMessage }}</p>
-      </article>
-      <article class="status-card">
-        <h2>环境变量</h2>
-        <p>{{ envMessage }}</p>
-      </article>
-      <article class="status-card">
-        <h2>目标库</h2>
-        <p>prod101 Supabase / schema: <code>dib_release</code></p>
-      </article>
-    </section>
-
-    <section v-if="statusMessage" class="banner success">{{ statusMessage }}</section>
-    <section v-if="loadError" class="banner error">{{ loadError }}</section>
-    <section v-else-if="isLoading" class="banner">正在加载发布中心数据...</section>
-
-    <nav class="tabbar" aria-label="release center tabs">
-      <button
-        v-for="tab in tabs"
-        :key="tab.id"
-        type="button"
-        class="tab"
-        :class="{ active: activeTab === tab.id }"
-        @click="activeTab = tab.id"
-      >
-        {{ tab.label }}
-      </button>
-    </nav>
-
-    <section class="preview-bar">
-      <label>
-        <span>manifest 预览渠道</span>
-        <select v-model="previewChannelCode">
-          <option v-for="item in channels" :key="item.id" :value="item.channelCode">
-            {{ item.channelName }} / {{ item.channelCode }}
-          </option>
-        </select>
-      </label>
-      <button type="button" class="ghost-button" @click="refreshPreview">刷新预览</button>
-      <button type="button" @click="publishManifest">发布当前渠道 manifest</button>
-    </section>
-
-    <section class="manifest-grid">
-      <article class="panel manifest-card">
-        <header class="panel-header tight">
-          <div>
-            <p class="panel-kicker">Client Manifest</p>
-            <h2>客户端清单预览</h2>
+        <div class="hero-side">
+          <div class="metric-card">
+            <span>渠道</span>
+            <strong>{{ channels.length }}</strong>
           </div>
-        </header>
-        <pre>{{ clientManifestText }}</pre>
-      </article>
-      <article class="panel manifest-card">
-        <header class="panel-header tight">
-          <div>
-            <p class="panel-kicker">Plugin Manifest</p>
-            <h2>插件清单预览</h2>
+          <div class="metric-card">
+            <span>插件版本</span>
+            <strong>{{ pluginVersions.length }}</strong>
           </div>
-        </header>
-        <pre>{{ pluginManifestText }}</pre>
-      </article>
-    </section>
+          <div class="metric-card">
+            <span>客户端版本</span>
+            <strong>{{ clientVersions.length }}</strong>
+          </div>
+          <div class="metric-card">
+            <span>发布资产</span>
+            <strong>{{ releaseAssets.length }}</strong>
+          </div>
+        </div>
+      </section>
 
-    <ChannelsPage v-if="activeTab === 'channels'" :channels="channels" />
-    <PluginReleasesPage
-      v-else-if="activeTab === 'plugins'"
-      :versions="pluginVersions"
-      :channels="channels"
-      :packages="pluginPackages"
-      @submit="handleCreatePluginVersion"
-    />
-    <ClientReleasesPage
-      v-else-if="activeTab === 'clients'"
-      :versions="clientVersions"
-      :channels="channels"
-      @submit="handleCreateClientVersion"
-    />
-    <ReleaseAssetsPage
-      v-else
-      :assets="releaseAssets"
-      @submit="handleCreateReleaseAsset"
-    />
+      <section class="status-grid">
+        <article class="status-card">
+          <h2>连接状态</h2>
+          <p>{{ connectionMessage }}</p>
+        </article>
+        <article class="status-card">
+          <h2>环境变量</h2>
+          <p>{{ envMessage }}</p>
+        </article>
+        <article class="status-card">
+          <h2>当前账号</h2>
+          <p>{{ currentAdminSummary }}</p>
+          <button type="button" class="ghost-button inline-button" @click="handleSignOut">退出登录</button>
+        </article>
+      </section>
+
+      <section v-if="statusMessage" class="banner success">{{ statusMessage }}</section>
+      <section v-if="loadError" class="banner error">{{ loadError }}</section>
+      <section v-else-if="isLoading" class="banner">正在加载发布中心数据...</section>
+
+      <nav class="tabbar" aria-label="release center tabs">
+        <button
+          v-for="tab in tabs"
+          :key="tab.id"
+          type="button"
+          class="tab"
+          :class="{ active: activeTab === tab.id }"
+          @click="activeTab = tab.id"
+        >
+          {{ tab.label }}
+        </button>
+      </nav>
+
+      <section class="preview-bar">
+        <label>
+          <span>manifest 预览渠道</span>
+          <select v-model="previewChannelCode">
+            <option v-for="item in channels" :key="item.id" :value="item.channelCode">
+              {{ item.channelName }} / {{ item.channelCode }}
+            </option>
+          </select>
+        </label>
+        <button type="button" class="ghost-button" @click="refreshPreview">刷新预览</button>
+        <button type="button" @click="publishManifest">发布当前渠道 manifest</button>
+      </section>
+
+      <section class="manifest-grid">
+        <article class="panel manifest-card">
+          <header class="panel-header tight">
+            <div>
+              <p class="panel-kicker">Client Manifest</p>
+              <h2>客户端清单预览</h2>
+            </div>
+          </header>
+          <pre>{{ clientManifestText }}</pre>
+        </article>
+        <article class="panel manifest-card">
+          <header class="panel-header tight">
+            <div>
+              <p class="panel-kicker">Plugin Manifest</p>
+              <h2>插件清单预览</h2>
+            </div>
+          </header>
+          <pre>{{ pluginManifestText }}</pre>
+        </article>
+      </section>
+
+      <ChannelsPage v-if="activeTab === 'channels'" :channels="channels" />
+      <PluginReleasesPage
+        v-else-if="activeTab === 'plugins'"
+        :versions="pluginVersions"
+        :channels="channels"
+        :packages="pluginPackages"
+        @submit="handleCreatePluginVersion"
+      />
+      <ClientReleasesPage
+        v-else-if="activeTab === 'clients'"
+        :versions="clientVersions"
+        :channels="channels"
+        @submit="handleCreateClientVersion"
+      />
+      <ReleaseAssetsPage
+        v-else
+        :assets="releaseAssets"
+        @submit="handleCreateReleaseAsset"
+      />
+    </template>
   </main>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import type { Session } from '@supabase/supabase-js'
 import type { ClientVersion, PluginPackage, PluginVersion, ReleaseAsset, ReleaseChannel } from '@/contracts/release-types'
 import { createClientVersion, listClientVersions } from '@/repositories/clientVersionsRepository'
 import { listPluginPackages } from '@/repositories/pluginPackagesRepository'
@@ -128,7 +138,14 @@ import {
   upsertReleaseAsset,
   uploadManifestAsset,
 } from '@/repositories/releaseAssetsRepository'
+import { getCurrentAdminProfile, linkCurrentAdminUser, type ReleaseCenterAdmin } from '@/repositories/releaseCenterAdminsRepository'
 import { listReleaseChannels } from '@/repositories/releaseChannelsRepository'
+import {
+  getCurrentAuthState,
+  onReleaseAuthStateChange,
+  signInWithPassword,
+  signOutReleaseCenter,
+} from '@/services/releaseAuthService'
 import { isSupabaseConfigured } from '@/services/supabase'
 import {
   buildClientVersionInsert,
@@ -140,6 +157,7 @@ import {
   type PluginVersionDraftInput,
   type ReleaseAssetDraftInput,
 } from '@/services/releaseDraftService'
+import ReleaseAuthPanel from '@/web/components/ReleaseAuthPanel.vue'
 import ChannelsPage from '@/web/pages/ChannelsPage.vue'
 import ClientReleasesPage from '@/web/pages/ClientReleasesPage.vue'
 import PluginReleasesPage from '@/web/pages/PluginReleasesPage.vue'
@@ -158,12 +176,19 @@ const activeTab = ref<TabId>('channels')
 const isLoading = ref(false)
 const loadError = ref('')
 const statusMessage = ref('')
+const authMessage = ref('')
+const sessionReady = ref(false)
+const session = ref<Session | null>(null)
+const currentAdmin = ref<ReleaseCenterAdmin | null>(null)
 const channels = ref<ReleaseChannel[]>([])
 const pluginPackages = ref<PluginPackage[]>([])
 const pluginVersions = ref<PluginVersion[]>([])
 const clientVersions = ref<ClientVersion[]>([])
 const releaseAssets = ref<ReleaseAsset[]>([])
 const previewChannelCode = ref('stable')
+let unsubscribeAuth: (() => void) | null = null
+
+const isAuthenticatedAdmin = computed(() => Boolean(session.value && currentAdmin.value?.isActive))
 
 const envMessage = computed(() => {
   if (isSupabaseConfigured()) {
@@ -171,6 +196,14 @@ const envMessage = computed(() => {
   }
 
   return '缺少 VITE_SUPABASE_URL 或 VITE_SUPABASE_ANON_KEY。请参考 .env.example 配置。'
+})
+
+const currentAdminSummary = computed(() => {
+  if (!isAuthenticatedAdmin.value || !currentAdmin.value) {
+    return '未登录发布中心管理员。'
+  }
+
+  return `${currentAdmin.value.email}${currentAdmin.value.displayName ? ` / ${currentAdmin.value.displayName}` : ''}`
 })
 
 const connectionMessage = computed(() => {
@@ -186,7 +219,11 @@ const connectionMessage = computed(() => {
     return '尚未配置 Supabase 客户端，页面处于静态展示模式。'
   }
 
-  return '已接入 prod101 Supabase，可读取和提交发布中心元数据。'
+  if (!isAuthenticatedAdmin.value) {
+    return '请先使用管理员账号登录。'
+  }
+
+  return '已接入 prod101 Supabase，并通过发布中心管理员鉴权。'
 })
 
 const preview = computed(() => {
@@ -206,8 +243,30 @@ watch(channels, (items) => {
   }
 })
 
-async function loadData(): Promise<void> {
+async function refreshAuthState(): Promise<void> {
   if (!isSupabaseConfigured()) {
+    sessionReady.value = true
+    session.value = null
+    currentAdmin.value = null
+    return
+  }
+
+  const authState = await getCurrentAuthState()
+  session.value = authState.session
+
+  if (!authState.session) {
+    currentAdmin.value = null
+    sessionReady.value = true
+    return
+  }
+
+  await linkCurrentAdminUser()
+  currentAdmin.value = await getCurrentAdminProfile()
+  sessionReady.value = true
+}
+
+async function loadData(): Promise<void> {
+  if (!isSupabaseConfigured() || !isAuthenticatedAdmin.value) {
     channels.value = []
     pluginPackages.value = []
     pluginVersions.value = []
@@ -237,6 +296,42 @@ async function loadData(): Promise<void> {
     loadError.value = error instanceof Error ? error.message : '加载发布中心数据失败。'
   } finally {
     isLoading.value = false
+  }
+}
+
+async function handleSignIn(payload: { email: string; password: string }): Promise<void> {
+  authMessage.value = ''
+  loadError.value = ''
+  statusMessage.value = ''
+
+  try {
+    await signInWithPassword(payload.email, payload.password)
+    await refreshAuthState()
+
+    if (!currentAdmin.value) {
+      await signOutReleaseCenter()
+      authMessage.value = '该账号未加入 release_center_admins，无法使用发布中心。'
+      return
+    }
+
+    statusMessage.value = '发布中心管理员登录成功。'
+    await loadData()
+  } catch (error) {
+    authMessage.value = error instanceof Error ? error.message : '登录失败。'
+  }
+}
+
+async function handleSignOut(): Promise<void> {
+  authMessage.value = ''
+  loadError.value = ''
+  statusMessage.value = ''
+
+  try {
+    await signOutReleaseCenter()
+    await refreshAuthState()
+    statusMessage.value = '已退出发布中心登录。'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '退出登录失败。'
   }
 }
 
@@ -304,8 +399,33 @@ function refreshPreview(): void {
   statusMessage.value = `已刷新 ${previewChannelCode.value} 渠道的 manifest 预览。`
 }
 
-onMounted(() => {
-  void loadData()
+onMounted(async () => {
+  try {
+    await refreshAuthState()
+    await loadData()
+  } catch (error) {
+    authMessage.value = error instanceof Error ? error.message : '初始化登录状态失败。'
+  }
+
+  unsubscribeAuth = onReleaseAuthStateChange(async (state) => {
+    session.value = state.session
+    if (!state.session) {
+      currentAdmin.value = null
+      sessionReady.value = true
+      return
+    }
+
+    try {
+      await refreshAuthState()
+      await loadData()
+    } catch (error) {
+      authMessage.value = error instanceof Error ? error.message : '刷新登录状态失败。'
+    }
+  })
+})
+
+onUnmounted(() => {
+  unsubscribeAuth?.()
 })
 </script>
 
@@ -484,9 +604,13 @@ h1 {
 }
 
 .status-card p {
-  margin: 0;
+  margin: 0 0 12px;
   line-height: 1.7;
   color: #5a7087;
+}
+
+.inline-button {
+  padding: 8px 14px;
 }
 
 .tabbar {
