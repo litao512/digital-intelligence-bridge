@@ -22,3 +22,10 @@
 ## 当前状态
 
 当前阶段只保留最小前端入口，页面默认展示 `DIB 发布中心`。
+
+## prod101 运维
+
+- 运维总手册：`docs/PROD101_RELEASE_CENTER_OPERATIONS_GUIDE.md`
+- SQL 执行清单：`docs/PROD101_SQL_RUNBOOK.md`
+- 本地健康检查：`scripts/prod101-health-check.ps1`
+- 服务器常用操作：`scripts/prod101-supabase-ops.sh`
