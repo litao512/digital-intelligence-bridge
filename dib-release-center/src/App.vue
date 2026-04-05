@@ -5,7 +5,7 @@
         <p class="eyebrow">Digital Intelligence Bridge</p>
         <h1>DIB 发布中心</h1>
         <p class="description">
-          第一阶段已接入 prod101 的 Supabase 元数据结构，当前页面聚焦发布渠道、插件版本和客户端版本的最小闭环展示。
+          第一阶段已接入 prod101 的 Supabase 元数据结构，当前页面聚焦发布渠道、插件版本、资产登记与 manifest 发布的最小闭环。
         </p>
       </div>
       <div class="hero-side">
@@ -20,6 +20,10 @@
         <div class="metric-card">
           <span>客户端版本</span>
           <strong>{{ clientVersions.length }}</strong>
+        </div>
+        <div class="metric-card">
+          <span>发布资产</span>
+          <strong>{{ releaseAssets.length }}</strong>
         </div>
       </div>
     </section>
@@ -66,6 +70,7 @@
         </select>
       </label>
       <button type="button" class="ghost-button" @click="refreshPreview">刷新预览</button>
+      <button type="button" @click="publishManifest">发布当前渠道 manifest</button>
     </section>
 
     <section class="manifest-grid">
@@ -98,37 +103,53 @@
       @submit="handleCreatePluginVersion"
     />
     <ClientReleasesPage
-      v-else
+      v-else-if="activeTab === 'clients'"
       :versions="clientVersions"
       :channels="channels"
       @submit="handleCreateClientVersion"
+    />
+    <ReleaseAssetsPage
+      v-else
+      :assets="releaseAssets"
+      @submit="handleCreateReleaseAsset"
     />
   </main>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import type { ClientVersion, PluginPackage, PluginVersion, ReleaseChannel } from '@/contracts/release-types'
+import type { ClientVersion, PluginPackage, PluginVersion, ReleaseAsset, ReleaseChannel } from '@/contracts/release-types'
 import { createClientVersion, listClientVersions } from '@/repositories/clientVersionsRepository'
 import { listPluginPackages } from '@/repositories/pluginPackagesRepository'
 import { createPluginVersion, listPluginVersions } from '@/repositories/pluginVersionsRepository'
+import {
+  createReleaseAsset,
+  listReleaseAssets,
+  upsertReleaseAsset,
+  uploadManifestAsset,
+} from '@/repositories/releaseAssetsRepository'
 import { listReleaseChannels } from '@/repositories/releaseChannelsRepository'
 import { isSupabaseConfigured } from '@/services/supabase'
 import {
   buildClientVersionInsert,
   buildManifestPreview,
+  buildManifestPublishPlan,
   buildPluginVersionInsert,
+  buildReleaseAssetInsert,
   type ClientVersionDraftInput,
   type PluginVersionDraftInput,
+  type ReleaseAssetDraftInput,
 } from '@/services/releaseDraftService'
 import ChannelsPage from '@/web/pages/ChannelsPage.vue'
 import ClientReleasesPage from '@/web/pages/ClientReleasesPage.vue'
 import PluginReleasesPage from '@/web/pages/PluginReleasesPage.vue'
+import ReleaseAssetsPage from '@/web/pages/ReleaseAssetsPage.vue'
 
 const tabs = [
   { id: 'channels', label: '发布渠道' },
   { id: 'plugins', label: '插件版本' },
   { id: 'clients', label: '客户端版本' },
+  { id: 'assets', label: '发布资产' },
 ] as const
 
 type TabId = (typeof tabs)[number]['id']
@@ -141,6 +162,7 @@ const channels = ref<ReleaseChannel[]>([])
 const pluginPackages = ref<PluginPackage[]>([])
 const pluginVersions = ref<PluginVersion[]>([])
 const clientVersions = ref<ClientVersion[]>([])
+const releaseAssets = ref<ReleaseAsset[]>([])
 const previewChannelCode = ref('stable')
 
 const envMessage = computed(() => {
@@ -190,6 +212,7 @@ async function loadData(): Promise<void> {
     pluginPackages.value = []
     pluginVersions.value = []
     clientVersions.value = []
+    releaseAssets.value = []
     return
   }
 
@@ -197,17 +220,19 @@ async function loadData(): Promise<void> {
   loadError.value = ''
 
   try {
-    const [channelData, packageData, pluginVersionData, clientVersionData] = await Promise.all([
+    const [channelData, packageData, pluginVersionData, clientVersionData, assetData] = await Promise.all([
       listReleaseChannels(),
       listPluginPackages(),
       listPluginVersions(),
       listClientVersions(),
+      listReleaseAssets(),
     ])
 
     channels.value = channelData
     pluginPackages.value = packageData
     pluginVersions.value = pluginVersionData
     clientVersions.value = clientVersionData
+    releaseAssets.value = assetData
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '加载发布中心数据失败。'
   } finally {
@@ -240,6 +265,38 @@ async function handleCreateClientVersion(draft: ClientVersionDraftInput): Promis
     activeTab.value = 'clients'
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '新增客户端版本失败。'
+  }
+}
+
+async function handleCreateReleaseAsset(draft: ReleaseAssetDraftInput): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await createReleaseAsset(buildReleaseAssetInsert(draft))
+    statusMessage.value = '发布资产元数据已登记。'
+    await loadData()
+    activeTab.value = 'assets'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '新增发布资产失败。'
+  }
+}
+
+async function publishManifest(): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    const plan = await buildManifestPublishPlan(previewChannelCode.value, pluginVersions.value, clientVersions.value)
+    for (const asset of plan.assets) {
+      await uploadManifestAsset(asset.payload.bucket_name, asset.storagePath, asset.content)
+      await upsertReleaseAsset(asset.payload)
+    }
+
+    statusMessage.value = `${plan.channelCode} 渠道 manifest 已发布到 Storage，并同步写入 release_assets。`
+    await loadData()
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '发布 manifest 失败。'
   }
 }
 
@@ -337,7 +394,7 @@ onMounted(() => {
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr);
   gap: 20px;
   padding: 28px;
   border: 1px solid #d4e2ef;
@@ -370,7 +427,7 @@ h1 {
 
 .hero-side {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   align-content: start;
 }
@@ -537,27 +594,12 @@ h1 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.textarea-field {
-  display: block;
-  margin-top: 16px;
-}
-
 .toggle-row,
 .form-actions {
   display: flex;
   gap: 16px;
   align-items: center;
   margin-top: 16px;
-}
-
-.checkbox-field {
-  display: inline-flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.checkbox-field input {
-  width: auto;
 }
 
 .form-tip,
@@ -570,6 +612,7 @@ h1 {
 .subline {
   margin-top: 6px;
   font-size: 0.88rem;
+  word-break: break-all;
 }
 
 .manifest-card pre {
