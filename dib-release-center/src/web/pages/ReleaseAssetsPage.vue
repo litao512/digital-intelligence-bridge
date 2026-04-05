@@ -44,10 +44,24 @@
         </label>
       </div>
 
+      <div class="field-grid field-grid-wide upload-grid">
+        <label>
+          <span>选择文件</span>
+          <input type="file" @change="handleFileChange">
+        </label>
+        <div class="upload-summary" v-if="selectedFileName">
+          <strong>{{ selectedFileName }}</strong>
+          <span>{{ selectedFileSummary }}</span>
+        </div>
+      </div>
+
       <div class="form-actions">
         <button type="submit">登记资产</button>
+        <button type="button" class="ghost-button" :disabled="!selectedFile" @click="submitUpload">
+          上传并登记资产
+        </button>
       </div>
-      <p class="form-tip">当前先支持手工登记已上传文件的元数据；后续补文件直传。</p>
+      <p class="form-tip">已支持文件直传到 Storage，并自动计算文件摘要、大小与 MIME；手工登记入口继续保留给历史资产补录使用。</p>
     </form>
 
     <div v-if="assets.length" class="table-wrap">
@@ -82,9 +96,9 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import type { ReleaseAsset } from '@/contracts/release-types'
-import type { ReleaseAssetDraftInput } from '@/services/releaseDraftService'
+import type { ReleaseAssetDraftInput, ReleaseAssetUploadInput } from '@/services/releaseDraftService'
 
 defineProps<{
   assets: ReleaseAsset[]
@@ -92,6 +106,7 @@ defineProps<{
 
 const emit = defineEmits<{
   submit: [draft: ReleaseAssetDraftInput]
+  upload: [draft: ReleaseAssetUploadInput]
 }>()
 
 const draft = reactive<ReleaseAssetDraftInput>({
@@ -104,7 +119,50 @@ const draft = reactive<ReleaseAssetDraftInput>({
   mimeType: 'application/zip',
 })
 
+const selectedFile = ref<File | null>(null)
+
+const selectedFileName = computed(() => selectedFile.value?.name ?? '')
+const selectedFileSummary = computed(() => {
+  if (!selectedFile.value) {
+    return ''
+  }
+
+  const mimeType = selectedFile.value.type.trim() || 'application/octet-stream'
+  return `${selectedFile.value.size} bytes / ${mimeType}`
+})
+
+function handleFileChange(event: Event): void {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0] ?? null
+  selectedFile.value = file
+
+  if (!file) {
+    return
+  }
+
+  draft.fileName = file.name
+  draft.sizeBytes = `${file.size}`
+  draft.mimeType = file.type.trim() || 'application/octet-stream'
+
+  if (!draft.storagePath.trim()) {
+    draft.storagePath = file.name
+  }
+}
+
 function submitDraft(): void {
   emit('submit', { ...draft })
+}
+
+function submitUpload(): void {
+  if (!selectedFile.value) {
+    return
+  }
+
+  emit('upload', {
+    bucketName: draft.bucketName,
+    storagePath: draft.storagePath,
+    assetKind: draft.assetKind,
+    file: selectedFile.value,
+  })
 }
 </script>

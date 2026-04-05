@@ -79,3 +79,18 @@ export async function uploadManifestAsset(bucketName: string, storagePath: strin
     throw new Error(`上传 manifest 文件失败：${error.message}`)
   }
 }
+
+export async function uploadReleaseAssetFile(bucketName: string, storagePath: string, file: File): Promise<void> {
+  const contentType = file.type.trim() || 'application/octet-stream'
+  const { error } = await getSupabaseClient()
+    .storage
+    .from(bucketName)
+    .upload(storagePath, file, {
+      upsert: false,
+      contentType,
+    })
+
+  if (error) {
+    throw new Error(`上传发布资产文件失败：${error.message}`)
+  }
+}

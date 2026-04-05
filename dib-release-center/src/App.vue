@@ -120,6 +120,7 @@
         v-else
         :assets="releaseAssets"
         @submit="handleCreateReleaseAsset"
+        @upload="handleUploadReleaseAsset"
       />
     </template>
   </main>
@@ -137,6 +138,7 @@ import {
   listReleaseAssets,
   upsertReleaseAsset,
   uploadManifestAsset,
+  uploadReleaseAssetFile,
 } from '@/repositories/releaseAssetsRepository'
 import { getCurrentAdminProfile, linkCurrentAdminUser, type ReleaseCenterAdmin } from '@/repositories/releaseCenterAdminsRepository'
 import { listReleaseChannels } from '@/repositories/releaseChannelsRepository'
@@ -153,9 +155,11 @@ import {
   buildManifestPublishPlan,
   buildPluginVersionInsert,
   buildReleaseAssetInsert,
+  buildReleaseAssetUploadPlan,
   type ClientVersionDraftInput,
   type PluginVersionDraftInput,
   type ReleaseAssetDraftInput,
+  type ReleaseAssetUploadInput,
 } from '@/services/releaseDraftService'
 import ReleaseAuthPanel from '@/web/components/ReleaseAuthPanel.vue'
 import ChannelsPage from '@/web/pages/ChannelsPage.vue'
@@ -374,6 +378,22 @@ async function handleCreateReleaseAsset(draft: ReleaseAssetDraftInput): Promise<
     activeTab.value = 'assets'
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '新增发布资产失败。'
+  }
+}
+
+async function handleUploadReleaseAsset(draft: ReleaseAssetUploadInput): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    const plan = await buildReleaseAssetUploadPlan(draft)
+    await uploadReleaseAssetFile(plan.payload.bucket_name, plan.payload.storage_path, plan.file)
+    await createReleaseAsset(plan.payload)
+    statusMessage.value = '发布资产文件已上传，并完成元数据登记。'
+    await loadData()
+    activeTab.value = 'assets'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '上传发布资产失败。'
   }
 }
 
@@ -770,3 +790,4 @@ h1 {
   }
 }
 </style>
+

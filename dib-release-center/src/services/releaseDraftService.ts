@@ -41,6 +41,18 @@ export interface ReleaseAssetDraftInput {
   mimeType: string
 }
 
+export interface ReleaseAssetUploadInput {
+  bucketName: string
+  storagePath: string
+  assetKind: ReleaseAssetKind
+  file: File
+}
+
+export interface ReleaseAssetUploadPlan {
+  file: File
+  payload: ReleaseAssetInsertPayload
+}
+
 export interface ReleaseManifestPreview {
   clientManifest: ClientManifest
   pluginManifest: PluginManifest
@@ -172,6 +184,27 @@ export function buildReleaseAssetInsert(input: ReleaseAssetDraftInput): ReleaseA
     sha256: assertSha256Hex(input.sha256, '资产'),
     size_bytes: parseSizeBytes(input.sizeBytes),
     mime_type: input.mimeType.trim(),
+  }
+}
+
+export async function buildReleaseAssetUploadPlan(input: ReleaseAssetUploadInput): Promise<ReleaseAssetUploadPlan> {
+  const bucketName = requireValue(input.bucketName, '资产 bucket 不能为空')
+  const storagePath = requireValue(input.storagePath, '资产路径不能为空')
+  const fileName = requireValue(input.file.name, '上传文件名不能为空')
+  const fileBytes = new Uint8Array(await input.file.arrayBuffer())
+  const mimeType = input.file.type.trim() || 'application/octet-stream'
+
+  return {
+    file: input.file,
+    payload: {
+      bucket_name: bucketName,
+      storage_path: storagePath,
+      file_name: fileName,
+      asset_kind: input.assetKind,
+      sha256: await computeSha256Hex(fileBytes),
+      size_bytes: fileBytes.byteLength,
+      mime_type: mimeType,
+    },
   }
 }
 

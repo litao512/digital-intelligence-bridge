@@ -6,6 +6,7 @@ import {
   buildManifestPublishPlan,
   buildPluginVersionInsert,
   buildReleaseAssetInsert,
+  buildReleaseAssetUploadPlan,
 } from '@/services/releaseDraftService'
 
 function createPluginVersion(overrides: Partial<PluginVersion> = {}): PluginVersion {
@@ -147,6 +148,27 @@ describe('releaseDraftService', () => {
       size_bytes: 4096,
       mime_type: 'application/zip',
     })
+  })
+
+  it('buildReleaseAssetUploadPlan should derive metadata from file content', async () => {
+    const file = new File([new TextEncoder().encode('release-center-test')], 'package.zip', {
+      type: 'application/zip',
+    })
+
+    const plan = await buildReleaseAssetUploadPlan({
+      bucketName: 'dib-releases',
+      storagePath: 'plugins/patient-registration/stable/1.0.2/package.zip',
+      assetKind: 'plugin_package',
+      file,
+    })
+
+    expect(plan.payload.bucket_name).toBe('dib-releases')
+    expect(plan.payload.storage_path).toBe('plugins/patient-registration/stable/1.0.2/package.zip')
+    expect(plan.payload.file_name).toBe('package.zip')
+    expect(plan.payload.asset_kind).toBe('plugin_package')
+    expect(plan.payload.size_bytes).toBe(file.size)
+    expect(plan.payload.mime_type).toBe('application/zip')
+    expect(plan.payload.sha256).toHaveLength(64)
   })
 
   it('buildManifestPublishPlan should create two manifest assets for the channel', async () => {
