@@ -8,6 +8,15 @@ import type {
 import { buildClientManifest, buildPluginManifest } from '@/services/manifestService'
 import { computeSha256Hex, assertSha256Hex } from '@/utils/hash'
 
+export interface PluginPackageDraftInput {
+  pluginCode: string
+  pluginName: string
+  entryType: string
+  author: string
+  description: string
+  isActive: boolean
+}
+
 export interface PluginVersionDraftInput {
   packageId: string
   channelId: string
@@ -56,6 +65,15 @@ export interface ReleaseAssetUploadPlan {
 export interface ReleaseManifestPreview {
   clientManifest: ClientManifest
   pluginManifest: PluginManifest
+}
+
+export interface PluginPackageInsertPayload {
+  plugin_code: string
+  plugin_name: string
+  entry_type: string
+  author: string
+  description: string
+  is_active: boolean
 }
 
 export interface PluginVersionInsertPayload {
@@ -144,6 +162,17 @@ function parseSizeBytes(value: string): number {
 
 function stringifyJson(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`
+}
+
+export function buildPluginPackageInsert(input: PluginPackageDraftInput): PluginPackageInsertPayload {
+  return {
+    plugin_code: requireValue(input.pluginCode, '插件编码不能为空'),
+    plugin_name: requireValue(input.pluginName, '插件名称不能为空'),
+    entry_type: requireValue(input.entryType, '入口类型不能为空'),
+    author: input.author.trim(),
+    description: input.description.trim(),
+    is_active: input.isActive,
+  }
 }
 
 export function buildPluginVersionInsert(input: PluginVersionDraftInput): PluginVersionInsertPayload {

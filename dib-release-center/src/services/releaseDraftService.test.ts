@@ -4,6 +4,7 @@ import {
   buildClientVersionInsert,
   buildManifestPreview,
   buildManifestPublishPlan,
+  buildPluginPackageInsert,
   buildPluginVersionInsert,
   buildReleaseAssetInsert,
   buildReleaseAssetUploadPlan,
@@ -69,6 +70,26 @@ function createClientVersion(overrides: Partial<ClientVersion> = {}): ClientVers
 }
 
 describe('releaseDraftService', () => {
+  it('buildPluginPackageInsert should normalize plugin definition payload', () => {
+    const payload = buildPluginPackageInsert({
+      pluginCode: 'bedside-rounding',
+      pluginName: '床旁巡视',
+      entryType: 'assembly',
+      author: 'DIB',
+      description: '床旁巡视插件',
+      isActive: true,
+    })
+
+    expect(payload).toEqual({
+      plugin_code: 'bedside-rounding',
+      plugin_name: '床旁巡视',
+      entry_type: 'assembly',
+      author: 'DIB',
+      description: '床旁巡视插件',
+      is_active: true,
+    })
+  })
+
   it('buildPluginVersionInsert should map draft into database payload', () => {
     const payload = buildPluginVersionInsert({
       packageId: 'package-1',

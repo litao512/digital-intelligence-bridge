@@ -8,6 +8,40 @@
       <span class="panel-count">{{ versions.length }} 条记录</span>
     </header>
 
+    <form class="release-form" @submit.prevent="submitPackageDraft">
+      <div class="field-grid field-grid-wide">
+        <label>
+          <span>插件编码</span>
+          <input v-model="packageDraft.pluginCode" placeholder="patient-registration">
+        </label>
+        <label>
+          <span>插件名称</span>
+          <input v-model="packageDraft.pluginName" placeholder="就诊登记">
+        </label>
+        <label>
+          <span>入口类型</span>
+          <input v-model="packageDraft.entryType" placeholder="assembly">
+        </label>
+        <label>
+          <span>作者</span>
+          <input v-model="packageDraft.author" placeholder="DIB">
+        </label>
+        <label class="textarea-field package-description-field">
+          <span>插件说明</span>
+          <textarea v-model="packageDraft.description" rows="2" placeholder="记录插件职责与用途" />
+        </label>
+        <label class="checkbox-field package-active-field">
+          <input v-model="packageDraft.isActive" type="checkbox">
+          <span>启用该插件定义</span>
+        </label>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="ghost-button">新增插件定义</button>
+      </div>
+      <p class="form-tip">先创建插件定义，再选择对应资产和版本信息发布插件版本。</p>
+    </form>
+
     <form class="release-form" @submit.prevent="submitDraft">
       <div class="field-grid field-grid-wide">
         <label>
@@ -70,7 +104,7 @@
       <div class="form-actions">
         <button type="submit">新增插件版本</button>
       </div>
-      <p class="form-tip">第一阶段先用资产 ID 关联已上传文件，Storage 上传入口下一轮补上。</p>
+      <p class="form-tip">资产已支持直传，插件定义也可直接在当前页面新增；版本发布仍通过资产 ID 关联对应插件包。</p>
     </form>
 
     <div v-if="versions.length" class="table-wrap">
@@ -108,7 +142,7 @@
 <script setup lang="ts">
 import { reactive, watch } from 'vue'
 import type { PluginPackage, PluginVersion, ReleaseChannel } from '@/contracts/release-types'
-import type { PluginVersionDraftInput } from '@/services/releaseDraftService'
+import type { PluginPackageDraftInput, PluginVersionDraftInput } from '@/services/releaseDraftService'
 
 const props = defineProps<{
   versions: PluginVersion[]
@@ -118,7 +152,17 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   submit: [draft: PluginVersionDraftInput]
+  createPackage: [draft: PluginPackageDraftInput]
 }>()
+
+const packageDraft = reactive<PluginPackageDraftInput>({
+  pluginCode: '',
+  pluginName: '',
+  entryType: 'assembly',
+  author: 'DIB',
+  description: '',
+  isActive: true,
+})
 
 const draft = reactive<PluginVersionDraftInput>({
   packageId: '',
@@ -152,6 +196,10 @@ watch(
   },
   { immediate: true },
 )
+
+function submitPackageDraft(): void {
+  emit('createPackage', { ...packageDraft })
+}
 
 function submitDraft(): void {
   emit('submit', { ...draft })
