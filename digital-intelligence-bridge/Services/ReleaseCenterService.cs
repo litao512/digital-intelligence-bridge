@@ -40,6 +40,7 @@ public sealed class ReleaseCenterService : IReleaseCenterService
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<ReleaseCenterService> _logger;
+    private readonly AppSettings _appSettings;
     private readonly ReleaseCenterConfig _config;
     private readonly PluginConfig _pluginConfig;
     private readonly string _currentAppVersion;
@@ -48,9 +49,10 @@ public sealed class ReleaseCenterService : IReleaseCenterService
     {
         _httpClient = httpClient;
         _logger = logger;
-        _config = settings.Value.ReleaseCenter;
-        _pluginConfig = settings.Value.Plugin;
-        _currentAppVersion = settings.Value.Application.Version;
+        _appSettings = settings.Value;
+        _config = _appSettings.ReleaseCenter;
+        _pluginConfig = _appSettings.Plugin;
+        _currentAppVersion = _appSettings.Application.Version;
     }
 
     public bool IsConfigured => _config.Enabled && !string.IsNullOrWhiteSpace(_config.BaseUrl) && !string.IsNullOrWhiteSpace(_config.Channel);
@@ -64,6 +66,7 @@ public sealed class ReleaseCenterService : IReleaseCenterService
 
         try
         {
+            var heartbeatPayload = EnsureSiteHeartbeatPayload();
             var channel = _config.Channel.Trim();
             var clientManifest = await GetClientManifestAsync(cancellationToken).ConfigureAwait(false);
             var pluginManifest = await GetPluginManifestAsync(cancellationToken).ConfigureAwait(false);
@@ -73,7 +76,12 @@ public sealed class ReleaseCenterService : IReleaseCenterService
             if (HasClientUpdate(clientManifest)) updateCount++;
             if ((pluginManifest?.Plugins?.Count ?? 0) > 0) updateCount++;
             var summary = updateCount > 0 ? $"发现 {updateCount} 类可用更新" : "当前未发现可用更新";
-            return new ReleaseCenterCheckResult(true, summary, clientSummary, pluginSummary, $"channel={channel}; currentAppVersion={_currentAppVersion}");
+            return new ReleaseCenterCheckResult(
+                true,
+                summary,
+                clientSummary,
+                pluginSummary,
+                $"channel={channel}; currentAppVersion={_currentAppVersion}; siteId={heartbeatPayload.SiteId}; siteName={heartbeatPayload.SiteName}");
         }
         catch (Exception ex)
         {
@@ -369,6 +377,47 @@ public sealed class ReleaseCenterService : IReleaseCenterService
         return $"{baseUrl}/storage/v1/object/public/dib-releases/manifests/{channel}/{fileName}";
     }
 
+    private SiteHeartbeatPayload EnsureSiteHeartbeatPayload()
+    {
+        var changed = false;
+
+        if (string.IsNullOrWhiteSpace(_config.SiteId))
+        {
+            _config.SiteId = Guid.NewGuid().ToString().ToLowerInvariant();
+            changed = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(_config.SiteName))
+        {
+            _config.SiteName = Environment.MachineName;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            PersistReleaseCenterIdentity();
+        }
+
+        return new SiteHeartbeatPayload(
+            _config.SiteId,
+            _config.SiteName,
+            _config.Channel.Trim(),
+            _currentAppVersion,
+            Environment.MachineName,
+            DateTimeOffset.UtcNow);
+    }
+
+    private void PersistReleaseCenterIdentity()
+    {
+        var configPath = DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.GetConfigFilePath();
+        Directory.CreateDirectory(Path.GetDirectoryName(configPath)!);
+        var json = JsonSerializer.Serialize(_appSettings, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+        File.WriteAllText(configPath, json);
+    }
+
     private string ResolveCacheDirectory() => !string.IsNullOrWhiteSpace(_config.CacheDirectory) ? _config.CacheDirectory : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "UniversalTrayTool", "release-cache", "plugins", _config.Channel.Trim());
     private string ResolveClientCacheDirectory() => !string.IsNullOrWhiteSpace(_config.ClientCacheDirectory) ? _config.ClientCacheDirectory : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "UniversalTrayTool", "release-cache", "clients", _config.Channel.Trim());
     private string ResolveStagingDirectory() => !string.IsNullOrWhiteSpace(_config.StagingDirectory) ? _config.StagingDirectory : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "UniversalTrayTool", "release-staging", "plugins", _config.Channel.Trim());
@@ -387,6 +436,7 @@ public sealed class ReleaseCenterService : IReleaseCenterService
     public static int CompareVersions(string left, string right) { var leftParts = ParseVersionParts(left); var rightParts = ParseVersionParts(right); var max = Math.Max(leftParts.Length, rightParts.Length); for (var i = 0; i < max; i++) { var lv = i < leftParts.Length ? leftParts[i] : 0; var rv = i < rightParts.Length ? rightParts[i] : 0; if (lv != rv) return lv.CompareTo(rv); } return 0; }
     private static int[] ParseVersionParts(string value) => value.Split('-', 2)[0].Split('.', StringSplitOptions.RemoveEmptyEntries).Select(part => int.TryParse(part, out var parsed) ? parsed : 0).ToArray();
 
+    private sealed record SiteHeartbeatPayload(string SiteId, string SiteName, string Channel, string ClientVersion, string MachineName, DateTimeOffset CheckedAt);
     private sealed class ClientManifestDto { [JsonPropertyName("latestVersion")] public string? LatestVersion { get; set; } [JsonPropertyName("minUpgradeVersion")] public string? MinUpgradeVersion { get; set; } [JsonPropertyName("packageUrl")] public string? PackageUrl { get; set; } [JsonPropertyName("sha256")] public string? Sha256 { get; set; } }
     private sealed class PluginManifestDto { [JsonPropertyName("plugins")] public List<PluginItemDto>? Plugins { get; set; } }
     private sealed class PluginItemDto { [JsonPropertyName("pluginId")] public string PluginId { get; set; } = string.Empty; [JsonPropertyName("name")] public string Name { get; set; } = string.Empty; [JsonPropertyName("version")] public string Version { get; set; } = string.Empty; [JsonPropertyName("packageUrl")] public string? PackageUrl { get; set; } [JsonPropertyName("sha256")] public string? Sha256 { get; set; } }

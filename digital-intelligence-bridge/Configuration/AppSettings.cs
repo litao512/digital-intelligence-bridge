@@ -59,6 +59,8 @@ public class ReleaseCenterConfig
     public bool Enabled { get; set; } = false;
     public string BaseUrl { get; set; } = string.Empty;
     public string Channel { get; set; } = "stable";
+    public string SiteId { get; set; } = string.Empty;
+    public string SiteName { get; set; } = string.Empty;
     public string CacheDirectory { get; set; } = string.Empty;
     public string ClientCacheDirectory { get; set; } = string.Empty;
     public string StagingDirectory { get; set; } = string.Empty;

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using DigitalIntelligenceBridge.Configuration;
 using DigitalIntelligenceBridge.Services;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -57,6 +58,99 @@ public class ReleaseCenterServiceTests
         Assert.Equal("客户端更新：未配置", result.ClientSummary);
     }
 
+    [Fact]
+    public async Task CheckForUpdatesAsync_ShouldGenerateAndPersistSiteId_WhenMissing()
+    {
+        var configRoot = Path.Combine(Path.GetTempPath(), $"dib-site-config-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(configRoot);
+        var previousConfigRoot = Environment.GetEnvironmentVariable("DIB_CONFIG_DIR");
+        Environment.SetEnvironmentVariable("DIB_CONFIG_DIR", configRoot);
+
+        try
+        {
+            var settings = new AppSettings
+            {
+                Application = new ApplicationConfig { Version = "1.0.0" },
+                ReleaseCenter = new ReleaseCenterConfig
+                {
+                    Enabled = true,
+                    BaseUrl = "http://release-center.local",
+                    Channel = "stable",
+                    SiteId = string.Empty,
+                    SiteName = "门诊登记台 1"
+                }
+            };
+
+            var service = CreateService("""
+{
+  "latestVersion": "1.2.0",
+  "minUpgradeVersion": "1.0.0"
+}
+""", """
+{
+  "plugins": []
+}
+""", settings);
+
+            var result = await service.CheckForUpdatesAsync();
+
+            Assert.True(result.IsSuccess);
+            Assert.False(string.IsNullOrWhiteSpace(settings.ReleaseCenter.SiteId));
+            Assert.Contains($"siteId={settings.ReleaseCenter.SiteId}", result.Detail);
+
+            var persistedJson = await File.ReadAllTextAsync(ConfigurationExtensions.GetConfigFilePath());
+            using var document = JsonDocument.Parse(persistedJson);
+            var persistedSiteId = document.RootElement
+                .GetProperty("ReleaseCenter")
+                .GetProperty("SiteId")
+                .GetString();
+            Assert.Equal(settings.ReleaseCenter.SiteId, persistedSiteId);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("DIB_CONFIG_DIR", previousConfigRoot);
+            if (Directory.Exists(configRoot))
+            {
+                Directory.Delete(configRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task CheckForUpdatesAsync_ShouldKeepExistingSiteId_OnRepeatedCalls()
+    {
+        var settings = new AppSettings
+        {
+            Application = new ApplicationConfig { Version = "1.0.0" },
+            ReleaseCenter = new ReleaseCenterConfig
+            {
+                Enabled = true,
+                BaseUrl = "http://release-center.local",
+                Channel = "stable",
+                SiteId = string.Empty,
+                SiteName = "门诊登记台 1"
+            }
+        };
+
+        var service = CreateService("""
+{
+  "latestVersion": "1.2.0",
+  "minUpgradeVersion": "1.0.0"
+}
+""", """
+{
+  "plugins": []
+}
+""", settings);
+
+        await service.CheckForUpdatesAsync();
+        var siteId = settings.ReleaseCenter.SiteId;
+        var second = await service.CheckForUpdatesAsync();
+
+        Assert.Equal(siteId, settings.ReleaseCenter.SiteId);
+        Assert.Contains($"siteId={siteId}", second.Detail);
+    }
+
     [Theory]
     [InlineData("1.0.1", "1.0.0", 1)]
     [InlineData("1.0.0", "1.0.1", -1)]
@@ -69,7 +163,7 @@ public class ReleaseCenterServiceTests
         Assert.Equal(expectedSign, Math.Sign(result));
     }
 
-    private static ReleaseCenterService CreateService(string clientManifest, string pluginManifest)
+    private static ReleaseCenterService CreateService(string clientManifest, string pluginManifest, AppSettings? settings = null)
     {
         var handler = new StubHttpMessageHandler(request =>
         {
@@ -85,7 +179,7 @@ public class ReleaseCenterServiceTests
         return new ReleaseCenterService(
             new HttpClient(handler),
             NullLogger<ReleaseCenterService>.Instance,
-            Options.Create(new AppSettings
+            Options.Create(settings ?? new AppSettings
             {
                 Application = new ApplicationConfig { Version = "1.0.0" },
                 ReleaseCenter = new ReleaseCenterConfig

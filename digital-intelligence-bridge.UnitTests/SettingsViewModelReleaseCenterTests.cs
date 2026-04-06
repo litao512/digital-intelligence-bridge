@@ -24,7 +24,7 @@ public class SettingsViewModelReleaseCenterTests
         Assert.Equal("发现 2 类可用更新", vm.UpdateCheckSummary);
         Assert.Contains("1.2.0", vm.ClientUpdateSummary);
         Assert.Contains("2 个可用插件", vm.PluginUpdateSummary);
-        Assert.Equal("channel=stable", vm.UpdateCheckDetail);
+        Assert.Contains("channel=stable", vm.UpdateCheckDetail);
         Assert.NotNull(vm.LastUpdateCheckAt);
     }
 
