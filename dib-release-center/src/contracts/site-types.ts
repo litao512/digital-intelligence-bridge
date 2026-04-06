@@ -78,20 +78,43 @@ export interface SiteAnalyticsGroupBreakdown {
 export interface SiteAnalyticsVersionBreakdown {
   version: string
   count: number
+  activeCount24h: number
 }
 
 export interface SiteAuthorizationDriftItem {
   siteId: string
   siteName: string
+  groupName: string
+  clientVersion: string
+  lastSeenAt: string | null
   authorizedNotInstalled: string[]
   installedNotAuthorized: string[]
 }
 
-export interface SiteAnalyticsSummary {
+export interface SiteAnalyticsOverview {
   totalSiteCount: number
   activeSiteCount24h: number
   unassignedSiteCount: number
+  groupPolicyCount: number
+  overrideCount: number
+  driftSiteCount: number
+  authorizedButNotInstalledSiteCount: number
+  installedButNotAuthorizedSiteCount: number
+}
+
+export interface SiteAnalyticsGroupRow {
+  groupCode: string
+  groupName: string
+  siteCount: number
+  activeSiteCount24h: number
+  policyCount: number
+  driftSiteCount: number
+}
+
+export interface SiteAnalyticsSummary {
+  overview: SiteAnalyticsOverview
   groupBreakdown: SiteAnalyticsGroupBreakdown[]
+  groupRows: SiteAnalyticsGroupRow[]
   versionBreakdown: SiteAnalyticsVersionBreakdown[]
   authorizationDrift: SiteAuthorizationDriftItem[]
 }

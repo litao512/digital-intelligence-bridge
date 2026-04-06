@@ -1,5 +1,6 @@
 import type {
   SiteAnalyticsSummary,
+  SiteAnalyticsGroupRow,
   ResolvedSitePluginPolicy,
   SiteGroup,
   SiteGroupPluginPolicy,
@@ -66,7 +67,8 @@ export function aggregateSiteAnalytics(input: AggregateSiteAnalyticsInput): Site
   const activeThreshold = new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
   const groupBreakdownMap = new Map<string, { groupCode: string; groupName: string; count: number }>()
-  const versionBreakdownMap = new Map<string, number>()
+  const versionBreakdownMap = new Map<string, { version: string; count: number; activeCount24h: number }>()
+  const groupRowMap = new Map<string, SiteAnalyticsGroupRow>()
   const authorizationDrift = input.sites.map((site) => {
     const authorizedPlugins = resolveSiteAuthorizedPlugins({
       site,
@@ -86,24 +88,56 @@ export function aggregateSiteAnalytics(input: AggregateSiteAnalyticsInput): Site
       count: (existingGroup?.count ?? 0) + 1,
     })
 
-    versionBreakdownMap.set(site.clientVersion, (versionBreakdownMap.get(site.clientVersion) ?? 0) + 1)
+    const isActive = Boolean(site.lastSeenAt && new Date(site.lastSeenAt) >= activeThreshold)
+    const existingVersion = versionBreakdownMap.get(site.clientVersion)
+    versionBreakdownMap.set(site.clientVersion, {
+      version: site.clientVersion,
+      count: (existingVersion?.count ?? 0) + 1,
+      activeCount24h: (existingVersion?.activeCount24h ?? 0) + (isActive ? 1 : 0),
+    })
+
+    const existingGroupRow = groupRowMap.get(groupCode)
+    groupRowMap.set(groupCode, {
+      groupCode,
+      groupName,
+      siteCount: (existingGroupRow?.siteCount ?? 0) + 1,
+      activeSiteCount24h: (existingGroupRow?.activeSiteCount24h ?? 0) + (isActive ? 1 : 0),
+      policyCount: existingGroupRow?.policyCount ?? input.groupPolicies.filter((item) => item.groupId === site.groupId).length,
+      driftSiteCount: (existingGroupRow?.driftSiteCount ?? 0) + ((authorizedPlugins.filter((pluginCode) => !installedSet.has(pluginCode)).length > 0 || site.installedPlugins.filter((pluginCode) => !authorizedSet.has(pluginCode)).length > 0) ? 1 : 0),
+    })
 
     return {
       siteId: site.siteId,
       siteName: site.siteName,
+      groupName,
+      clientVersion: site.clientVersion,
+      lastSeenAt: site.lastSeenAt,
       authorizedNotInstalled: authorizedPlugins.filter((pluginCode) => !installedSet.has(pluginCode)),
       installedNotAuthorized: site.installedPlugins.filter((pluginCode) => !authorizedSet.has(pluginCode)),
     }
   })
 
+  const driftSiteCount = authorizationDrift.filter((item) => item.authorizedNotInstalled.length > 0 || item.installedNotAuthorized.length > 0).length
+  const authorizedButNotInstalledSiteCount = authorizationDrift.filter((item) => item.authorizedNotInstalled.length > 0).length
+  const installedButNotAuthorizedSiteCount = authorizationDrift.filter((item) => item.installedNotAuthorized.length > 0).length
+
   return {
-    totalSiteCount: input.sites.length,
-    activeSiteCount24h: input.sites.filter((site) => site.lastSeenAt && new Date(site.lastSeenAt) >= activeThreshold).length,
-    unassignedSiteCount: input.sites.filter((site) => !site.groupId).length,
+    overview: {
+      totalSiteCount: input.sites.length,
+      activeSiteCount24h: input.sites.filter((site) => site.lastSeenAt && new Date(site.lastSeenAt) >= activeThreshold).length,
+      unassignedSiteCount: input.sites.filter((site) => !site.groupId).length,
+      groupPolicyCount: input.groupPolicies.length,
+      overrideCount: input.siteOverrides.filter((item) => item.isActive).length,
+      driftSiteCount,
+      authorizedButNotInstalledSiteCount,
+      installedButNotAuthorizedSiteCount,
+    },
     groupBreakdown: [...groupBreakdownMap.values()].sort((left, right) => left.groupCode.localeCompare(right.groupCode)),
-    versionBreakdown: [...versionBreakdownMap.entries()]
-      .map(([version, count]) => ({ version, count }))
+    groupRows: [...groupRowMap.values()].sort((left, right) => left.groupCode.localeCompare(right.groupCode)),
+    versionBreakdown: [...versionBreakdownMap.values()]
       .sort((left, right) => left.version.localeCompare(right.version)),
-    authorizationDrift,
+    authorizationDrift: authorizationDrift
+      .filter((item) => item.authorizedNotInstalled.length > 0 || item.installedNotAuthorized.length > 0)
+      .sort((left, right) => left.siteName.localeCompare(right.siteName)),
   }
 }

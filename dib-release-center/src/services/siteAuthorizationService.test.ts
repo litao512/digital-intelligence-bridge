@@ -149,23 +149,50 @@ describe('siteAuthorizationService', () => {
       now: '2026-04-06T12:10:00Z',
     })
 
-    expect(analytics.totalSiteCount).toBe(2)
-    expect(analytics.activeSiteCount24h).toBe(1)
-    expect(analytics.unassignedSiteCount).toBe(1)
+    expect(analytics.overview.totalSiteCount).toBe(2)
+    expect(analytics.overview.activeSiteCount24h).toBe(1)
+    expect(analytics.overview.unassignedSiteCount).toBe(1)
+    expect(analytics.overview.groupPolicyCount).toBe(1)
+    expect(analytics.overview.overrideCount).toBe(0)
+    expect(analytics.overview.driftSiteCount).toBe(2)
+    expect(analytics.overview.authorizedButNotInstalledSiteCount).toBe(1)
+    expect(analytics.overview.installedButNotAuthorizedSiteCount).toBe(1)
     expect(analytics.versionBreakdown).toEqual([
-      { version: '1.0.0', count: 1 },
-      { version: '1.0.1', count: 1 },
+      { version: '1.0.0', count: 1, activeCount24h: 1 },
+      { version: '1.0.1', count: 1, activeCount24h: 0 },
     ])
     expect(analytics.groupBreakdown).toEqual([
       { groupCode: 'outpatient-basic', groupName: '门诊基础版', count: 1 },
       { groupCode: 'unassigned', groupName: '未分组', count: 1 },
     ])
+    expect(analytics.groupRows).toEqual([
+      {
+        groupCode: 'outpatient-basic',
+        groupName: '门诊基础版',
+        siteCount: 1,
+        activeSiteCount24h: 1,
+        policyCount: 1,
+        driftSiteCount: 1,
+      },
+      {
+        groupCode: 'unassigned',
+        groupName: '未分组',
+        siteCount: 1,
+        activeSiteCount24h: 0,
+        policyCount: 0,
+        driftSiteCount: 1,
+      },
+    ])
     expect(analytics.authorizationDrift[0]).toMatchObject({
       siteName: '门诊登记台 1',
+      groupName: '门诊基础版',
+      clientVersion: '1.0.0',
       authorizedNotInstalled: ['patient-registration'],
     })
     expect(analytics.authorizationDrift[1]).toMatchObject({
       siteName: '门诊登记台 2',
+      groupName: '未分组',
+      clientVersion: '1.0.1',
       installedNotAuthorized: ['bedside-rounding'],
     })
   })
