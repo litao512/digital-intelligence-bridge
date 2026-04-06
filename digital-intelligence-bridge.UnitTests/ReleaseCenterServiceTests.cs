@@ -151,6 +151,60 @@ public class ReleaseCenterServiceTests
         Assert.Contains($"siteId={siteId}", second.Detail);
     }
 
+    [Fact]
+    public async Task CheckForUpdatesAsync_ShouldAppendSiteId_WhenRequestingPluginManifest()
+    {
+        Uri? pluginManifestUri = null;
+        var settings = new AppSettings
+        {
+            Application = new ApplicationConfig { Version = "1.0.0" },
+            ReleaseCenter = new ReleaseCenterConfig
+            {
+                Enabled = true,
+                BaseUrl = "http://release-center.local",
+                Channel = "stable",
+                SiteId = "11111111-1111-1111-1111-111111111111",
+                SiteName = "门诊登记台 1"
+            }
+        };
+
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            if (request.RequestUri!.AbsoluteUri.Contains("plugin-manifest", StringComparison.OrdinalIgnoreCase))
+            {
+                pluginManifestUri = request.RequestUri;
+            }
+
+            var content = request.RequestUri!.AbsoluteUri.Contains("client-manifest", StringComparison.OrdinalIgnoreCase)
+                ? """
+{
+  "latestVersion": "1.2.0",
+  "minUpgradeVersion": "1.0.0"
+}
+"""
+                : """
+{
+  "plugins": []
+}
+""";
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(content, Encoding.UTF8, "application/json")
+            };
+        });
+
+        var service = new ReleaseCenterService(
+            new HttpClient(handler),
+            NullLogger<ReleaseCenterService>.Instance,
+            Options.Create(settings));
+
+        await service.CheckForUpdatesAsync();
+
+        Assert.NotNull(pluginManifestUri);
+        Assert.Contains("siteId=11111111-1111-1111-1111-111111111111", pluginManifestUri!.Query);
+    }
+
     [Theory]
     [InlineData("1.0.1", "1.0.0", 1)]
     [InlineData("1.0.0", "1.0.1", -1)]

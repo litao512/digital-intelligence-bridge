@@ -11,6 +11,7 @@ export interface PluginManifestItem {
 
 export interface PluginManifest {
   channel: string
+  siteId?: string | null
   publishedAt: string | null
   plugins: PluginManifestItem[]
 }

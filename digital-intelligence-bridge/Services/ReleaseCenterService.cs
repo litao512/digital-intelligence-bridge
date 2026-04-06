@@ -367,14 +367,20 @@ public sealed class ReleaseCenterService : IReleaseCenterService
 
     private async Task<PluginManifestDto?> GetPluginManifestAsync(CancellationToken cancellationToken)
     {
-        return await _httpClient.GetFromJsonAsync<PluginManifestDto>(BuildManifestUrl("plugin-manifest.json"), cancellationToken).ConfigureAwait(false);
+        return await _httpClient.GetFromJsonAsync<PluginManifestDto>(BuildManifestUrl("plugin-manifest.json", includeSiteId: true), cancellationToken).ConfigureAwait(false);
     }
 
-    private string BuildManifestUrl(string fileName)
+    private string BuildManifestUrl(string fileName, bool includeSiteId = false)
     {
         var baseUrl = _config.BaseUrl.TrimEnd('/');
         var channel = _config.Channel.Trim();
-        return $"{baseUrl}/storage/v1/object/public/dib-releases/manifests/{channel}/{fileName}";
+        var manifestUrl = $"{baseUrl}/storage/v1/object/public/dib-releases/manifests/{channel}/{fileName}";
+        if (!includeSiteId || string.IsNullOrWhiteSpace(_config.SiteId))
+        {
+            return manifestUrl;
+        }
+
+        return $"{manifestUrl}?siteId={Uri.EscapeDataString(_config.SiteId)}";
     }
 
     private SiteHeartbeatPayload EnsureSiteHeartbeatPayload()

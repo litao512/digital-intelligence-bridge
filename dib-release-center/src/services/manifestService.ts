@@ -73,6 +73,11 @@ function toPluginManifestItem(version: PluginVersion): PluginManifestItem {
   }
 }
 
+interface BuildPluginManifestOptions {
+  siteId?: string | null
+  allowedPluginIds?: string[] | null
+}
+
 export function buildClientManifest(channel: string, versions: ClientVersion[]): ClientManifest {
   const publishedVersions = versions.filter((item) => item.isPublished)
   const latestVersion = [...publishedVersions].sort((left, right) => compareClientPriority(right, left))[0] ?? null
@@ -104,11 +109,19 @@ export function buildClientManifest(channel: string, versions: ClientVersion[]):
   }
 }
 
-export function buildPluginManifest(channel: string, versions: PluginVersion[]): PluginManifest {
+export function buildPluginManifest(
+  channel: string,
+  versions: PluginVersion[],
+  options: BuildPluginManifestOptions = {},
+): PluginManifest {
+  const allowedPluginIds = options.allowedPluginIds?.length
+    ? new Set(options.allowedPluginIds)
+    : null
   const latestByPluginId = new Map<string, PluginVersion>()
 
   versions
     .filter((item) => item.isPublished)
+    .filter((item) => !allowedPluginIds || allowedPluginIds.has(item.pluginCode))
     .forEach((item) => {
       const current = latestByPluginId.get(item.pluginCode)
       if (!current || comparePluginPriority(item, current) > 0) {
@@ -127,6 +140,7 @@ export function buildPluginManifest(channel: string, versions: PluginVersion[]):
 
   return {
     channel,
+    siteId: options.siteId ?? null,
     publishedAt,
     plugins,
   }

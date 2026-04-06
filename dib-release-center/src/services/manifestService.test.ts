@@ -67,6 +67,26 @@ function createClientVersion(overrides: Partial<ClientVersion> = {}): ClientVers
 }
 
 describe('manifestService', () => {
+  it('buildPluginManifest should scope plugins by site authorization input', () => {
+    const manifest = buildPluginManifest('stable', [
+      createPluginVersion(),
+      createPluginVersion({
+        id: 'plugin-version-2',
+        packageId: 'package-2',
+        pluginCode: 'bedside-rounding',
+        pluginName: '床旁巡视',
+        packageUrl: '/storage/v1/object/public/dib-releases/plugins/bedside-rounding/stable/1.0.0/package.zip',
+      }),
+    ], {
+      siteId: '11111111-1111-1111-1111-111111111111',
+      allowedPluginIds: ['patient-registration'],
+    })
+
+    expect(manifest.siteId).toBe('11111111-1111-1111-1111-111111111111')
+    expect(manifest.plugins).toHaveLength(1)
+    expect(manifest.plugins[0]?.pluginId).toBe('patient-registration')
+  })
+
   it('buildPluginManifest should normalize relative packageUrl into absolute url', () => {
     const manifest = buildPluginManifest('stable', [createPluginVersion()])
 
