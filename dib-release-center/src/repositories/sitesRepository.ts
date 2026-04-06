@@ -24,6 +24,10 @@ interface SiteOverviewRow {
   updated_at: string
 }
 
+interface SiteGroupAssignmentPayload {
+  group_id: string | null
+}
+
 function throwIfError(error: PostgrestError | null, context: string): void {
   if (error) {
     throw new Error(`${context}失败：${error.message}`)
@@ -83,4 +87,20 @@ export async function listSites(): Promise<SiteSummary[]> {
 
   throwIfError(error, '查询站点列表')
   return (data ?? []).map((row: unknown) => toSiteSummary(row as SiteOverviewRow))
+}
+
+export function buildSiteGroupAssignmentUpdate(groupId: string | null): SiteGroupAssignmentPayload {
+  return {
+    group_id: groupId,
+  }
+}
+
+export async function updateSiteGroup(siteRowId: string, groupId: string | null): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .schema(RELEASE_SCHEMA)
+    .from('sites')
+    .update(buildSiteGroupAssignmentUpdate(groupId))
+    .eq('id', siteRowId)
+
+  throwIfError(error, '更新站点分组')
 }

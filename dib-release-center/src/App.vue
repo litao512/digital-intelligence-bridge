@@ -103,6 +103,12 @@
       </section>
 
       <ChannelsPage v-if="activeTab === 'channels'" :channels="channels" />
+      <SitesPage
+        v-else-if="activeTab === 'sites'"
+        :sites="sites"
+        :groups="siteGroups"
+        @assign-group="handleAssignSiteGroup"
+      />
       <PluginReleasesPage
         v-else-if="activeTab === 'plugins'"
         :versions="pluginVersions"
@@ -131,7 +137,10 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Session } from '@supabase/supabase-js'
 import type { ClientVersion, PluginPackage, PluginVersion, ReleaseAsset, ReleaseChannel } from '@/contracts/release-types'
+import type { SiteGroup, SiteSummary } from '@/contracts/site-types'
 import { createClientVersion, listClientVersions } from '@/repositories/clientVersionsRepository'
+import { listSiteGroups } from '@/repositories/siteGroupsRepository'
+import { listSites, updateSiteGroup } from '@/repositories/sitesRepository'
 import { createPluginPackage, listPluginPackages } from '@/repositories/pluginPackagesRepository'
 import { createPluginVersion, listPluginVersions } from '@/repositories/pluginVersionsRepository'
 import {
@@ -169,9 +178,11 @@ import ChannelsPage from '@/web/pages/ChannelsPage.vue'
 import ClientReleasesPage from '@/web/pages/ClientReleasesPage.vue'
 import PluginReleasesPage from '@/web/pages/PluginReleasesPage.vue'
 import ReleaseAssetsPage from '@/web/pages/ReleaseAssetsPage.vue'
+import SitesPage from '@/web/pages/SitesPage.vue'
 
 const tabs = [
   { id: 'channels', label: '发布渠道' },
+  { id: 'sites', label: '站点管理' },
   { id: 'plugins', label: '插件版本' },
   { id: 'clients', label: '客户端版本' },
   { id: 'assets', label: '发布资产' },
@@ -188,6 +199,8 @@ const sessionReady = ref(false)
 const session = ref<Session | null>(null)
 const currentAdmin = ref<ReleaseCenterAdmin | null>(null)
 const channels = ref<ReleaseChannel[]>([])
+const siteGroups = ref<SiteGroup[]>([])
+const sites = ref<SiteSummary[]>([])
 const pluginPackages = ref<PluginPackage[]>([])
 const pluginVersions = ref<PluginVersion[]>([])
 const clientVersions = ref<ClientVersion[]>([])
@@ -275,6 +288,8 @@ async function refreshAuthState(): Promise<void> {
 async function loadData(): Promise<void> {
   if (!isSupabaseConfigured() || !isAuthenticatedAdmin.value) {
     channels.value = []
+    siteGroups.value = []
+    sites.value = []
     pluginPackages.value = []
     pluginVersions.value = []
     clientVersions.value = []
@@ -286,8 +301,10 @@ async function loadData(): Promise<void> {
   loadError.value = ''
 
   try {
-    const [channelData, packageData, pluginVersionData, clientVersionData, assetData] = await Promise.all([
+    const [channelData, siteGroupData, siteData, packageData, pluginVersionData, clientVersionData, assetData] = await Promise.all([
       listReleaseChannels(),
+      listSiteGroups(),
+      listSites(),
       listPluginPackages(),
       listPluginVersions(),
       listClientVersions(),
@@ -295,6 +312,8 @@ async function loadData(): Promise<void> {
     ])
 
     channels.value = channelData
+    siteGroups.value = siteGroupData
+    sites.value = siteData
     pluginPackages.value = packageData
     pluginVersions.value = pluginVersionData
     clientVersions.value = clientVersionData
@@ -353,6 +372,20 @@ async function handleCreatePluginPackage(draft: PluginPackageDraftInput): Promis
     activeTab.value = 'plugins'
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '新增插件定义失败。'
+  }
+}
+
+async function handleAssignSiteGroup(payload: { siteRowId: string; groupId: string | null }): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await updateSiteGroup(payload.siteRowId, payload.groupId)
+    statusMessage.value = '站点分组已更新。'
+    await loadData()
+    activeTab.value = 'sites'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '更新站点分组失败。'
   }
 }
 
