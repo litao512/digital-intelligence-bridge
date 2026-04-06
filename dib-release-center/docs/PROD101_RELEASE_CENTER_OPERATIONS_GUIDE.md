@@ -334,6 +334,20 @@ cd /data/supabase
 docker compose restart rest
 ```
 
+### 7.7 检查运行时 RPC 是否可执行
+
+```bash
+docker exec -i supabase-db psql -U postgres -d postgres -c "select dib_release.register_site_heartbeat('11111111-1111-1111-1111-111111111111','运维检查站点','stable','1.0.0','ops-machine','[]'::jsonb,'update_check');"
+docker exec -i supabase-db psql -U postgres -d postgres -c "select dib_release.get_site_plugin_manifest('stable','11111111-1111-1111-1111-111111111111','1.0.0');"
+```
+
+如果刚执行过新的 RPC migration，但 HTTP 侧仍提示找不到函数，需要刷新 PostgREST schema cache：
+
+```bash
+cd /data/supabase
+docker compose restart rest
+```
+
 ## 8. 常见故障
 
 ### 8.1 登录后提示 `Invalid schema: dib_release`

@@ -463,7 +463,6 @@ begin
     if v_rpc_site_group_code is distinct from 'base' then
         raise exception 'validation failed: register_site_heartbeat should default to base group';
     end if;
-
     select jsonb_array_length(coalesce((dib_release.get_site_plugin_manifest('stable', (
         select site_id from dib_release.sites where id = v_site_row_id
     ), '1.0.0') -> 'plugins'), '[]'::jsonb))

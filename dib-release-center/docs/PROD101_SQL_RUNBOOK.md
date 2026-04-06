@@ -146,7 +146,6 @@
 - 将 `unassigned` 保留为人工兜底分组
 - 若存在 `patient-registration` 插件定义，则给 `base` 分组补一条默认授权
 - 重建 `register_site_heartbeat(...)`，让新站点优先进入 `base`，若 `base` 不存在再回退到 `unassigned`
-
 ## 4. 增量变更原则
 
 后续新增 SQL 时遵循：
