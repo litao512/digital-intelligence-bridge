@@ -5,17 +5,50 @@
         <p class="panel-kicker">Sites</p>
         <h2>站点管理</h2>
       </div>
-      <span class="panel-count">{{ sites.length }} 个站点</span>
+      <span class="panel-count">{{ filteredSites.length }} / {{ sites.length }} 个站点</span>
     </header>
 
     <p class="form-tip">
       每条记录代表一个 DIB 安装实例。调整所属分组后，后续按站点生成的插件授权将以最新分组为准。
     </p>
 
-    <div v-if="sites.length" class="table-wrap">
+    <div class="field-grid field-grid-wide">
+      <label>
+        <span>关键字搜索</span>
+        <input v-model="keyword" placeholder="站点名 / SiteId / 机器名 / 分组 / 客户端版本">
+      </label>
+      <label>
+        <span>按分组筛选</span>
+        <select v-model="groupFilterId">
+          <option value="">全部分组</option>
+          <option v-for="group in groups" :key="group.id" :value="group.id">
+            {{ group.groupName }} / {{ group.groupCode }}
+          </option>
+        </select>
+      </label>
+      <label>
+        <span>批量分配到分组</span>
+        <select v-model="bulkGroupId">
+          <option value="">请选择目标分组</option>
+          <option v-for="group in groups" :key="group.id" :value="group.id">
+            {{ group.groupName }} / {{ group.groupCode }}
+          </option>
+        </select>
+      </label>
+    </div>
+
+    <div class="form-actions">
+      <button type="button" :disabled="selectedSiteIds.length === 0 || !bulkGroupId" @click="submitBulkAssign">批量分配分组</button>
+      <span class="form-tip">已选择 {{ selectedSiteIds.length }} 个站点</span>
+    </div>
+
+    <div v-if="filteredSites.length" class="table-wrap">
       <table>
         <thead>
           <tr>
+            <th>
+              <input type="checkbox" :checked="allFilteredSelected" @change="toggleSelectAll(($event.target as HTMLInputElement).checked)">
+            </th>
             <th>站点</th>
             <th>站点标识</th>
             <th>所属分组</th>
@@ -24,7 +57,10 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="site in sites" :key="site.id">
+          <tr v-for="site in filteredSites" :key="site.id">
+            <td>
+              <input type="checkbox" :checked="selectedSiteIds.includes(site.id)" @change="toggleSelectSite(site.id, ($event.target as HTMLInputElement).checked)">
+            </td>
             <td>
               <strong>{{ site.siteName || '未命名站点' }}</strong>
               <div class="subline">{{ site.machineName }}</div>
@@ -53,19 +89,66 @@
 </template>
 
 <script setup lang="ts">
+import { computed, ref } from 'vue'
 import type { SiteGroup, SiteSummary } from '@/contracts/site-types'
+import { filterSites } from '@/services/siteManagementService'
 
-defineProps<{
+const props = defineProps<{
   sites: SiteSummary[]
   groups: SiteGroup[]
 }>()
 
 const emit = defineEmits<{
   assignGroup: [payload: { siteRowId: string; groupId: string | null }]
+  bulkAssignGroup: [payload: { siteRowIds: string[]; groupId: string }]
 }>()
+
+const keyword = ref('')
+const groupFilterId = ref('')
+const bulkGroupId = ref('')
+const selectedSiteIds = ref<string[]>([])
+
+const filteredSites = computed(() => filterSites(props.sites, {
+  keyword: keyword.value,
+  groupId: groupFilterId.value,
+}))
+
+const allFilteredSelected = computed(() =>
+  filteredSites.value.length > 0 && filteredSites.value.every((site) => selectedSiteIds.value.includes(site.id)),
+)
 
 function onGroupChange(siteRowId: string, groupId: string | null): void {
   emit('assignGroup', { siteRowId, groupId })
+}
+
+function toggleSelectSite(siteRowId: string, checked: boolean): void {
+  if (checked) {
+    selectedSiteIds.value = [...new Set([...selectedSiteIds.value, siteRowId])]
+    return
+  }
+
+  selectedSiteIds.value = selectedSiteIds.value.filter((item) => item !== siteRowId)
+}
+
+function toggleSelectAll(checked: boolean): void {
+  if (checked) {
+    selectedSiteIds.value = [...new Set([...selectedSiteIds.value, ...filteredSites.value.map((site) => site.id)])]
+    return
+  }
+
+  const filteredIds = new Set(filteredSites.value.map((site) => site.id))
+  selectedSiteIds.value = selectedSiteIds.value.filter((item) => !filteredIds.has(item))
+}
+
+function submitBulkAssign(): void {
+  if (!bulkGroupId.value || selectedSiteIds.value.length === 0) {
+    return
+  }
+
+  emit('bulkAssignGroup', {
+    siteRowIds: [...selectedSiteIds.value],
+    groupId: bulkGroupId.value,
+  })
 }
 
 function formatDate(value: string | null): string {

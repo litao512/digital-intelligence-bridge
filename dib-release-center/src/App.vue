@@ -108,6 +108,7 @@
         :sites="sites"
         :groups="siteGroups"
         @assign-group="handleAssignSiteGroup"
+        @bulk-assign-group="handleBulkAssignSiteGroup"
       />
       <GroupPoliciesPage
         v-else-if="activeTab === 'group-policies'"
@@ -448,6 +449,20 @@ async function handleAssignSiteGroup(payload: { siteRowId: string; groupId: stri
     activeTab.value = 'sites'
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '更新站点分组失败。'
+  }
+}
+
+async function handleBulkAssignSiteGroup(payload: { siteRowIds: string[]; groupId: string }): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await Promise.all(payload.siteRowIds.map((siteRowId) => updateSiteGroup(siteRowId, payload.groupId)))
+    statusMessage.value = `已批量更新 ${payload.siteRowIds.length} 个站点的分组。`
+    await loadData()
+    activeTab.value = 'sites'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '批量更新站点分组失败。'
   }
 }
 
