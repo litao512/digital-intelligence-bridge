@@ -49,7 +49,6 @@ begin
     ) then
         raise exception 'validation failed: base site group missing';
     end if;
-
     if to_regclass('dib_release.sites') is null then
         raise exception 'validation failed: dib_release.sites missing';
     end if;
@@ -85,7 +84,6 @@ begin
     if to_regprocedure('dib_release.get_site_plugin_manifest(text,text,text)') is null then
         raise exception 'validation failed: get_site_plugin_manifest missing';
     end if;
-
     if not exists (
         select 1
         from pg_indexes
@@ -479,7 +477,6 @@ begin
         select id from dib_release.sites where site_id = v_rpc_site_id
     );
     delete from dib_release.sites where site_id = v_rpc_site_id;
-
     delete from dib_release.site_heartbeats where id = v_heartbeat_id;
     delete from dib_release.site_plugin_overrides where site_id = v_site_row_id;
     delete from dib_release.group_plugin_policies
