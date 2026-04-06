@@ -12,17 +12,25 @@
       站点覆盖只处理少量例外。默认先走分组授权，再用这里做单站点 `allow/deny` 覆盖。
     </p>
 
-    <div class="field-grid">
+    <div class="field-grid field-grid-wide">
+      <label>
+        <span>站点搜索</span>
+        <input v-model="siteKeyword" placeholder="站点名 / SiteId / 机器名 / 分组 / 客户端版本">
+      </label>
       <label>
         <span>目标站点</span>
         <select :value="selectedSiteRowId" @change="emitSelectSite(($event.target as HTMLSelectElement).value)">
           <option value="">请选择站点</option>
-          <option v-for="site in sites" :key="site.id" :value="site.id">
+          <option v-for="site in selectableSites" :key="site.id" :value="site.id">
             {{ site.siteName || '未命名站点' }} / {{ site.siteId }}
           </option>
         </select>
       </label>
     </div>
+
+    <p v-if="selectedSiteSummary" class="subline">
+      当前站点：{{ selectedSiteSummary.siteName || '未命名站点' }} / {{ selectedSiteSummary.siteId }} / {{ selectedSiteSummary.groupName || '未分组' }}
+    </p>
 
     <form class="release-form compact-form" @submit.prevent="submitDraft">
       <div class="field-grid field-grid-wide">
@@ -93,10 +101,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import type { PluginPackage } from '@/contracts/release-types'
 import type { SitePluginOverride, SiteSummary } from '@/contracts/site-types'
 import type { SiteOverrideDraftInput } from '@/services/sitePolicyDraftService'
+import { filterSitesForSelection } from '@/services/siteManagementService'
 
 const props = defineProps<{
   sites: SiteSummary[]
@@ -118,8 +127,16 @@ const draft = reactive<SiteOverrideDraftInput>({
   reason: '',
   isActive: true,
 })
+const siteKeyword = ref('')
 
 const filteredOverrides = computed(() => props.overrides.filter((item) => item.siteRowId === props.selectedSiteRowId))
+const selectableSites = computed(() => filterSitesForSelection(props.sites, {
+  keyword: siteKeyword.value,
+  selectedSiteRowId: props.selectedSiteRowId,
+}))
+const selectedSiteSummary = computed(() =>
+  props.sites.find((item) => item.id === props.selectedSiteRowId) ?? null,
+)
 
 watch(
   () => props.selectedSiteRowId,

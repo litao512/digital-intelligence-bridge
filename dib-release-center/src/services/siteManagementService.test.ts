@@ -4,6 +4,7 @@ import {
   filterSites,
   findSiteRowBySiteId,
   getSiteSearchSeed,
+  filterSitesForSelection,
 } from '@/services/siteManagementService'
 
 function createSite(overrides: Partial<SiteSummary> = {}): SiteSummary {
@@ -74,5 +75,19 @@ describe('siteManagementService', () => {
   it('should prefer site name as search seed and fallback to site id', () => {
     expect(getSiteSearchSeed(createSite({ siteName: '门诊登记台 2', siteId: '22222222-2222-2222-2222-222222222222' }))).toBe('门诊登记台 2')
     expect(getSiteSearchSeed(createSite({ siteName: '', siteId: '33333333-3333-3333-3333-333333333333' }))).toBe('33333333-3333-3333-3333-333333333333')
+  })
+
+  it('should keep selected site visible when override search keyword excludes it', () => {
+    const sites = [
+      createSite({ id: 'site-row-1', siteName: '门诊登记台 1', siteId: '11111111-1111-1111-1111-111111111111' }),
+      createSite({ id: 'site-row-2', siteName: '病区治疗台', siteId: '22222222-2222-2222-2222-222222222222' }),
+    ]
+
+    const result = filterSitesForSelection(sites, {
+      keyword: '病区',
+      selectedSiteRowId: 'site-row-1',
+    })
+
+    expect(result.map((item) => item.id)).toEqual(['site-row-2', 'site-row-1'])
   })
 })

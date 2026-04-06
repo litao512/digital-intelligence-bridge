@@ -46,3 +46,28 @@ export function getSiteSearchSeed(site: Pick<SiteSummary, 'siteName' | 'siteId'>
 
   return siteName || site.siteId
 }
+
+export function filterSitesForSelection(
+  sites: SiteSummary[],
+  input: {
+    keyword: string
+    selectedSiteRowId: string
+  },
+): SiteSummary[] {
+  const filteredSites = filterSites(sites, {
+    keyword: input.keyword,
+    groupId: '',
+  })
+
+  if (!input.selectedSiteRowId || filteredSites.some((site) => site.id === input.selectedSiteRowId)) {
+    return filteredSites
+  }
+
+  const selectedSite = sites.find((site) => site.id === input.selectedSiteRowId)
+
+  if (!selectedSite) {
+    return filteredSites
+  }
+
+  return [...filteredSites, selectedSite]
+}
