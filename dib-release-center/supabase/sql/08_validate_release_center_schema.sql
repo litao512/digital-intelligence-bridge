@@ -12,12 +12,19 @@ declare
     v_plugin_package_id uuid;
     v_plugin_version_id uuid;
     v_client_version_id uuid;
+    v_site_group_id uuid;
+    v_site_row_id uuid;
+    v_heartbeat_id uuid;
     v_client_manifest jsonb;
     v_plugin_manifest jsonb;
+    v_site_total_count integer;
+    v_effective_enabled boolean;
     v_suffix text := replace(gen_random_uuid()::text, '-', '');
     v_plugin_code text;
+    v_validation_version text;
 begin
     v_plugin_code := 'validation-patient-registration-' || left(v_suffix, 8);
+    v_validation_version := '1.0.' || (90000 + (abs(hashtext(v_suffix)) % 9999))::text;
 
     select id
     into v_stable_channel_id
@@ -26,6 +33,83 @@ begin
 
     if v_stable_channel_id is null then
         raise exception 'validation failed: stable channel missing';
+    end if;
+
+    if to_regclass('dib_release.site_groups') is null then
+        raise exception 'validation failed: dib_release.site_groups missing';
+    end if;
+
+    if to_regclass('dib_release.sites') is null then
+        raise exception 'validation failed: dib_release.sites missing';
+    end if;
+
+    if to_regclass('dib_release.group_plugin_policies') is null then
+        raise exception 'validation failed: dib_release.group_plugin_policies missing';
+    end if;
+
+    if to_regclass('dib_release.site_plugin_overrides') is null then
+        raise exception 'validation failed: dib_release.site_plugin_overrides missing';
+    end if;
+
+    if to_regclass('dib_release.site_heartbeats') is null then
+        raise exception 'validation failed: dib_release.site_heartbeats missing';
+    end if;
+
+    if to_regclass('dib_release.site_overview') is null then
+        raise exception 'validation failed: dib_release.site_overview missing';
+    end if;
+
+    if to_regclass('dib_release.site_group_statistics') is null then
+        raise exception 'validation failed: dib_release.site_group_statistics missing';
+    end if;
+
+    if to_regclass('dib_release.site_effective_plugin_policies_view') is null then
+        raise exception 'validation failed: dib_release.site_effective_plugin_policies_view missing';
+    end if;
+
+    if not exists (
+        select 1
+        from pg_indexes
+        where schemaname = 'dib_release'
+          and indexname = 'ux_sites_site_id'
+    ) then
+        raise exception 'validation failed: ux_sites_site_id missing';
+    end if;
+
+    if not exists (
+        select 1
+        from pg_indexes
+        where schemaname = 'dib_release'
+          and indexname = 'idx_sites_group_id'
+    ) then
+        raise exception 'validation failed: idx_sites_group_id missing';
+    end if;
+
+    if not exists (
+        select 1
+        from pg_indexes
+        where schemaname = 'dib_release'
+          and indexname = 'idx_site_heartbeats_site_created_at'
+    ) then
+        raise exception 'validation failed: idx_site_heartbeats_site_created_at missing';
+    end if;
+
+    if not exists (
+        select 1
+        from pg_indexes
+        where schemaname = 'dib_release'
+          and indexname = 'ux_group_plugin_policies_group_package'
+    ) then
+        raise exception 'validation failed: ux_group_plugin_policies_group_package missing';
+    end if;
+
+    if not exists (
+        select 1
+        from pg_indexes
+        where schemaname = 'dib_release'
+          and indexname = 'ux_site_plugin_overrides_site_package'
+    ) then
+        raise exception 'validation failed: ux_site_plugin_overrides_site_package missing';
     end if;
 
     insert into dib_release.release_assets (
@@ -39,8 +123,8 @@ begin
     )
     values (
         'dib-releases',
-        'plugins/' || v_plugin_code || '/stable/1.0.0/' || v_plugin_code || '-1.0.0.zip',
-        v_plugin_code || '-1.0.0.zip',
+        'plugins/' || v_plugin_code || '/stable/' || v_validation_version || '/' || v_plugin_code || '-' || v_validation_version || '.zip',
+        v_plugin_code || '-' || v_validation_version || '.zip',
         'plugin_package',
         repeat('1', 64),
         1024,
@@ -59,7 +143,7 @@ begin
     )
     values (
         'dib-releases',
-        'clients/stable/1.0.0/dib-win-x64-portable-validation-' || left(v_suffix, 8) || '.zip',
+        'clients/stable/' || v_validation_version || '/dib-win-x64-portable-validation-' || left(v_suffix, 8) || '.zip',
         'dib-win-x64-portable-validation-' || left(v_suffix, 8) || '.zip',
         'client_package',
         repeat('2', 64),
@@ -104,6 +188,42 @@ begin
     )
     returning id into v_plugin_package_id;
 
+    insert into dib_release.site_groups (
+        group_code,
+        group_name,
+        description
+    )
+    values (
+        'validation-group-' || left(v_suffix, 8),
+        '验证分组',
+        '验证站点分组'
+    )
+    returning id into v_site_group_id;
+
+    insert into dib_release.sites (
+        site_id,
+        site_name,
+        group_id,
+        channel_id,
+        client_version,
+        machine_name,
+        last_seen_at,
+        last_update_check_at,
+        installed_plugins_json
+    )
+    values (
+        gen_random_uuid()::text,
+        '验证站点',
+        v_site_group_id,
+        v_stable_channel_id,
+        '1.0.0',
+        'validation-machine',
+        now(),
+        now(),
+        jsonb_build_array(v_plugin_code)
+    )
+    returning id into v_site_row_id;
+
     insert into dib_release.plugin_versions (
         package_id,
         channel_id,
@@ -121,7 +241,7 @@ begin
         v_plugin_package_id,
         v_stable_channel_id,
         v_plugin_asset_id,
-        '1.0.0',
+        v_validation_version,
         '1.0.0',
         '1.9.99',
         '初始插件发布',
@@ -145,7 +265,7 @@ begin
     values (
         v_stable_channel_id,
         v_client_asset_id,
-        '1.0.0',
+        v_validation_version,
         '0.9.0',
         true,
         false,
@@ -153,6 +273,50 @@ begin
         now()
     )
     returning id into v_client_version_id;
+
+    insert into dib_release.group_plugin_policies (
+        group_id,
+        package_id,
+        is_enabled,
+        min_client_version,
+        max_client_version
+    )
+    values (
+        v_site_group_id,
+        v_plugin_package_id,
+        true,
+        '1.0.0',
+        '1.9.99'
+    );
+
+    insert into dib_release.site_plugin_overrides (
+        site_id,
+        package_id,
+        action,
+        reason
+    )
+    values (
+        v_site_row_id,
+        v_plugin_package_id,
+        'deny',
+        '验证覆盖'
+    );
+
+    insert into dib_release.site_heartbeats (
+        site_id,
+        channel_id,
+        client_version,
+        installed_plugins_json,
+        event_type
+    )
+    values (
+        v_site_row_id,
+        v_stable_channel_id,
+        '1.0.0',
+        jsonb_build_array(v_plugin_code),
+        'update_check'
+    )
+    returning id into v_heartbeat_id;
 
     begin
         insert into dib_release.plugin_versions (
@@ -207,7 +371,7 @@ begin
         raise exception 'validation failed: client_manifest.channel mismatch';
     end if;
 
-    if v_client_manifest ->> 'latestVersion' <> '1.0.0' then
+    if v_client_manifest ->> 'latestVersion' <> v_validation_version then
         raise exception 'validation failed: client_manifest.latestVersion mismatch';
     end if;
 
@@ -231,8 +395,47 @@ begin
         raise exception 'validation failed: manifest asset insert missing';
     end if;
 
+    select count(*)
+    into v_site_total_count
+    from dib_release.site_overview
+    where id = v_site_row_id;
+
+    if v_site_total_count <> 1 then
+        raise exception 'validation failed: site_overview missing inserted site';
+    end if;
+
+    if not exists (
+        select 1
+        from dib_release.site_group_statistics
+        where group_id = v_site_group_id
+          and site_count >= 1
+    ) then
+        raise exception 'validation failed: site_group_statistics mismatch';
+    end if;
+
+    select effective_is_enabled
+    into v_effective_enabled
+    from dib_release.site_effective_plugin_policies_view
+    where site_row_id = v_site_row_id
+      and plugin_code = v_plugin_code;
+
+    if v_effective_enabled is distinct from false then
+        raise exception 'validation failed: site override did not disable plugin';
+    end if;
+
+    if v_heartbeat_id is null then
+        raise exception 'validation failed: site heartbeat insert missing';
+    end if;
+
+    delete from dib_release.site_heartbeats where id = v_heartbeat_id;
+    delete from dib_release.site_plugin_overrides where site_id = v_site_row_id;
+    delete from dib_release.group_plugin_policies
+    where group_id = v_site_group_id
+      and package_id = v_plugin_package_id;
     delete from dib_release.client_versions where id = v_client_version_id;
     delete from dib_release.plugin_versions where id = v_plugin_version_id;
+    delete from dib_release.sites where id = v_site_row_id;
+    delete from dib_release.site_groups where id = v_site_group_id;
     delete from dib_release.plugin_packages where id = v_plugin_package_id;
     delete from dib_release.release_assets
     where id in (v_plugin_asset_id, v_client_asset_id, v_manifest_asset_id);

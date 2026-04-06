@@ -209,3 +209,123 @@ grant select on table dib_release.plugin_versions_view to anon, authenticated, s
 grant select on table dib_release.client_versions_view to anon, authenticated, service_role;
 grant select on table dib_release.release_manifest_view to anon, authenticated, service_role;
 
+create or replace view dib_release.site_overview as
+select
+    s.id,
+    s.site_id,
+    s.site_name,
+    s.group_id,
+    sg.group_code,
+    sg.group_name,
+    s.channel_id,
+    rc.channel_code,
+    rc.channel_name,
+    s.client_version,
+    s.machine_name,
+    s.last_seen_at,
+    s.last_update_check_at,
+    s.last_plugin_download_at,
+    s.last_client_download_at,
+    s.installed_plugins_json,
+    s.is_active,
+    s.created_at,
+    s.updated_at
+from dib_release.sites s
+left join dib_release.site_groups sg on sg.id = s.group_id
+left join dib_release.release_channels rc on rc.id = s.channel_id;
+
+create or replace view dib_release.site_group_statistics as
+select
+    sg.id as group_id,
+    sg.group_code,
+    sg.group_name,
+    sg.is_active,
+    count(s.id) filter (where s.is_active) as site_count,
+    count(s.id) filter (
+        where s.is_active
+          and s.last_seen_at is not null
+          and s.last_seen_at >= now() - interval '24 hours'
+    ) as active_site_count_24h,
+    max(s.last_seen_at) as latest_seen_at
+from dib_release.site_groups sg
+left join dib_release.sites s on s.group_id = sg.id
+group by sg.id, sg.group_code, sg.group_name, sg.is_active;
+
+create or replace view dib_release.site_effective_plugin_policies_view as
+with group_defaults as (
+    select
+        s.id as site_row_id,
+        s.site_id,
+        s.site_name,
+        s.group_id,
+        sg.group_code,
+        gpp.package_id,
+        pp.plugin_code,
+        pp.plugin_name,
+        gpp.is_enabled as group_enabled,
+        gpp.min_client_version,
+        gpp.max_client_version
+    from dib_release.sites s
+    join dib_release.site_groups sg on sg.id = s.group_id
+    join dib_release.group_plugin_policies gpp on gpp.group_id = sg.id
+    join dib_release.plugin_packages pp on pp.id = gpp.package_id
+),
+override_only as (
+    select
+        s.id as site_row_id,
+        s.site_id,
+        s.site_name,
+        s.group_id,
+        sg.group_code,
+        spo.package_id,
+        pp.plugin_code,
+        pp.plugin_name,
+        false as group_enabled,
+        '0.0.0'::text as min_client_version,
+        '9999.9999.9999'::text as max_client_version
+    from dib_release.site_plugin_overrides spo
+    join dib_release.sites s on s.id = spo.site_id
+    left join dib_release.site_groups sg on sg.id = s.group_id
+    join dib_release.plugin_packages pp on pp.id = spo.package_id
+    where spo.is_active = true
+      and not exists (
+          select 1
+          from group_defaults gd
+          where gd.site_row_id = s.id
+            and gd.package_id = spo.package_id
+      )
+),
+policy_basis as (
+    select * from group_defaults
+    union all
+    select * from override_only
+)
+select
+    pb.site_row_id,
+    pb.site_id,
+    pb.site_name,
+    pb.group_id,
+    pb.group_code,
+    pb.package_id,
+    pb.plugin_code,
+    pb.plugin_name,
+    pb.group_enabled,
+    pb.min_client_version,
+    pb.max_client_version,
+    spo.action as override_action,
+    spo.reason as override_reason,
+    case
+        when spo.action = 'deny' then false
+        when spo.action = 'allow' then true
+        else pb.group_enabled
+    end as effective_is_enabled
+from policy_basis pb
+left join dib_release.site_plugin_overrides spo
+    on spo.site_id = pb.site_row_id
+   and spo.package_id = pb.package_id
+   and spo.is_active = true;
+
+grant select on table dib_release.site_overview to anon, authenticated, service_role;
+grant select on table dib_release.site_group_statistics to anon, authenticated, service_role;
+grant select on table dib_release.site_effective_plugin_policies_view to anon, authenticated, service_role;
+
