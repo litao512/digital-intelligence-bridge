@@ -1,4 +1,4 @@
-﻿using DigitalIntelligenceBridge.Configuration;
+using DigitalIntelligenceBridge.Configuration;
 using DigitalIntelligenceBridge.Services;
 using DigitalIntelligenceBridge.ViewModels;
 using Microsoft.Extensions.Options;
@@ -201,3 +201,4 @@ public class MainWindowViewModelTests
         public void LogWarning(string message, params object[] args) { }
     }
 }
+

@@ -109,3 +109,4 @@ public class MedicalDrugImportPluginViewTests
         public void LogInformation(string message) { }
     }
 }
+

@@ -124,3 +124,4 @@ public class MedicalDrugImportPluginConfigurationTests
         return pluginDirectory;
     }
 }
+

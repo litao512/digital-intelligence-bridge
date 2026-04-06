@@ -1,0 +1,17 @@
+services:
+  dib-release-center-web:
+    image: nginx:1.27-alpine
+    container_name: dib-release-center-web
+    restart: unless-stopped
+    ports:
+      - "18081:80"
+    volumes:
+      - ./dist:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - default
+      - supabase_default
+
+networks:
+  supabase_default:
+    external: true

@@ -23,3 +23,4 @@ public class PluginHostContextTests
         Assert.DoesNotContain(typeof(IPluginHostContext).GetMembers(), member => member.Name.Contains("MainWindow", StringComparison.OrdinalIgnoreCase));
     }
 }
+

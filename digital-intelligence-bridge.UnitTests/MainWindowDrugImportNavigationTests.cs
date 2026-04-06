@@ -50,3 +50,4 @@ public class MainWindowDrugImportNavigationTests
         public void LogWarning(string message, params object[] args) { }
     }
 }
+

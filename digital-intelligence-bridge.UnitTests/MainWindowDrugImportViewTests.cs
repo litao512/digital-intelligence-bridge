@@ -24,3 +24,4 @@ public class MainWindowDrugImportViewTests
         Assert.Contains("<views:DrugImportView", xaml);
     }
 }
+

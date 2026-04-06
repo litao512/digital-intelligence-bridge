@@ -7,6 +7,8 @@
 - 服务器：`101.42.19.26`
 - SSH 入口：`ssh prod-101`
 - Supabase 根目录：`/data/supabase`
+- 发布中心静态目录：`/data/dib-release-center`
+- 发布中心访问入口：`http://101.42.19.26:8000/release-center/`
 - 发布中心 schema：`dib_release`
 - 发布资产 bucket：`dib-releases`
 
@@ -20,7 +22,11 @@
 - `supabase-auth`
 - `supabase-kong`
 
-日常检查时，优先确认这 5 个容器是否正常运行。
+发布中心自身当前使用独立静态容器：
+
+- `dib-release-center-web`
+
+日常检查时，优先确认这 6 个容器是否正常运行。
 
 ## 3. 关键配置基线
 
@@ -45,12 +51,25 @@ Invalid schema: dib_release
 ```text
 STORAGE_BACKEND=file
 FILE_STORAGE_BACKEND_PATH=/var/lib/storage
+FILE_SIZE_LIMIT=268435456
 ```
+
+当前 `FILE_SIZE_LIMIT` 已提高到 `256 MB`，用于统一承载：
+
+- 插件包
+- DIB 客户端便携包
+- manifest 文件
 
 如果错误落回旧的 `s3/minio` 配置，manifest 发布会失败，日志通常会出现：
 
 ```text
 getaddrinfo ENOTFOUND minio
+```
+
+如果 `FILE_SIZE_LIMIT` 回退到 `52428800`（50 MB），客户端便携包上传会返回：
+
+```text
+413 Payload Too Large
 ```
 
 ### 3.3 公开资产
@@ -59,6 +78,10 @@ getaddrinfo ENOTFOUND minio
 
 - `http://101.42.19.26:8000/storage/v1/object/public/dib-releases/manifests/stable/client-manifest.json`
 - `http://101.42.19.26:8000/storage/v1/object/public/dib-releases/manifests/stable/plugin-manifest.json`
+
+当前发布中心页面入口：
+
+- `http://101.42.19.26:8000/release-center/`
 
 正式环境建议切换为 `HTTPS`。
 
@@ -102,7 +125,7 @@ getaddrinfo ENOTFOUND minio
 
 ### 5.1 发布插件版本
 
-1. 先上传插件包到 `dib-releases` bucket
+1. 上传插件包到 `dib-releases` bucket
 2. 在 `发布资产` 页面登记对应 `release_assets`
 3. 在 `插件版本` 页面录入版本记录
 4. 发布对应渠道 manifest
@@ -116,6 +139,27 @@ getaddrinfo ENOTFOUND minio
 4. 发布对应渠道 manifest
 5. 验证 `client-manifest.json` 是否带出 `latestVersion`
 
+当前参考客户端资产：
+
+- 版本：`1.0.1`
+- 路径：`clients/stable/1.0.1/dib-win-x64-portable-1.0.1.zip`
+
+### 5.3 发布中心页面部署
+
+当前部署方式：
+
+- 构建产物目录：`/data/dib-release-center/dist`
+- nginx 配置：`/data/dib-release-center/nginx.conf`
+- compose 文件：`/data/dib-release-center/docker-compose.yml`
+- Kong 路由入口：`/release-center/`
+
+如果页面静态资源返回 `403`，优先检查目录权限：
+
+```bash
+chmod -R a+rX /data/dib-release-center/dist
+find /data/dib-release-center/dist -type d -exec chmod 755 {} +
+```
+
 ## 6. 常用检查项
 
 ### 6.1 检查容器
@@ -124,6 +168,7 @@ getaddrinfo ENOTFOUND minio
 ssh prod-101
 cd /data/supabase
 docker ps --format '{{.Names}}|{{.Status}}' | grep supabase
+docker ps --format '{{.Names}}|{{.Status}}' | grep dib-release-center-web
 ```
 
 ### 6.2 检查 REST schema
@@ -132,16 +177,17 @@ docker ps --format '{{.Names}}|{{.Status}}' | grep supabase
 docker inspect supabase-rest --format '{{range .Config.Env}}{{println .}}{{end}}' | grep PGRST_DB_SCHEMAS
 ```
 
-### 6.3 检查 Storage 后端
+### 6.3 检查 Storage 后端与文件上限
 
 ```bash
-docker inspect supabase-storage --format '{{range .Config.Env}}{{println .}}{{end}}' | grep STORAGE_BACKEND
+docker inspect supabase-storage --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -E 'STORAGE_BACKEND|FILE_SIZE_LIMIT'
 ```
 
-预期输出：
+预期输出包含：
 
 ```text
 STORAGE_BACKEND=file
+FILE_SIZE_LIMIT=268435456
 ```
 
 ### 6.4 检查 bucket
@@ -154,6 +200,13 @@ docker exec -i supabase-db psql -U postgres -d postgres -c "select id, public fr
 
 ```bash
 docker exec -i supabase-db psql -U postgres -d postgres -c "select email, is_active, user_id from dib_release.release_center_admins order by created_at desc;"
+```
+
+### 6.6 检查发布中心入口
+
+```bash
+curl -I http://101.42.19.26:8000/release-center/
+curl -I http://101.42.19.26:8000/release-center/assets/index-DQLm775K.js
 ```
 
 ## 7. 常见故障
@@ -185,22 +238,44 @@ docker logs supabase-storage --tail 100
 docker inspect supabase-storage --format '{{range .Config.Env}}{{println .}}{{end}}'
 ```
 
-### 7.3 登录成功但页面没有数据
+### 7.3 客户端包上传返回 `413`
 
 优先排查：
 
-1. `dib_release` 表和视图是否已落库
-2. 当前用户是否命中 `release_center_admins`
-3. RLS 与 `security_invoker` 视图是否已按 `09` SQL 创建
+1. `FILE_SIZE_LIMIT` 是否回退到 `52428800`
+2. `supabase-storage` 是否已重建并吃到新配置
+
+处理：
+
+```bash
+cd /data/supabase
+docker compose up -d --force-recreate storage
+docker inspect supabase-storage --format '{{range .Config.Env}}{{println .}}{{end}}' | grep FILE_SIZE_LIMIT
+```
+
+### 7.4 发布中心首页可访问但静态资源返回 `403`
+
+根因：
+
+- `dist` 目录或 `assets` 目录权限过窄，nginx 无法读取
+
+处理：
+
+```bash
+chmod -R a+rX /data/dib-release-center/dist
+find /data/dib-release-center/dist -type d -exec chmod 755 {} +
+docker restart dib-release-center-web
+```
 
 ## 8. 建议的例行检查
 
-每次变更 Supabase 配置后，至少执行：
+每次变更 Supabase 配置或发布中心构建产物后，至少执行：
 
 1. `scripts/prod101-health-check.ps1`
 2. 手工登录发布中心
 3. 点击一次 `发布当前渠道 manifest`
 4. 直接访问两个公开 manifest 地址
+5. 校验 `release-center` 页面入口与静态资源返回 `200`
 
 ## 9. 风险边界
 
@@ -209,11 +284,13 @@ docker inspect supabase-storage --format '{{range .Config.Env}}{{println .}}{{en
 - 检查
 - 常用重启
 - 常用查询
+- 静态页面部署
 
 不包含：
 
 - 全量重置 Supabase
 - 清空 bucket
 - 删除 `dib_release` schema
+- 直接改写 `kong.yml` 其他现有路由
 
 这些动作破坏性较强，必须人工确认后单独执行。

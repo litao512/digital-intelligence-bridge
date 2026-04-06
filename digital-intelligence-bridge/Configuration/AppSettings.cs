@@ -3,50 +3,18 @@ using System.Collections.Generic;
 
 namespace DigitalIntelligenceBridge.Configuration;
 
-/// <summary>
-/// 应用程序配置根节点
-/// </summary>
 public class AppSettings
 {
-    /// <summary>
-    /// 应用程序基本配置
-    /// </summary>
     public ApplicationConfig Application { get; set; } = new();
-
-    /// <summary>
-    /// 系统托盘配置
-    /// </summary>
     public TrayConfig Tray { get; set; } = new();
-
-    /// <summary>
-    /// 插件系统配置
-    /// </summary>
     public PluginConfig Plugin { get; set; } = new();
-
-    /// <summary>
-    /// Supabase 后端配置
-    /// </summary>
     public SupabaseConfig Supabase { get; set; } = new();
-
-    /// <summary>
-    /// 导航菜单配置
-    /// </summary>
+    public ReleaseCenterConfig ReleaseCenter { get; set; } = new();
     public List<NavigationMenuItemConfig> Navigation { get; set; } = new();
-
-    /// <summary>
-    /// 日志配置
-    /// </summary>
     public LoggingConfig Logging { get; set; } = new();
-
-    /// <summary>
-    /// 医保药品导入同步工具配置
-    /// </summary>
     public MedicalDrugImportConfig MedicalDrugImport { get; set; } = new();
 }
 
-/// <summary>
-/// 应用程序基本配置
-/// </summary>
 public class ApplicationConfig
 {
     public string Name { get; set; } = "通用工具箱";
@@ -55,18 +23,12 @@ public class ApplicationConfig
     public bool StartWithSystem { get; set; } = false;
 }
 
-/// <summary>
-/// 系统托盘配置
-/// </summary>
 public class TrayConfig
 {
     public string IconPath { get; set; } = "Assets/avalonia-logo.ico";
     public bool ShowNotifications { get; set; } = true;
 }
 
-/// <summary>
-/// 插件系统配置
-/// </summary>
 public class PluginConfig
 {
     public string PluginDirectory { get; set; } = "plugins";
@@ -74,9 +36,6 @@ public class PluginConfig
     public bool AllowUnsigned { get; set; } = false;
 }
 
-/// <summary>
-/// 导航菜单项配置
-/// </summary>
 public class NavigationMenuItemConfig
 {
     public string Id { get; set; } = string.Empty;
@@ -87,9 +46,6 @@ public class NavigationMenuItemConfig
     public int Order { get; set; } = 0;
 }
 
-/// <summary>
-/// Supabase 后端配置
-/// </summary>
 public class SupabaseConfig
 {
     public string Url { get; set; } = "http://localhost:54321";
@@ -98,29 +54,30 @@ public class SupabaseConfig
     public string Schema { get; set; } = "dib";
 }
 
-// 注：WebApplicationConfig 已移除，WebView 功能将作为可选插件在后续版本提供
+public class ReleaseCenterConfig
+{
+    public bool Enabled { get; set; } = false;
+    public string BaseUrl { get; set; } = string.Empty;
+    public string Channel { get; set; } = "stable";
+    public string CacheDirectory { get; set; } = string.Empty;
+    public string ClientCacheDirectory { get; set; } = string.Empty;
+    public string StagingDirectory { get; set; } = string.Empty;
+    public string RuntimePluginRoot { get; set; } = string.Empty;
+    public string BackupDirectory { get; set; } = string.Empty;
+}
 
-/// <summary>
-/// 日志配置
-/// </summary>
 public class LoggingConfig
 {
     public LogLevelConfig LogLevel { get; set; } = new();
     public string LogPath { get; set; } = "logs";
 }
 
-/// <summary>
-/// 日志级别配置
-/// </summary>
 public class LogLevelConfig
 {
     public string Default { get; set; } = "Information";
     public string Microsoft { get; set; } = "Warning";
 }
 
-/// <summary>
-/// 医保药品导入同步工具配置
-/// </summary>
 public class MedicalDrugImportConfig
 {
     public bool Enabled { get; set; } = false;
@@ -128,9 +85,6 @@ public class MedicalDrugImportConfig
     public SqlServerConnectionConfig SqlServer { get; set; } = new();
 }
 
-/// <summary>
-/// SQL Server 连接配置
-/// </summary>
 public class SqlServerConnectionConfig
 {
     public string Host { get; set; } = "localhost";
@@ -141,3 +95,5 @@ public class SqlServerConnectionConfig
     public bool Encrypt { get; set; } = true;
     public bool TrustServerCertificate { get; set; } = true;
 }
+
+

@@ -173,3 +173,4 @@ public class SqlServerDrugSyncServiceTests
 
     public sealed record CapturedCommand(string CommandText, IReadOnlyCollection<System.Data.Common.DbParameter> Parameters);
 }
+

@@ -32,3 +32,4 @@ public class AppPluginRegistrationTests
         Assert.NotNull(container.Resolve<PluginLoaderService>());
     }
 }
+

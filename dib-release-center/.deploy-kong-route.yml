@@ -1,0 +1,11 @@
+  - name: dib-release-center
+    _comment: 'DIB Release Center: /release-center/* -> http://dib-release-center-web:80/release-center/*'
+    url: http://dib-release-center-web:80
+    routes:
+      - name: dib-release-center-all
+        strip_path: false
+        paths:
+          - /release-center/
+    plugins:
+      - name: cors
+

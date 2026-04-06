@@ -43,3 +43,4 @@ public class PluginAbstractionsContractTests
         Assert.NotNull(type.GetProperty(propertyName));
     }
 }
+

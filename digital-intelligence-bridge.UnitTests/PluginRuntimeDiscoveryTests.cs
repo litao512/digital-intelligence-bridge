@@ -110,3 +110,4 @@ public class PluginRuntimeDiscoveryTests
         return Path.Combine(GetRepositoryRoot(), "plugins");
     }
 }
+

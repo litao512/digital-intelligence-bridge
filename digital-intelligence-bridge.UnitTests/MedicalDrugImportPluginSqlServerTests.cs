@@ -514,3 +514,4 @@ public class MedicalDrugImportPluginSqlServerTests
 
     private sealed record CapturedCommand(string CommandText, IReadOnlyCollection<DbParameter> Parameters);
 }
+

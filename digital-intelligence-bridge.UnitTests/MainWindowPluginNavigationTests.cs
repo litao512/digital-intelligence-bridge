@@ -91,3 +91,4 @@ public class MainWindowPluginNavigationTests
         public void LogWarning(string message, params object[] args) { }
     }
 }
+

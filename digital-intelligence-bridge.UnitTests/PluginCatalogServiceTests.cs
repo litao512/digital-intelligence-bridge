@@ -84,3 +84,4 @@ public class PluginCatalogServiceTests : IDisposable
         File.WriteAllText(Path.Combine(directory, "plugin.json"), json);
     }
 }
+

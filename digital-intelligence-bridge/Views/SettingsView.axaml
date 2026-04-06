@@ -142,13 +142,83 @@
                     <Separator/>
 
                     <StackPanel Orientation="Horizontal" Spacing="10">
-                        <Button Content="检查更新"
+                        <Button Content="{Binding CheckUpdateButtonText}"
                                Command="{Binding CheckUpdateCommand}"
                                Classes="Primary"/>
+                        <Button Content="{Binding DownloadClientPackageButtonText}"
+                               Command="{Binding DownloadClientPackageCommand}"
+                               Classes="Secondary"/>
+                        <Button Content="{Binding DownloadPluginPackagesButtonText}"
+                               Command="{Binding DownloadPluginPackagesCommand}"
+                               Classes="Secondary"/>
+                        <Button Content="{Binding PreparePluginPackagesButtonText}"
+                               Command="{Binding PreparePluginPackagesCommand}"
+                               Classes="Secondary"/>
+                        <Button Content="{Binding RestoreLatestPluginBackupButtonText}"
+                               Command="{Binding RestoreLatestPluginBackupCommand}"
+                               Classes="Secondary"/>
                         <Button Content="打开日志文件夹"
                                Command="{Binding OpenLogFolderCommand}"
                                Classes="Tertiary"/>
                     </StackPanel>
+
+                    <TextBlock Text="{Binding ClientUpgradeNotice}"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding RestartRequiredNotice}"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"/>
+                    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding UpdateCheckSummary}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding ClientUpdateSummary}" FontSize="12" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding PluginUpdateSummary}" FontSize="12" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding UpdateCheckDetail}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding LastUpdateCheckAt, StringFormat='最近检查: {0:yyyy-MM-dd HH:mm:ss}'}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </Border>
+                    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding ClientPackageDownloadSummary}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding ClientPackageDownloadDetail}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding LastClientPackageDownloadAt, StringFormat='最近客户端下载: {0:yyyy-MM-dd HH:mm:ss}'}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </Border>
+                    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding PluginDownloadSummary}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding PluginDownloadDetail}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding LastPluginDownloadAt, StringFormat='最近下载: {0:yyyy-MM-dd HH:mm:ss}'}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </Border>
+                    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding PluginPrepareSummary}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding PluginPrepareDetail}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding LastPluginPrepareAt, StringFormat='最近预安装: {0:yyyy-MM-dd HH:mm:ss}'}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </Border>
+                    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding PluginRollbackSummary}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding PluginRollbackDetail}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding LastPluginRollbackAt, StringFormat='最近回滚: {0:yyyy-MM-dd HH:mm:ss}'}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}"/>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </Border>
 
@@ -214,3 +284,14 @@
         </StackPanel>
     </ScrollViewer>
 </UserControl>
+
+
+
+
+
+
+
+
+
+
+

@@ -1,6 +1,7 @@
 import type { ClientManifest } from '@/contracts/client-manifest'
 import type { PluginManifest, PluginManifestItem } from '@/contracts/plugin-manifest'
 import type { ClientVersion, PluginVersion } from '@/contracts/release-types'
+import { getSupabasePublicBaseUrl } from '@/services/supabase'
 import { assertSha256Hex } from '@/utils/hash'
 import { compareVersions } from '@/utils/version'
 
@@ -38,6 +39,27 @@ function compareClientPriority(left: ClientVersion, right: ClientVersion): numbe
   return comparePublishedAt(left.publishedAt, right.publishedAt)
 }
 
+function normalizePackageUrl(packageUrl: string | null): string | null {
+  if (!packageUrl) {
+    return null
+  }
+
+  if (/^https?:\/\//i.test(packageUrl)) {
+    return packageUrl
+  }
+
+  if (!packageUrl.startsWith('/')) {
+    return packageUrl
+  }
+
+  const publicBaseUrl = getSupabasePublicBaseUrl()
+  if (!publicBaseUrl) {
+    return packageUrl
+  }
+
+  return `${publicBaseUrl}${packageUrl}`
+}
+
 function toPluginManifestItem(version: PluginVersion): PluginManifestItem {
   return {
     pluginId: version.pluginCode,
@@ -46,7 +68,7 @@ function toPluginManifestItem(version: PluginVersion): PluginManifestItem {
     mandatory: version.isMandatory,
     dibMinVersion: version.dibMinVersion,
     dibMaxVersion: version.dibMaxVersion,
-    packageUrl: version.packageUrl,
+    packageUrl: normalizePackageUrl(version.packageUrl),
     sha256: assertSha256Hex(version.sha256, `插件 ${version.pluginCode}`),
   }
 }
@@ -74,7 +96,7 @@ export function buildClientManifest(channel: string, versions: ClientVersion[]):
     latestVersion: latestVersion.version,
     mandatory: latestVersion.isMandatory,
     minUpgradeVersion: latestVersion.minUpgradeVersion,
-    packageUrl: latestVersion.packageUrl,
+    packageUrl: normalizePackageUrl(latestVersion.packageUrl),
     sha256: assertSha256Hex(latestVersion.sha256, `客户端 ${latestVersion.version}`),
     fileName: latestVersion.fileName,
     releaseNotes: latestVersion.releaseNotes,

@@ -40,3 +40,4 @@ public class DrugImportRepositoryContractTests
             type.GetMethod(nameof(IDrugCatalogSyncRepository.GetAffectedCatalogRowsAsync))!.ReturnType);
     }
 }
+

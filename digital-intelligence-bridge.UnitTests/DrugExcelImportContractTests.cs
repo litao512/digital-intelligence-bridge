@@ -26,3 +26,4 @@ public class DrugExcelImportContractTests
             serviceType.GetMethod(nameof(IDrugExcelImportService.ReadRowsAsync))!.ReturnType);
     }
 }
+
