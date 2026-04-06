@@ -11,6 +11,7 @@
 - 发布中心访问入口：`http://101.42.19.26:8000/release-center/`
 - 发布中心 schema：`dib_release`
 - 发布资产 bucket：`dib-releases`
+- 站点授权基础表：`site_groups / sites / group_plugin_policies / site_plugin_overrides / site_heartbeats`
 
 ## 2. 关键组件
 
@@ -98,8 +99,15 @@ getaddrinfo ENOTFOUND minio
 5. `05_create_client_versions.sql`
 6. `06_seed_release_channels.sql`
 7. `07_create_release_center_views.sql`
-8. `08_validate_release_center_schema.sql`
-9. `09_create_release_center_admins_and_policies.sql`
+8. `09_create_release_center_admins_and_policies.sql`
+9. `10_create_site_groups.sql`
+10. `11_create_sites.sql`
+11. `12_create_group_plugin_policies.sql`
+12. `13_create_site_plugin_overrides.sql`
+13. `14_create_site_heartbeats.sql`
+14. `07_create_release_center_views.sql`
+15. `09_create_release_center_admins_and_policies.sql`
+16. `08_validate_release_center_schema.sql`
 
 ### 4.2 初始化管理员
 
@@ -120,6 +128,7 @@ getaddrinfo ENOTFOUND minio
 3. 点击 `发布当前渠道 manifest`
 4. 在 `发布资产` 页面看到 2 条 `manifest` 记录
 5. 直接访问公开 manifest 地址返回 `200`
+6. 打开“站点管理”和“站点统计”页确认能正常读取数据
 
 ## 5. 日常发布流程
 
@@ -160,9 +169,44 @@ chmod -R a+rX /data/dib-release-center/dist
 find /data/dib-release-center/dist -type d -exec chmod 755 {} +
 ```
 
-## 6. 常用检查项
+## 6. 站点授权与统计运维
 
-### 6.1 检查容器
+### 6.1 站点接入基线
+
+当前 DIB 客户端会在本地配置中持久化：
+
+- `ReleaseCenter.SiteId`
+- `ReleaseCenter.SiteName`
+
+并在检查更新时把 `siteId` 带到 `plugin-manifest` 请求中。
+
+### 6.2 站点表检查
+
+```bash
+docker exec -i supabase-db psql -U postgres -d postgres -c "select site_name, site_id, client_version, last_seen_at from dib_release.site_overview order by updated_at desc limit 20;"
+```
+
+### 6.3 分组授权检查
+
+```bash
+docker exec -i supabase-db psql -U postgres -d postgres -c "select group_id, package_id, is_enabled, min_client_version, max_client_version from dib_release.group_plugin_policies order by created_at desc limit 20;"
+```
+
+### 6.4 站点覆盖检查
+
+```bash
+docker exec -i supabase-db psql -U postgres -d postgres -c "select site_id, package_id, action, is_active from dib_release.site_plugin_overrides order by created_at desc limit 20;"
+```
+
+### 6.5 站点统计检查
+
+```bash
+docker exec -i supabase-db psql -U postgres -d postgres -c "select group_code, group_name, site_count, active_site_count_24h from dib_release.site_group_statistics order by group_code;"
+```
+
+## 7. 常用检查项
+
+### 7.1 检查容器
 
 ```bash
 ssh prod-101
@@ -171,13 +215,13 @@ docker ps --format '{{.Names}}|{{.Status}}' | grep supabase
 docker ps --format '{{.Names}}|{{.Status}}' | grep dib-release-center-web
 ```
 
-### 6.2 检查 REST schema
+### 7.2 检查 REST schema
 
 ```bash
 docker inspect supabase-rest --format '{{range .Config.Env}}{{println .}}{{end}}' | grep PGRST_DB_SCHEMAS
 ```
 
-### 6.3 检查 Storage 后端与文件上限
+### 7.3 检查 Storage 后端与文件上限
 
 ```bash
 docker inspect supabase-storage --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -E 'STORAGE_BACKEND|FILE_SIZE_LIMIT'
@@ -190,28 +234,28 @@ STORAGE_BACKEND=file
 FILE_SIZE_LIMIT=268435456
 ```
 
-### 6.4 检查 bucket
+### 7.4 检查 bucket
 
 ```bash
 docker exec -i supabase-db psql -U postgres -d postgres -c "select id, public from storage.buckets where id = 'dib-releases';"
 ```
 
-### 6.5 检查管理员
+### 7.5 检查管理员
 
 ```bash
 docker exec -i supabase-db psql -U postgres -d postgres -c "select email, is_active, user_id from dib_release.release_center_admins order by created_at desc;"
 ```
 
-### 6.6 检查发布中心入口
+### 7.6 检查发布中心入口
 
 ```bash
 curl -I http://101.42.19.26:8000/release-center/
 curl -I http://101.42.19.26:8000/release-center/assets/index-DQLm775K.js
 ```
 
-## 7. 常见故障
+## 8. 常见故障
 
-### 7.1 登录后提示 `Invalid schema: dib_release`
+### 8.1 登录后提示 `Invalid schema: dib_release`
 
 根因：
 
@@ -223,7 +267,7 @@ curl -I http://101.42.19.26:8000/release-center/assets/index-DQLm775K.js
 2. 确认 `PGRST_DB_SCHEMAS` 包含 `dib_release`
 3. 重启 `supabase-rest`
 
-### 7.2 发布 manifest 返回 500
+### 8.2 发布 manifest 返回 500
 
 根因优先排查：
 
@@ -238,7 +282,7 @@ docker logs supabase-storage --tail 100
 docker inspect supabase-storage --format '{{range .Config.Env}}{{println .}}{{end}}'
 ```
 
-### 7.3 客户端包上传返回 `413`
+### 8.3 客户端包上传返回 `413`
 
 优先排查：
 
@@ -253,7 +297,7 @@ docker compose up -d --force-recreate storage
 docker inspect supabase-storage --format '{{range .Config.Env}}{{println .}}{{end}}' | grep FILE_SIZE_LIMIT
 ```
 
-### 7.4 发布中心首页可访问但静态资源返回 `403`
+### 8.4 发布中心首页可访问但静态资源返回 `403`
 
 根因：
 
@@ -267,7 +311,7 @@ find /data/dib-release-center/dist -type d -exec chmod 755 {} +
 docker restart dib-release-center-web
 ```
 
-## 8. 建议的例行检查
+## 9. 建议的例行检查
 
 每次变更 Supabase 配置或发布中心构建产物后，至少执行：
 
@@ -276,8 +320,9 @@ docker restart dib-release-center-web
 3. 点击一次 `发布当前渠道 manifest`
 4. 直接访问两个公开 manifest 地址
 5. 校验 `release-center` 页面入口与静态资源返回 `200`
+6. 打开“站点管理”和“站点统计”页确认能正常读取数据
 
-## 9. 风险边界
+## 10. 风险边界
 
 当前脚本只覆盖：
 

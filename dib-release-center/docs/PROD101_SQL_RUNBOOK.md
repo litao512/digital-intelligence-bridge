@@ -6,7 +6,7 @@
 
 ## 2. 执行顺序
 
-首次落库必须按以下顺序执行：
+首次落库建议按以下顺序执行：
 
 1. `01_create_release_channels.sql`
 2. `02_create_release_assets.sql`
@@ -15,8 +15,15 @@
 5. `05_create_client_versions.sql`
 6. `06_seed_release_channels.sql`
 7. `07_create_release_center_views.sql`
-8. `08_validate_release_center_schema.sql`
-9. `09_create_release_center_admins_and_policies.sql`
+8. `09_create_release_center_admins_and_policies.sql`
+9. `10_create_site_groups.sql`
+10. `11_create_sites.sql`
+11. `12_create_group_plugin_policies.sql`
+12. `13_create_site_plugin_overrides.sql`
+13. `14_create_site_heartbeats.sql`
+14. `07_create_release_center_views.sql`
+15. `09_create_release_center_admins_and_policies.sql`
+16. `08_validate_release_center_schema.sql`
 
 ## 3. 文件作用
 
@@ -64,7 +71,11 @@
 
 ### `07_create_release_center_views.sql`
 
-创建前端读取用视图与 manifest 聚合视图。
+创建前端读取用视图与 manifest 聚合视图。二次执行时会补入站点相关视图：
+
+- `site_overview`
+- `site_group_statistics`
+- `site_effective_plugin_policies_view`
 
 ### `08_validate_release_center_schema.sql`
 
@@ -73,6 +84,7 @@
 - 关键表存在
 - 关键视图可查询
 - 基线约束成立
+- 站点授权表、索引和统计视图可用
 
 ### `09_create_release_center_admins_and_policies.sql`
 
@@ -82,13 +94,39 @@
 - RLS 策略
 - Storage 写权限策略
 - bucket 初始化逻辑
+- 站点相关表的安全策略与 `security_invoker` 视图
+
+### `10_create_site_groups.sql`
+
+创建站点分组表，并初始化默认分组 `unassigned`。
+
+### `11_create_sites.sql`
+
+创建 DIB 安装实例站点表，持久化：
+
+- `site_id`
+- `site_name`
+- 当前客户端版本
+- 最近活动时间
+
+### `12_create_group_plugin_policies.sql`
+
+创建组级插件授权表。
+
+### `13_create_site_plugin_overrides.sql`
+
+创建站点级插件覆盖表。
+
+### `14_create_site_heartbeats.sql`
+
+创建站点心跳记录表。
 
 ## 4. 增量变更原则
 
 后续新增 SQL 时遵循：
 
 1. 只追加，不改号
-2. 新文件按 `10_...sql`、`11_...sql` 顺延
+2. 新文件按 `15_...sql`、`16_...sql` 顺延
 3. 已在生产执行过的 SQL 不做原地重写
 4. 结构变更通过新增 migration 表达
 
@@ -118,10 +156,18 @@ where table_schema = 'dib_release'
 order by table_name;
 ```
 
+建议至少确认包含：
+
+- `site_groups`
+- `sites`
+- `group_plugin_policies`
+- `site_plugin_overrides`
+- `site_heartbeats`
+
 ### 6.2 查看渠道
 
 ```sql
-select code, name, sort_order, is_default, is_active
+select channel_code, channel_name, sort_order, is_default, is_active
 from dib_release.release_channels
 order by sort_order;
 ```
@@ -134,8 +180,25 @@ from dib_release.release_assets
 order by created_at desc;
 ```
 
+### 6.4 查看站点概览
+
+```sql
+select site_name, site_id, group_name, client_version, last_seen_at
+from dib_release.site_overview
+order by updated_at desc;
+```
+
+### 6.5 查看站点统计
+
+```sql
+select group_code, group_name, site_count, active_site_count_24h
+from dib_release.site_group_statistics
+order by group_code;
+```
+
 ## 7. 注意事项
 
 - 正式库对象统一落在 `dib_release`，不要混到 `public`
 - 所有 manifest 读取与资产上传都依赖 `dib-releases` bucket
 - 如果 `PostgREST` 没暴露 `dib_release`，前端登录与数据读取会失败
+- 站点相关页面依赖 `site_*` 表和 3 个站点视图，迁移不完整时会直接影响站点管理与统计页面

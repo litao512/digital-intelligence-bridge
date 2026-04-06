@@ -29,6 +29,10 @@
 - 客户端版本发布
 - `client-manifest` / `plugin-manifest` 发布
 - `prod101` 生产部署入口
+- 站点身份持久化（`SiteId / SiteName`）
+- 站点管理页
+- 站点统计页
+- 按站点请求插件 manifest
 
 ## prod101 运维
 
@@ -46,3 +50,28 @@
 - 客户端包：统一使用 `Supabase Storage`
 - manifest：统一使用 `Supabase Storage`
 - `supabase-storage` 文件上限：`256 MB`
+
+## 站点授权现状
+
+当前分支已经增加站点授权与统计的第一批基础能力：
+
+- `site_groups`
+- `sites`
+- `group_plugin_policies`
+- `site_plugin_overrides`
+- `site_heartbeats`
+- `site_overview`
+- `site_group_statistics`
+- `site_effective_plugin_policies_view`
+
+当前 DIB 客户端已经会：
+
+- 首次生成并持久化 `SiteId`
+- 自动补默认 `SiteName`
+- 检查更新时携带 `siteId` 请求插件 manifest
+
+当前发布中心已经能：
+
+- 查看站点列表
+- 修改站点所属分组
+- 查看站点总数、活跃站点、未分组站点、版本分布、授权/安装差异
