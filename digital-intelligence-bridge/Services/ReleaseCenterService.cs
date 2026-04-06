@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -367,7 +368,14 @@ public sealed class ReleaseCenterService : IReleaseCenterService
 
     private async Task<PluginManifestDto?> GetPluginManifestAsync(CancellationToken cancellationToken)
     {
-        return await _httpClient.GetFromJsonAsync<PluginManifestDto>(BuildManifestUrl("plugin-manifest.json", includeSiteId: true), cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(_config.AnonKey))
+        {
+            return await _httpClient.GetFromJsonAsync<PluginManifestDto>(BuildManifestUrl("plugin-manifest.json", includeSiteId: true), cancellationToken).ConfigureAwait(false);
+        }
+
+        var payload = EnsureSiteHeartbeatPayload();
+        await RegisterSiteHeartbeatAsync(payload, cancellationToken).ConfigureAwait(false);
+        return await GetSiteScopedPluginManifestAsync(payload, cancellationToken).ConfigureAwait(false);
     }
 
     private string BuildManifestUrl(string fileName, bool includeSiteId = false)
@@ -411,6 +419,75 @@ public sealed class ReleaseCenterService : IReleaseCenterService
             _currentAppVersion,
             Environment.MachineName,
             DateTimeOffset.UtcNow);
+    }
+
+    private async Task RegisterSiteHeartbeatAsync(SiteHeartbeatPayload payload, CancellationToken cancellationToken)
+    {
+        using var request = BuildRpcRequest(
+            "register_site_heartbeat",
+            new
+            {
+                p_site_id = payload.SiteId,
+                p_site_name = payload.SiteName,
+                p_channel_code = payload.Channel,
+                p_client_version = payload.ClientVersion,
+                p_machine_name = payload.MachineName,
+                p_installed_plugins_json = GetInstalledPluginIds(),
+                p_event_type = "update_check"
+            });
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+    }
+
+    private async Task<PluginManifestDto?> GetSiteScopedPluginManifestAsync(SiteHeartbeatPayload payload, CancellationToken cancellationToken)
+    {
+        using var request = BuildRpcRequest(
+            "get_site_plugin_manifest",
+            new
+            {
+                p_channel_code = payload.Channel,
+                p_site_id = payload.SiteId,
+                p_client_version = payload.ClientVersion
+            });
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        return await JsonSerializer.DeserializeAsync<PluginManifestDto>(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    private HttpRequestMessage BuildRpcRequest(string rpcName, object payload)
+    {
+        var baseUrl = _config.BaseUrl.TrimEnd('/');
+        var request = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/rest/v1/rpc/{rpcName}");
+        request.Headers.Add("apikey", _config.AnonKey);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _config.AnonKey);
+        request.Headers.Add("Accept-Profile", "dib_release");
+        request.Headers.Add("Content-Profile", "dib_release");
+        request.Content = JsonContent.Create(payload);
+        return request;
+    }
+
+    private IReadOnlyList<string> GetInstalledPluginIds()
+    {
+        try
+        {
+            var runtimeRoot = ResolveRuntimePluginRoot();
+            if (!Directory.Exists(runtimeRoot))
+            {
+                return Array.Empty<string>();
+            }
+
+            return Directory.GetDirectories(runtimeRoot)
+                .Select(Path.GetFileName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .ToArray()!;
+        }
+        catch
+        {
+            return Array.Empty<string>();
+        }
     }
 
     private void PersistReleaseCenterIdentity()

@@ -21,9 +21,10 @@
 11. `12_create_group_plugin_policies.sql`
 12. `13_create_site_plugin_overrides.sql`
 13. `14_create_site_heartbeats.sql`
-14. `07_create_release_center_views.sql`
-15. `09_create_release_center_admins_and_policies.sql`
-16. `08_validate_release_center_schema.sql`
+14. `15_create_site_runtime_rpcs.sql`
+15. `07_create_release_center_views.sql`
+16. `09_create_release_center_admins_and_policies.sql`
+17. `08_validate_release_center_schema.sql`
 
 ## 3. 文件作用
 
@@ -121,6 +122,21 @@
 
 创建站点心跳记录表。
 
+### `15_create_site_runtime_rpcs.sql`
+
+创建运行时 RPC：
+
+- `dib_release.register_site_heartbeat(...)`
+- `dib_release.get_site_plugin_manifest(...)`
+- `dib_release.semver_cmp(...)`
+
+其中：
+
+- `register_site_heartbeat` 用于 DIB 客户端检查更新、下载插件、下载客户端包时写回站点活动
+- `get_site_plugin_manifest` 用于按 `site_id + channel + client_version` 返回授权后的插件清单
+- `site_id` 输入值必须为 GUID
+- 通过 PostgREST 调用时需要使用 `dib_release` profile 头
+
 ## 4. 增量变更原则
 
 后续新增 SQL 时遵循：
@@ -163,6 +179,8 @@ order by table_name;
 - `group_plugin_policies`
 - `site_plugin_overrides`
 - `site_heartbeats`
+- `register_site_heartbeat`
+- `get_site_plugin_manifest`
 
 ### 6.2 查看渠道
 
@@ -196,9 +214,17 @@ from dib_release.site_group_statistics
 order by group_code;
 ```
 
+### 6.6 查看运行时 RPC
+
+```sql
+select to_regprocedure('dib_release.register_site_heartbeat(text,text,text,text,text,jsonb,text)');
+select to_regprocedure('dib_release.get_site_plugin_manifest(text,text,text)');
+```
+
 ## 7. 注意事项
 
 - 正式库对象统一落在 `dib_release`，不要混到 `public`
 - 所有 manifest 读取与资产上传都依赖 `dib-releases` bucket
 - 如果 `PostgREST` 没暴露 `dib_release`，前端登录与数据读取会失败
 - 站点相关页面依赖 `site_*` 表和 3 个站点视图，迁移不完整时会直接影响站点管理与统计页面
+- 新增 RPC migration 后，如果 HTTP 访问仍提示函数不存在，需要重启 `supabase-rest` 刷新 schema cache

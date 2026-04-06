@@ -67,6 +67,14 @@ begin
         raise exception 'validation failed: dib_release.site_effective_plugin_policies_view missing';
     end if;
 
+    if to_regprocedure('dib_release.register_site_heartbeat(text,text,text,text,text,jsonb,text)') is null then
+        raise exception 'validation failed: register_site_heartbeat missing';
+    end if;
+
+    if to_regprocedure('dib_release.get_site_plugin_manifest(text,text,text)') is null then
+        raise exception 'validation failed: get_site_plugin_manifest missing';
+    end if;
+
     if not exists (
         select 1
         from pg_indexes
@@ -425,6 +433,25 @@ begin
 
     if v_heartbeat_id is null then
         raise exception 'validation failed: site heartbeat insert missing';
+    end if;
+
+    perform dib_release.register_site_heartbeat(
+        gen_random_uuid()::text,
+        'RPC 验证站点',
+        'stable',
+        '1.0.0',
+        'validation-rpc-machine',
+        jsonb_build_array(v_plugin_code),
+        'update_check'
+    );
+
+    select jsonb_array_length(coalesce((dib_release.get_site_plugin_manifest('stable', (
+        select site_id from dib_release.sites where id = v_site_row_id
+    ), '1.0.0') -> 'plugins'), '[]'::jsonb))
+    into v_site_total_count;
+
+    if v_site_total_count <> 0 then
+        raise exception 'validation failed: site manifest should be empty after deny override';
     end if;
 
     delete from dib_release.site_heartbeats where id = v_heartbeat_id;

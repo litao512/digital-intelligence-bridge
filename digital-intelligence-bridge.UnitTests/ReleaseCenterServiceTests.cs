@@ -154,7 +154,10 @@ public class ReleaseCenterServiceTests
     [Fact]
     public async Task CheckForUpdatesAsync_ShouldAppendSiteId_WhenRequestingPluginManifest()
     {
-        Uri? pluginManifestUri = null;
+        HttpRequestMessage? pluginManifestRequest = null;
+        HttpRequestMessage? heartbeatRequest = null;
+        string heartbeatBody = string.Empty;
+        string pluginManifestBody = string.Empty;
         var settings = new AppSettings
         {
             Application = new ApplicationConfig { Version = "1.0.0" },
@@ -163,6 +166,7 @@ public class ReleaseCenterServiceTests
                 Enabled = true,
                 BaseUrl = "http://release-center.local",
                 Channel = "stable",
+                AnonKey = "anon-key",
                 SiteId = "11111111-1111-1111-1111-111111111111",
                 SiteName = "门诊登记台 1"
             }
@@ -170,9 +174,20 @@ public class ReleaseCenterServiceTests
 
         var handler = new StubHttpMessageHandler(request =>
         {
-            if (request.RequestUri!.AbsoluteUri.Contains("plugin-manifest", StringComparison.OrdinalIgnoreCase))
+            if (request.RequestUri!.AbsoluteUri.Contains("/rpc/register_site_heartbeat", StringComparison.OrdinalIgnoreCase))
             {
-                pluginManifestUri = request.RequestUri;
+                heartbeatRequest = request;
+                heartbeatBody = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult() ?? string.Empty;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"siteId\":\"11111111-1111-1111-1111-111111111111\"}", Encoding.UTF8, "application/json")
+                };
+            }
+
+            if (request.RequestUri!.AbsoluteUri.Contains("/rpc/get_site_plugin_manifest", StringComparison.OrdinalIgnoreCase))
+            {
+                pluginManifestRequest = request;
+                pluginManifestBody = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult() ?? string.Empty;
             }
 
             var content = request.RequestUri!.AbsoluteUri.Contains("client-manifest", StringComparison.OrdinalIgnoreCase)
@@ -201,8 +216,27 @@ public class ReleaseCenterServiceTests
 
         await service.CheckForUpdatesAsync();
 
-        Assert.NotNull(pluginManifestUri);
-        Assert.Contains("siteId=11111111-1111-1111-1111-111111111111", pluginManifestUri!.Query);
+        Assert.NotNull(heartbeatRequest);
+        Assert.Equal(HttpMethod.Post, heartbeatRequest!.Method);
+        Assert.Equal("anon-key", heartbeatRequest.Headers.GetValues("apikey").Single());
+        Assert.Equal("dib_release", heartbeatRequest.Headers.GetValues("Accept-Profile").Single());
+        Assert.Equal("dib_release", heartbeatRequest.Headers.GetValues("Content-Profile").Single());
+
+        using var heartbeatDocument = JsonDocument.Parse(heartbeatBody);
+        Assert.Equal("11111111-1111-1111-1111-111111111111", heartbeatDocument.RootElement.GetProperty("p_site_id").GetString());
+        Assert.Equal("门诊登记台 1", heartbeatDocument.RootElement.GetProperty("p_site_name").GetString());
+        Assert.Equal("stable", heartbeatDocument.RootElement.GetProperty("p_channel_code").GetString());
+
+        Assert.NotNull(pluginManifestRequest);
+        Assert.Equal(HttpMethod.Post, pluginManifestRequest!.Method);
+        Assert.Equal("anon-key", pluginManifestRequest.Headers.GetValues("apikey").Single());
+        Assert.Equal("Bearer anon-key", pluginManifestRequest.Headers.Authorization?.ToString());
+        Assert.Equal("dib_release", pluginManifestRequest.Headers.GetValues("Accept-Profile").Single());
+        Assert.Equal("dib_release", pluginManifestRequest.Headers.GetValues("Content-Profile").Single());
+
+        using var pluginManifestDocument = JsonDocument.Parse(pluginManifestBody);
+        Assert.Equal("11111111-1111-1111-1111-111111111111", pluginManifestDocument.RootElement.GetProperty("p_site_id").GetString());
+        Assert.Equal("stable", pluginManifestDocument.RootElement.GetProperty("p_channel_code").GetString());
     }
 
     [Theory]

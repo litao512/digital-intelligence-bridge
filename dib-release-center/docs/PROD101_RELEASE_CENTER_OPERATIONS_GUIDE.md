@@ -105,9 +105,10 @@ getaddrinfo ENOTFOUND minio
 11. `12_create_group_plugin_policies.sql`
 12. `13_create_site_plugin_overrides.sql`
 13. `14_create_site_heartbeats.sql`
-14. `07_create_release_center_views.sql`
-15. `09_create_release_center_admins_and_policies.sql`
-16. `08_validate_release_center_schema.sql`
+14. `15_create_site_runtime_rpcs.sql`
+15. `07_create_release_center_views.sql`
+16. `09_create_release_center_admins_and_policies.sql`
+17. `08_validate_release_center_schema.sql`
 
 ### 4.2 初始化管理员
 
@@ -178,13 +179,32 @@ find /data/dib-release-center/dist -type d -exec chmod 755 {} +
 - `ReleaseCenter.SiteId`
 - `ReleaseCenter.SiteName`
 
-并在检查更新时把 `siteId` 带到 `plugin-manifest` 请求中。
+并在检查更新时执行两步：
+
+1. 调用 `dib_release.register_site_heartbeat(...)` 写回 `sites / site_heartbeats`
+2. 调用 `dib_release.get_site_plugin_manifest(...)` 获取按站点裁剪后的插件清单
+
+补充约束：
+
+- `SiteId` 必须是 GUID 格式
+- 运行时 RPC 通过 PostgREST 访问时必须带：
+  - `Accept-Profile: dib_release`
+  - `Content-Profile: dib_release`
 
 ### 6.2 站点表检查
 
 ```bash
 docker exec -i supabase-db psql -U postgres -d postgres -c "select site_name, site_id, client_version, last_seen_at from dib_release.site_overview order by updated_at desc limit 20;"
 ```
+
+### 6.2.1 站点运行时 RPC 检查
+
+```bash
+docker exec -i supabase-db psql -U postgres -d postgres -c "select to_regprocedure('dib_release.register_site_heartbeat(text,text,text,text,text,jsonb,text)');"
+docker exec -i supabase-db psql -U postgres -d postgres -c "select to_regprocedure('dib_release.get_site_plugin_manifest(text,text,text)');"
+```
+
+预期两个 `regprocedure` 都非空。
 
 ### 6.3 分组授权检查
 
@@ -251,6 +271,20 @@ docker exec -i supabase-db psql -U postgres -d postgres -c "select email, is_act
 ```bash
 curl -I http://101.42.19.26:8000/release-center/
 curl -I http://101.42.19.26:8000/release-center/assets/index-DQLm775K.js
+```
+
+### 7.7 检查运行时 RPC 是否可执行
+
+```bash
+docker exec -i supabase-db psql -U postgres -d postgres -c "select dib_release.register_site_heartbeat('11111111-1111-1111-1111-111111111111','运维检查站点','stable','1.0.0','ops-machine','[]'::jsonb,'update_check');"
+docker exec -i supabase-db psql -U postgres -d postgres -c "select dib_release.get_site_plugin_manifest('stable','11111111-1111-1111-1111-111111111111','1.0.0');"
+```
+
+如果刚执行过新的 RPC migration，但 HTTP 侧仍提示找不到函数，需要刷新 PostgREST schema cache：
+
+```bash
+cd /data/supabase
+docker compose restart rest
 ```
 
 ## 8. 常见故障

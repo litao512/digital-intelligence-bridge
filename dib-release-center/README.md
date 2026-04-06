@@ -33,6 +33,10 @@
 - 站点管理页
 - 站点统计页
 - 按站点请求插件 manifest
+- 站点心跳写回 `dib_release.sites / dib_release.site_heartbeats`
+- 运行时 RPC：
+  - `dib_release.register_site_heartbeat(...)`
+  - `dib_release.get_site_plugin_manifest(...)`
 
 ## prod101 运维
 
@@ -68,7 +72,8 @@
 
 - 首次生成并持久化 `SiteId`
 - 自动补默认 `SiteName`
-- 检查更新时携带 `siteId` 请求插件 manifest
+- 检查更新时先上报站点心跳
+- 再按 `siteId + channel + clientVersion` 获取插件清单
 
 当前发布中心已经能：
 
