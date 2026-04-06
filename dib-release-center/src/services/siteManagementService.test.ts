@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { SiteSummary } from '@/contracts/site-types'
-import { filterSites } from '@/services/siteManagementService'
+import {
+  filterSites,
+  findSiteRowBySiteId,
+  getSiteSearchSeed,
+} from '@/services/siteManagementService'
 
 function createSite(overrides: Partial<SiteSummary> = {}): SiteSummary {
   return {
@@ -54,5 +58,21 @@ describe('siteManagementService', () => {
 
     expect(result).toHaveLength(1)
     expect(result[0].groupId).toBe('group-b')
+  })
+
+  it('should find site row by stable site id for cross-page navigation', () => {
+    const sites = [
+      createSite({ id: 'site-row-1', siteId: '11111111-1111-1111-1111-111111111111' }),
+      createSite({ id: 'site-row-2', siteId: '22222222-2222-2222-2222-222222222222' }),
+    ]
+
+    const result = findSiteRowBySiteId(sites, '22222222-2222-2222-2222-222222222222')
+
+    expect(result?.id).toBe('site-row-2')
+  })
+
+  it('should prefer site name as search seed and fallback to site id', () => {
+    expect(getSiteSearchSeed(createSite({ siteName: '门诊登记台 2', siteId: '22222222-2222-2222-2222-222222222222' }))).toBe('门诊登记台 2')
+    expect(getSiteSearchSeed(createSite({ siteName: '', siteId: '33333333-3333-3333-3333-333333333333' }))).toBe('33333333-3333-3333-3333-333333333333')
   })
 })

@@ -114,6 +114,7 @@
             <th>最近活跃</th>
             <th>已授权未安装</th>
             <th>已安装未授权</th>
+            <th>操作</th>
           </tr>
         </thead>
         <tbody>
@@ -124,6 +125,10 @@
             <td>{{ formatDate(item.lastSeenAt) }}</td>
             <td>{{ item.authorizedNotInstalled.join('、') || '无' }}</td>
             <td>{{ item.installedNotAuthorized.join('、') || '无' }}</td>
+            <td class="action-cell">
+              <button type="button" class="ghost-button inline-button" @click="emit('openSite', item.siteId)">去站点管理</button>
+              <button type="button" class="ghost-button inline-button" @click="emit('openSiteOverride', item.siteId)">去站点覆盖</button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -133,6 +138,11 @@
 
 <script setup lang="ts">
 import type { SiteAnalyticsSummary } from '@/contracts/site-types'
+
+const emit = defineEmits<{
+  openSite: [siteId: string]
+  openSiteOverride: [siteId: string]
+}>()
 
 defineProps<{
   analytics: SiteAnalyticsSummary
@@ -146,3 +156,11 @@ function formatDate(value: string | null): string {
   return new Date(value).toLocaleString('zh-CN', { hour12: false })
 }
 </script>
+
+<style scoped>
+.action-cell {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+</style>

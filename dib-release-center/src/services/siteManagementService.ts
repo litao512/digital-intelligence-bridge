@@ -30,3 +30,19 @@ export function filterSites(sites: SiteSummary[], input: SiteFilterInput): SiteS
     return haystacks.some((item) => item.toLowerCase().includes(keyword))
   })
 }
+
+export function findSiteRowBySiteId(sites: SiteSummary[], siteId: string): SiteSummary | undefined {
+  const normalizedSiteId = siteId.trim()
+
+  if (!normalizedSiteId) {
+    return undefined
+  }
+
+  return sites.find((site) => site.siteId === normalizedSiteId)
+}
+
+export function getSiteSearchSeed(site: Pick<SiteSummary, 'siteName' | 'siteId'>): string {
+  const siteName = site.siteName.trim()
+
+  return siteName || site.siteId
+}

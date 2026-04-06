@@ -89,13 +89,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { SiteGroup, SiteSummary } from '@/contracts/site-types'
 import { filterSites } from '@/services/siteManagementService'
 
 const props = defineProps<{
   sites: SiteSummary[]
   groups: SiteGroup[]
+  searchSeed?: string
 }>()
 
 const emit = defineEmits<{
@@ -107,6 +108,16 @@ const keyword = ref('')
 const groupFilterId = ref('')
 const bulkGroupId = ref('')
 const selectedSiteIds = ref<string[]>([])
+
+watch(
+  () => props.searchSeed,
+  (value) => {
+    if (typeof value === 'string' && value.trim()) {
+      keyword.value = value
+    }
+  },
+  { immediate: true },
+)
 
 const filteredSites = computed(() => filterSites(props.sites, {
   keyword: keyword.value,

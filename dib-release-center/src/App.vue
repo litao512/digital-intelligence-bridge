@@ -107,6 +107,7 @@
         v-else-if="activeTab === 'sites'"
         :sites="sites"
         :groups="siteGroups"
+        :search-seed="siteSearchSeed"
         @assign-group="handleAssignSiteGroup"
         @bulk-assign-group="handleBulkAssignSiteGroup"
       />
@@ -133,6 +134,8 @@
       <SiteAnalyticsPage
         v-else-if="activeTab === 'site-analytics'"
         :analytics="siteAnalytics"
+        @open-site="handleOpenAnalyticsSite"
+        @open-site-override="handleOpenAnalyticsSiteOverride"
       />
       <PluginReleasesPage
         v-else-if="activeTab === 'plugins'"
@@ -211,6 +214,7 @@ import SiteOverridesPage from '@/web/pages/SiteOverridesPage.vue'
 import SitesPage from '@/web/pages/SitesPage.vue'
 import { aggregateSiteAnalytics } from '@/services/siteAuthorizationService'
 import { buildGroupPolicyUpsert, buildSiteOverrideUpsert, type SiteGroupPolicyDraftInput, type SiteOverrideDraftInput } from '@/services/sitePolicyDraftService'
+import { findSiteRowBySiteId, getSiteSearchSeed } from '@/services/siteManagementService'
 
 const tabs = [
   { id: 'channels', label: '发布渠道' },
@@ -237,6 +241,7 @@ const channels = ref<ReleaseChannel[]>([])
 const siteGroups = ref<SiteGroup[]>([])
 const selectedPolicyGroupId = ref('')
 const selectedOverrideSiteRowId = ref('')
+const siteSearchSeed = ref('')
 const sites = ref<SiteSummary[]>([])
 const groupPluginPolicies = ref<SiteGroupPluginPolicy[]>([])
 const sitePluginOverrides = ref<SitePluginOverride[]>([])
@@ -464,6 +469,34 @@ async function handleBulkAssignSiteGroup(payload: { siteRowIds: string[]; groupI
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '批量更新站点分组失败。'
   }
+}
+
+function handleOpenAnalyticsSite(siteId: string): void {
+  const site = findSiteRowBySiteId(sites.value, siteId)
+
+  if (!site) {
+    loadError.value = `未找到站点 ${siteId}，无法跳转到站点管理。`
+    return
+  }
+
+  statusMessage.value = ''
+  loadError.value = ''
+  siteSearchSeed.value = getSiteSearchSeed(site)
+  activeTab.value = 'sites'
+}
+
+function handleOpenAnalyticsSiteOverride(siteId: string): void {
+  const site = findSiteRowBySiteId(sites.value, siteId)
+
+  if (!site) {
+    loadError.value = `未找到站点 ${siteId}，无法跳转到站点覆盖。`
+    return
+  }
+
+  statusMessage.value = ''
+  loadError.value = ''
+  selectedOverrideSiteRowId.value = site.id
+  activeTab.value = 'site-overrides'
 }
 
 async function handleUpsertGroupPolicy(draft: SiteGroupPolicyDraftInput): Promise<void> {
