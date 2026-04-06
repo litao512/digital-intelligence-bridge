@@ -39,6 +39,9 @@ public class SettingsViewModel : ViewModelBase
     private string _clientUpdateSummary = "客户端更新：尚未检查";
     private string _pluginUpdateSummary = "插件更新：尚未检查";
     private string _updateCheckDetail = string.Empty;
+    private string _siteAuthorizationSummary = "站点：尚未检查";
+    private string _authorizedPluginSummary = "授权插件：尚未检查";
+    private string _authorizedPluginDetail = string.Empty;
     private DateTime? _lastUpdateCheckAt;
     private bool _isUpdateCheckRunning;
     private string _clientPackageDownloadSummary = "客户端升级包：尚未执行";
@@ -77,6 +80,9 @@ public class SettingsViewModel : ViewModelBase
     public string ClientUpdateSummary { get => _clientUpdateSummary; set => SetProperty(ref _clientUpdateSummary, value); }
     public string PluginUpdateSummary { get => _pluginUpdateSummary; set => SetProperty(ref _pluginUpdateSummary, value); }
     public string UpdateCheckDetail { get => _updateCheckDetail; set => SetProperty(ref _updateCheckDetail, value); }
+    public string SiteAuthorizationSummary { get => _siteAuthorizationSummary; set => SetProperty(ref _siteAuthorizationSummary, value); }
+    public string AuthorizedPluginSummary { get => _authorizedPluginSummary; set => SetProperty(ref _authorizedPluginSummary, value); }
+    public string AuthorizedPluginDetail { get => _authorizedPluginDetail; set => SetProperty(ref _authorizedPluginDetail, value); }
     public string ClientPackageDownloadSummary { get => _clientPackageDownloadSummary; set => SetProperty(ref _clientPackageDownloadSummary, value); }
     public string ClientPackageDownloadDetail { get => _clientPackageDownloadDetail; set => SetProperty(ref _clientPackageDownloadDetail, value); }
     public DateTime? LastClientPackageDownloadAt { get => _lastClientPackageDownloadAt; set => SetProperty(ref _lastClientPackageDownloadAt, value); }
@@ -269,6 +275,9 @@ public class SettingsViewModel : ViewModelBase
                 ClientUpdateSummary = "客户端更新：未注册服务";
                 PluginUpdateSummary = "插件更新：未注册服务";
                 UpdateCheckDetail = "IReleaseCenterService 未注册。";
+                SiteAuthorizationSummary = "站点：未注册服务";
+                AuthorizedPluginSummary = "授权插件：未注册服务";
+                AuthorizedPluginDetail = string.Empty;
                 return;
             }
 
@@ -278,6 +287,9 @@ public class SettingsViewModel : ViewModelBase
             ClientUpdateSummary = result.ClientSummary;
             PluginUpdateSummary = result.PluginSummary;
             UpdateCheckDetail = result.Detail;
+            SiteAuthorizationSummary = result.SiteSummary;
+            AuthorizedPluginSummary = result.AuthorizedPluginSummary;
+            AuthorizedPluginDetail = result.AuthorizedPluginDetail;
             LastUpdateCheckAt = DateTime.Now;
         }
         catch (Exception ex)
@@ -286,6 +298,9 @@ public class SettingsViewModel : ViewModelBase
             ClientUpdateSummary = "客户端更新：失败";
             PluginUpdateSummary = "插件更新：失败";
             UpdateCheckDetail = ex.Message;
+            SiteAuthorizationSummary = "站点：检查失败";
+            AuthorizedPluginSummary = "授权插件：检查失败";
+            AuthorizedPluginDetail = string.Empty;
             _logger.LogError(ex, "检查发布中心更新失败");
         }
         finally

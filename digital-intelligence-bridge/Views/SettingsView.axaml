@@ -177,6 +177,9 @@
                             <TextBlock Text="{Binding UpdateCheckSummary}" FontWeight="SemiBold"/>
                             <TextBlock Text="{Binding ClientUpdateSummary}" FontSize="12" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding PluginUpdateSummary}" FontSize="12" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding SiteAuthorizationSummary}" FontSize="12" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding AuthorizedPluginSummary}" FontSize="12" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding AuthorizedPluginDetail}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding UpdateCheckDetail}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding LastUpdateCheckAt, StringFormat='最近检查: {0:yyyy-MM-dd HH:mm:ss}'}"
                                        FontSize="11"

@@ -29,7 +29,15 @@ public interface IReleaseCenterService
     Task<ReleaseCenterPluginRollbackResult> RestoreLatestPluginBackupAsync(CancellationToken cancellationToken = default);
 }
 
-public sealed record ReleaseCenterCheckResult(bool IsSuccess, string Summary, string ClientSummary, string PluginSummary, string Detail);
+public sealed record ReleaseCenterCheckResult(
+    bool IsSuccess,
+    string Summary,
+    string ClientSummary,
+    string PluginSummary,
+    string Detail,
+    string SiteSummary,
+    string AuthorizedPluginSummary,
+    string AuthorizedPluginDetail);
 public sealed record ReleaseCenterClientDownloadResult(bool IsSuccess, string Summary, string Detail, string Version, string CacheDirectory, string PackagePath);
 public sealed record ReleaseCenterDownloadProgress(string Stage, string Status, long BytesReceived, long? TotalBytes, double BytesPerSecond, TimeSpan? EstimatedRemaining);
 public sealed record ReleaseCenterPluginDownloadResult(bool IsSuccess, string Summary, string Detail, int DownloadedCount, string CacheDirectory);
@@ -62,7 +70,7 @@ public sealed class ReleaseCenterService : IReleaseCenterService
     {
         if (!IsConfigured)
         {
-            return new ReleaseCenterCheckResult(false, "未配置发布中心", "客户端更新：未配置", "插件更新：未配置", "ReleaseCenter 未启用或缺少 BaseUrl/Channel。");
+            return new ReleaseCenterCheckResult(false, "未配置发布中心", "客户端更新：未配置", "插件更新：未配置", "ReleaseCenter 未启用或缺少 BaseUrl/Channel。", "站点：未配置", "授权插件：未配置", string.Empty);
         }
 
         try
@@ -73,6 +81,9 @@ public sealed class ReleaseCenterService : IReleaseCenterService
             var pluginManifest = await GetPluginManifestAsync(cancellationToken).ConfigureAwait(false);
             var clientSummary = BuildClientSummary(clientManifest);
             var pluginSummary = BuildPluginSummary(pluginManifest);
+            var siteSummary = $"当前站点：{heartbeatPayload.SiteName} / {heartbeatPayload.SiteId}";
+            var authorizedPluginSummary = BuildAuthorizedPluginSummary(pluginManifest);
+            var authorizedPluginDetail = BuildAuthorizedPluginDetail(pluginManifest);
             var updateCount = 0;
             if (HasClientUpdate(clientManifest)) updateCount++;
             if ((pluginManifest?.Plugins?.Count ?? 0) > 0) updateCount++;
@@ -82,12 +93,15 @@ public sealed class ReleaseCenterService : IReleaseCenterService
                 summary,
                 clientSummary,
                 pluginSummary,
-                $"channel={channel}; currentAppVersion={_currentAppVersion}; siteId={heartbeatPayload.SiteId}; siteName={heartbeatPayload.SiteName}");
+                $"channel={channel}; currentAppVersion={_currentAppVersion}; siteId={heartbeatPayload.SiteId}; siteName={heartbeatPayload.SiteName}",
+                siteSummary,
+                authorizedPluginSummary,
+                authorizedPluginDetail);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "检查发布中心更新失败");
-            return new ReleaseCenterCheckResult(false, "检查更新失败", "客户端更新：失败", "插件更新：失败", ex.Message);
+            return new ReleaseCenterCheckResult(false, "检查更新失败", "客户端更新：失败", "插件更新：失败", ex.Message, "站点：检查失败", "授权插件：检查失败", string.Empty);
         }
     }
 
@@ -510,6 +524,8 @@ public sealed class ReleaseCenterService : IReleaseCenterService
     private bool HasClientUpdate(ClientManifestDto? manifest) => manifest is not null && !string.IsNullOrWhiteSpace(manifest.LatestVersion) && CompareVersions(manifest.LatestVersion, _currentAppVersion) > 0;
     private static string BuildClientSummary(ClientManifestDto? manifest) => manifest is null || string.IsNullOrWhiteSpace(manifest.LatestVersion) ? "客户端更新：暂无发布版本" : $"客户端最新版本：{manifest.LatestVersion}（最低升级版本：{manifest.MinUpgradeVersion ?? "未限制"}）";
     private static string BuildPluginSummary(PluginManifestDto? manifest) { var count = manifest?.Plugins?.Count ?? 0; if (count == 0) return "插件更新：暂无可用插件包"; var items = manifest!.Plugins!.Take(3).Select(item => $"{item.Name} {item.Version}"); return $"插件更新：{count} 个可用插件（{string.Join('、', items)}）"; }
+    private static string BuildAuthorizedPluginSummary(PluginManifestDto? manifest) { var count = manifest?.Plugins?.Count ?? 0; return count == 0 ? "授权插件：当前站点未授权任何插件" : $"授权插件：{count} 个"; }
+    private static string BuildAuthorizedPluginDetail(PluginManifestDto? manifest) { var items = manifest?.Plugins?.Select(item => $"{item.Name} / {item.PluginId} / {item.Version}") ?? Array.Empty<string>(); return string.Join(Environment.NewLine, items); }
     private static string BuildDownloadFileName(PluginItemDto plugin) { if (Uri.TryCreate(plugin.PackageUrl, UriKind.Absolute, out var uri)) { var fromUrl = Path.GetFileName(uri.LocalPath); if (!string.IsNullOrWhiteSpace(fromUrl)) return fromUrl; } var version = string.IsNullOrWhiteSpace(plugin.Version) ? "latest" : plugin.Version; return $"{plugin.PluginId}-{version}.zip"; }
     private static string BuildClientDownloadFileName(ClientManifestDto clientManifest) { if (Uri.TryCreate(clientManifest.PackageUrl, UriKind.Absolute, out var uri)) { var fromUrl = Path.GetFileName(uri.LocalPath); if (!string.IsNullOrWhiteSpace(fromUrl)) return fromUrl; } var version = string.IsNullOrWhiteSpace(clientManifest.LatestVersion) ? "latest" : clientManifest.LatestVersion; return $"dib-win-x64-portable-{version}.zip"; }
     private static void ValidateSha256(PluginItemDto plugin, byte[] bytes) { if (string.IsNullOrWhiteSpace(plugin.Sha256)) return; var computed = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(); if (!string.Equals(computed, plugin.Sha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException($"插件 {plugin.PluginId} 的 SHA256 校验失败。"); }

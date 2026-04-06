@@ -16,7 +16,10 @@ public class SettingsViewModelReleaseCenterTests
             "发现 2 类可用更新",
             "客户端最新版本：1.2.0（最低升级版本：1.0.0）",
             "插件更新：2 个可用插件（就诊登记 1.0.1、床旁巡视 1.0.0）",
-            "channel=stable")));
+            "channel=stable",
+            "当前站点：门诊登记台 1 / 11111111-1111-1111-1111-111111111111",
+            "授权插件：2 个",
+            "就诊登记 / patient-registration / 1.0.1")));
 
         vm.CheckUpdateCommand.Execute();
         await WaitForUpdateCheckAsync(vm);
@@ -25,6 +28,9 @@ public class SettingsViewModelReleaseCenterTests
         Assert.Contains("1.2.0", vm.ClientUpdateSummary);
         Assert.Contains("2 个可用插件", vm.PluginUpdateSummary);
         Assert.Contains("channel=stable", vm.UpdateCheckDetail);
+        Assert.Contains("门诊登记台 1", vm.SiteAuthorizationSummary);
+        Assert.Contains("2 个", vm.AuthorizedPluginSummary);
+        Assert.Contains("patient-registration", vm.AuthorizedPluginDetail);
         Assert.NotNull(vm.LastUpdateCheckAt);
     }
 
@@ -39,6 +45,8 @@ public class SettingsViewModelReleaseCenterTests
         Assert.Equal("检查更新不可用", vm.UpdateCheckSummary);
         Assert.Equal("客户端更新：未注册服务", vm.ClientUpdateSummary);
         Assert.Equal("插件更新：未注册服务", vm.PluginUpdateSummary);
+        Assert.Equal("站点：未注册服务", vm.SiteAuthorizationSummary);
+        Assert.Equal("授权插件：未注册服务", vm.AuthorizedPluginSummary);
     }
 
     private static async Task WaitForUpdateCheckAsync(SettingsViewModel vm)

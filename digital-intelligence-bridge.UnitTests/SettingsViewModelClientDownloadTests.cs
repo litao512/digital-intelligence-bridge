@@ -73,7 +73,7 @@ public class SettingsViewModelClientDownloadTests
     private sealed class StubReleaseCenterService : IReleaseCenterService
     {
         public bool IsConfigured => true;
-        public Task<ReleaseCenterCheckResult> CheckForUpdatesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterCheckResult(true, "ok", "client", "plugin", "detail"));
+        public Task<ReleaseCenterCheckResult> CheckForUpdatesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterCheckResult(true, "ok", "client", "plugin", "detail", "site", "authorized", "authorized-detail"));
         public Task<ReleaseCenterClientDownloadResult> DownloadLatestClientPackageAsync(IProgress<ReleaseCenterDownloadProgress>? progress = null, CancellationToken cancellationToken = default)
         {
             progress?.Report(new ReleaseCenterDownloadProgress("downloading", "正在下载客户端更新包", 50, 100, 2048, TimeSpan.FromSeconds(1)));
