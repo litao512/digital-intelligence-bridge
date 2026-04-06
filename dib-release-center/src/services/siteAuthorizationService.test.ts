@@ -2,9 +2,23 @@ import { describe, expect, it } from 'vitest'
 import type {
   SiteGroupPluginPolicy,
   SitePluginOverride,
+  SiteGroup,
   SiteSummary,
 } from '@/contracts/site-types'
-import { resolveSiteAuthorizedPlugins } from '@/services/siteAuthorizationService'
+import { aggregateSiteAnalytics, resolveSiteAuthorizedPlugins } from '@/services/siteAuthorizationService'
+
+function createGroup(overrides: Partial<SiteGroup> = {}): SiteGroup {
+  return {
+    id: 'group-outpatient',
+    groupCode: 'outpatient-basic',
+    groupName: '门诊基础版',
+    description: '',
+    isActive: true,
+    createdAt: '2026-04-06T12:00:00Z',
+    updatedAt: '2026-04-06T12:00:00Z',
+    ...overrides,
+  }
+}
 
 function createSite(overrides: Partial<SiteSummary> = {}): SiteSummary {
   return {
@@ -102,5 +116,57 @@ describe('siteAuthorizationService', () => {
     })
 
     expect(result).toHaveLength(0)
+  })
+
+  it('should aggregate site analytics for overview, version distribution and authorization drift', () => {
+    const analytics = aggregateSiteAnalytics({
+      sites: [
+        createSite({
+          id: 'site-row-1',
+          siteName: '门诊登记台 1',
+          groupId: 'group-outpatient',
+          groupCode: 'outpatient-basic',
+          groupName: '门诊基础版',
+          clientVersion: '1.0.0',
+          installedPlugins: [],
+          lastSeenAt: '2026-04-06T12:00:00Z',
+        }),
+        createSite({
+          id: 'site-row-2',
+          siteId: '22222222-2222-2222-2222-222222222222',
+          siteName: '门诊登记台 2',
+          groupId: null,
+          groupCode: null,
+          groupName: null,
+          clientVersion: '1.0.1',
+          installedPlugins: ['bedside-rounding'],
+          lastSeenAt: null,
+        }),
+      ],
+      groups: [createGroup()],
+      groupPolicies: [createGroupPolicy()],
+      siteOverrides: [],
+      now: '2026-04-06T12:10:00Z',
+    })
+
+    expect(analytics.totalSiteCount).toBe(2)
+    expect(analytics.activeSiteCount24h).toBe(1)
+    expect(analytics.unassignedSiteCount).toBe(1)
+    expect(analytics.versionBreakdown).toEqual([
+      { version: '1.0.0', count: 1 },
+      { version: '1.0.1', count: 1 },
+    ])
+    expect(analytics.groupBreakdown).toEqual([
+      { groupCode: 'outpatient-basic', groupName: '门诊基础版', count: 1 },
+      { groupCode: 'unassigned', groupName: '未分组', count: 1 },
+    ])
+    expect(analytics.authorizationDrift[0]).toMatchObject({
+      siteName: '门诊登记台 1',
+      authorizedNotInstalled: ['patient-registration'],
+    })
+    expect(analytics.authorizationDrift[1]).toMatchObject({
+      siteName: '门诊登记台 2',
+      installedNotAuthorized: ['bedside-rounding'],
+    })
   })
 })

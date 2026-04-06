@@ -109,6 +109,10 @@
         :groups="siteGroups"
         @assign-group="handleAssignSiteGroup"
       />
+      <SiteAnalyticsPage
+        v-else-if="activeTab === 'site-analytics'"
+        :analytics="siteAnalytics"
+      />
       <PluginReleasesPage
         v-else-if="activeTab === 'plugins'"
         :versions="pluginVersions"
@@ -137,9 +141,11 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Session } from '@supabase/supabase-js'
 import type { ClientVersion, PluginPackage, PluginVersion, ReleaseAsset, ReleaseChannel } from '@/contracts/release-types'
-import type { SiteGroup, SiteSummary } from '@/contracts/site-types'
+import type { SiteAnalyticsSummary, SiteGroup, SiteGroupPluginPolicy, SitePluginOverride, SiteSummary } from '@/contracts/site-types'
 import { createClientVersion, listClientVersions } from '@/repositories/clientVersionsRepository'
+import { listGroupPluginPolicies } from '@/repositories/groupPluginPoliciesRepository'
 import { listSiteGroups } from '@/repositories/siteGroupsRepository'
+import { listSitePluginOverrides } from '@/repositories/sitePluginOverridesRepository'
 import { listSites, updateSiteGroup } from '@/repositories/sitesRepository'
 import { createPluginPackage, listPluginPackages } from '@/repositories/pluginPackagesRepository'
 import { createPluginVersion, listPluginVersions } from '@/repositories/pluginVersionsRepository'
@@ -178,11 +184,14 @@ import ChannelsPage from '@/web/pages/ChannelsPage.vue'
 import ClientReleasesPage from '@/web/pages/ClientReleasesPage.vue'
 import PluginReleasesPage from '@/web/pages/PluginReleasesPage.vue'
 import ReleaseAssetsPage from '@/web/pages/ReleaseAssetsPage.vue'
+import SiteAnalyticsPage from '@/web/pages/SiteAnalyticsPage.vue'
 import SitesPage from '@/web/pages/SitesPage.vue'
+import { aggregateSiteAnalytics } from '@/services/siteAuthorizationService'
 
 const tabs = [
   { id: 'channels', label: '发布渠道' },
   { id: 'sites', label: '站点管理' },
+  { id: 'site-analytics', label: '站点统计' },
   { id: 'plugins', label: '插件版本' },
   { id: 'clients', label: '客户端版本' },
   { id: 'assets', label: '发布资产' },
@@ -201,6 +210,8 @@ const currentAdmin = ref<ReleaseCenterAdmin | null>(null)
 const channels = ref<ReleaseChannel[]>([])
 const siteGroups = ref<SiteGroup[]>([])
 const sites = ref<SiteSummary[]>([])
+const groupPluginPolicies = ref<SiteGroupPluginPolicy[]>([])
+const sitePluginOverrides = ref<SitePluginOverride[]>([])
 const pluginPackages = ref<PluginPackage[]>([])
 const pluginVersions = ref<PluginVersion[]>([])
 const clientVersions = ref<ClientVersion[]>([])
@@ -256,6 +267,12 @@ const preview = computed(() => {
 
 const clientManifestText = computed(() => JSON.stringify(preview.value.clientManifest, null, 2))
 const pluginManifestText = computed(() => JSON.stringify(preview.value.pluginManifest, null, 2))
+const siteAnalytics = computed<SiteAnalyticsSummary>(() => aggregateSiteAnalytics({
+  sites: sites.value,
+  groups: siteGroups.value,
+  groupPolicies: groupPluginPolicies.value,
+  siteOverrides: sitePluginOverrides.value,
+}))
 
 watch(channels, (items) => {
   if (!items.some((item) => item.channelCode === previewChannelCode.value)) {
@@ -290,6 +307,8 @@ async function loadData(): Promise<void> {
     channels.value = []
     siteGroups.value = []
     sites.value = []
+    groupPluginPolicies.value = []
+    sitePluginOverrides.value = []
     pluginPackages.value = []
     pluginVersions.value = []
     clientVersions.value = []
@@ -301,10 +320,12 @@ async function loadData(): Promise<void> {
   loadError.value = ''
 
   try {
-    const [channelData, siteGroupData, siteData, packageData, pluginVersionData, clientVersionData, assetData] = await Promise.all([
+    const [channelData, siteGroupData, siteData, groupPolicyData, siteOverrideData, packageData, pluginVersionData, clientVersionData, assetData] = await Promise.all([
       listReleaseChannels(),
       listSiteGroups(),
       listSites(),
+      listGroupPluginPolicies(),
+      listSitePluginOverrides(),
       listPluginPackages(),
       listPluginVersions(),
       listClientVersions(),
@@ -314,6 +335,8 @@ async function loadData(): Promise<void> {
     channels.value = channelData
     siteGroups.value = siteGroupData
     sites.value = siteData
+    groupPluginPolicies.value = groupPolicyData
+    sitePluginOverrides.value = siteOverrideData
     pluginPackages.value = packageData
     pluginVersions.value = pluginVersionData
     clientVersions.value = clientVersionData

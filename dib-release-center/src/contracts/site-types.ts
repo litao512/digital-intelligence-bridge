@@ -68,3 +68,30 @@ export interface ResolvedSitePluginPolicy {
   source: 'group' | 'site-override'
   overrideAction: SitePluginOverrideAction | null
 }
+
+export interface SiteAnalyticsGroupBreakdown {
+  groupCode: string
+  groupName: string
+  count: number
+}
+
+export interface SiteAnalyticsVersionBreakdown {
+  version: string
+  count: number
+}
+
+export interface SiteAuthorizationDriftItem {
+  siteId: string
+  siteName: string
+  authorizedNotInstalled: string[]
+  installedNotAuthorized: string[]
+}
+
+export interface SiteAnalyticsSummary {
+  totalSiteCount: number
+  activeSiteCount24h: number
+  unassignedSiteCount: number
+  groupBreakdown: SiteAnalyticsGroupBreakdown[]
+  versionBreakdown: SiteAnalyticsVersionBreakdown[]
+  authorizationDrift: SiteAuthorizationDriftItem[]
+}
