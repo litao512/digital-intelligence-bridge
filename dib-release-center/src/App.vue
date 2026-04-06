@@ -109,6 +109,26 @@
         :groups="siteGroups"
         @assign-group="handleAssignSiteGroup"
       />
+      <GroupPoliciesPage
+        v-else-if="activeTab === 'group-policies'"
+        :groups="siteGroups"
+        :packages="pluginPackages"
+        :policies="groupPluginPolicies"
+        :selected-group-id="selectedPolicyGroupId"
+        @select-group="selectedPolicyGroupId = $event"
+        @submit="handleUpsertGroupPolicy"
+        @delete="handleDeleteGroupPolicy"
+      />
+      <SiteOverridesPage
+        v-else-if="activeTab === 'site-overrides'"
+        :sites="sites"
+        :packages="pluginPackages"
+        :overrides="sitePluginOverrides"
+        :selected-site-row-id="selectedOverrideSiteRowId"
+        @select-site="selectedOverrideSiteRowId = $event"
+        @submit="handleUpsertSiteOverride"
+        @delete="handleDeleteSiteOverride"
+      />
       <SiteAnalyticsPage
         v-else-if="activeTab === 'site-analytics'"
         :analytics="siteAnalytics"
@@ -143,9 +163,9 @@ import type { Session } from '@supabase/supabase-js'
 import type { ClientVersion, PluginPackage, PluginVersion, ReleaseAsset, ReleaseChannel } from '@/contracts/release-types'
 import type { SiteAnalyticsSummary, SiteGroup, SiteGroupPluginPolicy, SitePluginOverride, SiteSummary } from '@/contracts/site-types'
 import { createClientVersion, listClientVersions } from '@/repositories/clientVersionsRepository'
-import { listGroupPluginPolicies } from '@/repositories/groupPluginPoliciesRepository'
+import { deleteGroupPluginPolicy, listGroupPluginPolicies, upsertGroupPluginPolicy } from '@/repositories/groupPluginPoliciesRepository'
 import { listSiteGroups } from '@/repositories/siteGroupsRepository'
-import { listSitePluginOverrides } from '@/repositories/sitePluginOverridesRepository'
+import { deleteSitePluginOverride, listSitePluginOverrides, upsertSitePluginOverride } from '@/repositories/sitePluginOverridesRepository'
 import { listSites, updateSiteGroup } from '@/repositories/sitesRepository'
 import { createPluginPackage, listPluginPackages } from '@/repositories/pluginPackagesRepository'
 import { createPluginVersion, listPluginVersions } from '@/repositories/pluginVersionsRepository'
@@ -185,12 +205,17 @@ import ClientReleasesPage from '@/web/pages/ClientReleasesPage.vue'
 import PluginReleasesPage from '@/web/pages/PluginReleasesPage.vue'
 import ReleaseAssetsPage from '@/web/pages/ReleaseAssetsPage.vue'
 import SiteAnalyticsPage from '@/web/pages/SiteAnalyticsPage.vue'
+import GroupPoliciesPage from '@/web/pages/GroupPoliciesPage.vue'
+import SiteOverridesPage from '@/web/pages/SiteOverridesPage.vue'
 import SitesPage from '@/web/pages/SitesPage.vue'
 import { aggregateSiteAnalytics } from '@/services/siteAuthorizationService'
+import { buildGroupPolicyUpsert, buildSiteOverrideUpsert, type SiteGroupPolicyDraftInput, type SiteOverrideDraftInput } from '@/services/sitePolicyDraftService'
 
 const tabs = [
   { id: 'channels', label: '发布渠道' },
   { id: 'sites', label: '站点管理' },
+  { id: 'group-policies', label: '分组授权' },
+  { id: 'site-overrides', label: '站点覆盖' },
   { id: 'site-analytics', label: '站点统计' },
   { id: 'plugins', label: '插件版本' },
   { id: 'clients', label: '客户端版本' },
@@ -209,6 +234,8 @@ const session = ref<Session | null>(null)
 const currentAdmin = ref<ReleaseCenterAdmin | null>(null)
 const channels = ref<ReleaseChannel[]>([])
 const siteGroups = ref<SiteGroup[]>([])
+const selectedPolicyGroupId = ref('')
+const selectedOverrideSiteRowId = ref('')
 const sites = ref<SiteSummary[]>([])
 const groupPluginPolicies = ref<SiteGroupPluginPolicy[]>([])
 const sitePluginOverrides = ref<SitePluginOverride[]>([])
@@ -277,6 +304,18 @@ const siteAnalytics = computed<SiteAnalyticsSummary>(() => aggregateSiteAnalytic
 watch(channels, (items) => {
   if (!items.some((item) => item.channelCode === previewChannelCode.value)) {
     previewChannelCode.value = items[0]?.channelCode ?? 'stable'
+  }
+})
+
+watch(siteGroups, (items) => {
+  if (!items.some((item) => item.id === selectedPolicyGroupId.value)) {
+    selectedPolicyGroupId.value = items[0]?.id ?? ''
+  }
+})
+
+watch(sites, (items) => {
+  if (!items.some((item) => item.id === selectedOverrideSiteRowId.value)) {
+    selectedOverrideSiteRowId.value = items[0]?.id ?? ''
   }
 })
 
@@ -409,6 +448,62 @@ async function handleAssignSiteGroup(payload: { siteRowId: string; groupId: stri
     activeTab.value = 'sites'
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '更新站点分组失败。'
+  }
+}
+
+async function handleUpsertGroupPolicy(draft: SiteGroupPolicyDraftInput): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await upsertGroupPluginPolicy(buildGroupPolicyUpsert(draft))
+    statusMessage.value = '分组默认授权已保存。'
+    await loadData()
+    activeTab.value = 'group-policies'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '保存分组授权失败。'
+  }
+}
+
+async function handleDeleteGroupPolicy(payload: { groupId: string; pluginPackageId: string }): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await deleteGroupPluginPolicy(payload.groupId, payload.pluginPackageId)
+    statusMessage.value = '分组默认授权已删除。'
+    await loadData()
+    activeTab.value = 'group-policies'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '删除分组授权失败。'
+  }
+}
+
+async function handleUpsertSiteOverride(draft: SiteOverrideDraftInput): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await upsertSitePluginOverride(buildSiteOverrideUpsert(draft))
+    statusMessage.value = '站点覆盖已保存。'
+    await loadData()
+    activeTab.value = 'site-overrides'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '保存站点覆盖失败。'
+  }
+}
+
+async function handleDeleteSiteOverride(payload: { siteRowId: string; pluginPackageId: string }): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await deleteSitePluginOverride(payload.siteRowId, payload.pluginPackageId)
+    statusMessage.value = '站点覆盖已删除。'
+    await loadData()
+    activeTab.value = 'site-overrides'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '删除站点覆盖失败。'
   }
 }
 

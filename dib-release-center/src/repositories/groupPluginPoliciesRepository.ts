@@ -1,6 +1,7 @@
 import type { PostgrestError } from '@supabase/supabase-js'
 import { getSupabaseClient, RELEASE_SCHEMA } from '@/services/supabase'
 import type { SiteGroupPluginPolicy } from '@/contracts/site-types'
+import type { SiteGroupPolicyUpsertPayload } from '@/services/sitePolicyDraftService'
 
 interface GroupPluginPolicyRow {
   id: string
@@ -59,4 +60,26 @@ export async function listGroupPluginPolicies(): Promise<SiteGroupPluginPolicy[]
 
   throwIfError(error, '查询分组插件授权')
   return (data ?? []).map((row: unknown) => toGroupPluginPolicy(row as GroupPluginPolicyRow))
+}
+
+export async function upsertGroupPluginPolicy(payload: SiteGroupPolicyUpsertPayload): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .schema(RELEASE_SCHEMA)
+    .from('group_plugin_policies')
+    .upsert(payload, {
+      onConflict: 'group_id,package_id',
+    })
+
+  throwIfError(error, '保存分组插件授权')
+}
+
+export async function deleteGroupPluginPolicy(groupId: string, packageId: string): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .schema(RELEASE_SCHEMA)
+    .from('group_plugin_policies')
+    .delete()
+    .eq('group_id', groupId)
+    .eq('package_id', packageId)
+
+  throwIfError(error, '删除分组插件授权')
 }
