@@ -105,6 +105,15 @@
           <h2>授权 / 安装差异</h2>
         </div>
         <div class="filter-row">
+          <label>
+            <span>客户端版本</span>
+            <select v-model="clientVersionFilter">
+              <option value="">全部版本</option>
+              <option v-for="version in availableClientVersions" :key="version" :value="version">
+                {{ version }}
+              </option>
+            </select>
+          </label>
           <label class="checkbox-field compact-checkbox">
             <input v-model="onlyUnassigned" type="checkbox">
             <span>只看未分组</span>
@@ -191,10 +200,16 @@ const props = defineProps<{
 const quickAssignSelections = reactive<Record<string, string>>({})
 const onlyUnassigned = ref(false)
 const onlyAuthorizationDrift = ref(false)
+const clientVersionFilter = ref('')
+
+const availableClientVersions = computed(() =>
+  [...new Set(props.analytics.issueRows.map((item) => item.clientVersion))].sort((left, right) => left.localeCompare(right)),
+)
 
 const filteredIssueRows = computed(() => filterIssueRows(props.analytics.issueRows, {
   onlyUnassigned: onlyUnassigned.value,
   onlyAuthorizationDrift: onlyAuthorizationDrift.value,
+  clientVersion: clientVersionFilter.value,
 }))
 
 watch(

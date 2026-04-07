@@ -3,6 +3,7 @@ import type { SiteAnalyticsIssueRow } from '@/contracts/site-types'
 export interface SiteAnalyticsIssueFilterInput {
   onlyUnassigned: boolean
   onlyAuthorizationDrift: boolean
+  clientVersion: string
 }
 
 export function filterIssueRows(
@@ -15,6 +16,10 @@ export function filterIssueRows(
     }
 
     if (input.onlyAuthorizationDrift && !item.hasAuthorizationDrift) {
+      return false
+    }
+
+    if (input.clientVersion.trim() && item.clientVersion !== input.clientVersion.trim()) {
       return false
     }
 

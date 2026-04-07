@@ -28,17 +28,34 @@ describe('siteAnalyticsViewService', () => {
     expect(filterIssueRows(rows, {
       onlyUnassigned: true,
       onlyAuthorizationDrift: false,
+      clientVersion: '',
     }).map((item) => item.siteId)).toEqual(['site-b', 'site-c'])
 
     expect(filterIssueRows(rows, {
       onlyUnassigned: false,
       onlyAuthorizationDrift: true,
+      clientVersion: '',
     }).map((item) => item.siteId)).toEqual(['site-a', 'site-c'])
 
     expect(filterIssueRows(rows, {
       onlyUnassigned: true,
       onlyAuthorizationDrift: true,
+      clientVersion: '',
     }).map((item) => item.siteId)).toEqual(['site-c'])
+  })
+
+  it('should filter issue rows by client version when provided', () => {
+    const rows = [
+      createIssueRow({ siteId: 'site-a', clientVersion: '1.0.0' }),
+      createIssueRow({ siteId: 'site-b', clientVersion: '1.0.1' }),
+      createIssueRow({ siteId: 'site-c', clientVersion: '1.0.1' }),
+    ]
+
+    expect(filterIssueRows(rows, {
+      onlyUnassigned: false,
+      onlyAuthorizationDrift: false,
+      clientVersion: '1.0.1',
+    }).map((item) => item.siteId)).toEqual(['site-b', 'site-c'])
   })
 
   it('should mark only the assigned site as highlighted', () => {
