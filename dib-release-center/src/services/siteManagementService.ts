@@ -3,15 +3,30 @@ import type { SiteSummary } from '@/contracts/site-types'
 export interface SiteFilterInput {
   keyword: string
   groupId: string
+  onlyUnassigned?: boolean
+  onlyRecentlyActive?: boolean
+  now?: string
 }
 
 export function filterSites(sites: SiteSummary[], input: SiteFilterInput): SiteSummary[] {
   const keyword = input.keyword.trim().toLowerCase()
   const groupId = input.groupId.trim()
+  const now = input.now ? new Date(input.now) : new Date()
+  const activeThreshold = new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
   return sites.filter((site) => {
     if (groupId && site.groupId !== groupId) {
       return false
+    }
+
+    if (input.onlyUnassigned && site.groupId) {
+      return false
+    }
+
+    if (input.onlyRecentlyActive) {
+      if (!site.lastSeenAt || new Date(site.lastSeenAt) < activeThreshold) {
+        return false
+      }
     }
 
     if (!keyword) {
@@ -57,6 +72,8 @@ export function filterSitesForSelection(
   const filteredSites = filterSites(sites, {
     keyword: input.keyword,
     groupId: '',
+    onlyUnassigned: false,
+    onlyRecentlyActive: false,
   })
 
   if (!input.selectedSiteRowId || filteredSites.some((site) => site.id === input.selectedSiteRowId)) {

@@ -62,6 +62,40 @@ describe('siteManagementService', () => {
     expect(result[0].groupId).toBe('group-b')
   })
 
+  it('should filter only unassigned sites when requested', () => {
+    const sites = [
+      createSite({ id: 'site-row-1', groupId: 'group-a' }),
+      createSite({ id: 'site-row-2', groupId: null, groupCode: null, groupName: null, siteId: '22222222-2222-2222-2222-222222222222' }),
+    ]
+
+    const result = filterSites(sites, {
+      keyword: '',
+      groupId: '',
+      onlyUnassigned: true,
+      onlyRecentlyActive: false,
+    })
+
+    expect(result.map((item) => item.id)).toEqual(['site-row-2'])
+  })
+
+  it('should filter only recently active sites within 24 hours', () => {
+    const sites = [
+      createSite({ id: 'site-row-1', lastSeenAt: '2026-04-07T10:00:00Z' }),
+      createSite({ id: 'site-row-2', siteId: '22222222-2222-2222-2222-222222222222', lastSeenAt: '2026-04-05T09:00:00Z' }),
+      createSite({ id: 'site-row-3', siteId: '33333333-3333-3333-3333-333333333333', lastSeenAt: null }),
+    ]
+
+    const result = filterSites(sites, {
+      keyword: '',
+      groupId: '',
+      onlyUnassigned: false,
+      onlyRecentlyActive: true,
+      now: '2026-04-07T12:00:00Z',
+    })
+
+    expect(result.map((item) => item.id)).toEqual(['site-row-1'])
+  })
+
   it('should find site row by stable site id for cross-page navigation', () => {
     const sites = [
       createSite({ id: 'site-row-1', siteId: '11111111-1111-1111-1111-111111111111' }),

@@ -37,6 +37,17 @@
       </label>
     </div>
 
+    <div class="filter-row">
+      <label class="checkbox-field compact-checkbox">
+        <input v-model="onlyUnassigned" type="checkbox">
+        <span>只看未分组</span>
+      </label>
+      <label class="checkbox-field compact-checkbox">
+        <input v-model="onlyRecentlyActive" type="checkbox">
+        <span>只看最近活跃</span>
+      </label>
+    </div>
+
     <div class="form-actions">
       <button type="button" :disabled="selectedSiteIds.length === 0 || !bulkGroupId" @click="submitBulkAssign">批量分配分组</button>
       <span class="form-tip">已选择 {{ selectedSiteIds.length }} 个站点</span>
@@ -108,6 +119,8 @@ const keyword = ref('')
 const groupFilterId = ref('')
 const bulkGroupId = ref('')
 const selectedSiteIds = ref<string[]>([])
+const onlyUnassigned = ref(false)
+const onlyRecentlyActive = ref(false)
 
 watch(
   () => props.searchSeed,
@@ -122,6 +135,8 @@ watch(
 const filteredSites = computed(() => filterSites(props.sites, {
   keyword: keyword.value,
   groupId: groupFilterId.value,
+  onlyUnassigned: onlyUnassigned.value,
+  onlyRecentlyActive: onlyRecentlyActive.value,
 }))
 
 const allFilteredSelected = computed(() =>
@@ -170,3 +185,16 @@ function formatDate(value: string | null): string {
   return new Date(value).toLocaleString('zh-CN', { hour12: false })
 }
 </script>
+
+<style scoped>
+.filter-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.compact-checkbox {
+  gap: 8px;
+}
+</style>
