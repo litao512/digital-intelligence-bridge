@@ -50,6 +50,7 @@
 
     <div class="form-actions">
       <button type="button" :disabled="selectedSiteIds.length === 0 || !bulkGroupId" @click="submitBulkAssign">批量分配分组</button>
+      <button type="button" class="ghost-button" @click="resetFilters">清空筛选</button>
       <span class="form-tip">已选择 {{ selectedSiteIds.length }} 个站点</span>
     </div>
 
@@ -102,7 +103,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { SiteGroup, SiteSummary } from '@/contracts/site-types'
-import { filterSites } from '@/services/siteManagementService'
+import { createDefaultSiteFilterInput, filterSites } from '@/services/siteManagementService'
 
 const props = defineProps<{
   sites: SiteSummary[]
@@ -115,12 +116,13 @@ const emit = defineEmits<{
   bulkAssignGroup: [payload: { siteRowIds: string[]; groupId: string }]
 }>()
 
-const keyword = ref('')
-const groupFilterId = ref('')
+const defaultFilters = createDefaultSiteFilterInput()
+const keyword = ref(defaultFilters.keyword)
+const groupFilterId = ref(defaultFilters.groupId)
 const bulkGroupId = ref('')
 const selectedSiteIds = ref<string[]>([])
-const onlyUnassigned = ref(false)
-const onlyRecentlyActive = ref(false)
+const onlyUnassigned = ref(defaultFilters.onlyUnassigned ?? false)
+const onlyRecentlyActive = ref(defaultFilters.onlyRecentlyActive ?? false)
 
 watch(
   () => props.searchSeed,
@@ -175,6 +177,14 @@ function submitBulkAssign(): void {
     siteRowIds: [...selectedSiteIds.value],
     groupId: bulkGroupId.value,
   })
+}
+
+function resetFilters(): void {
+  const filters = createDefaultSiteFilterInput()
+  keyword.value = filters.keyword
+  groupFilterId.value = filters.groupId
+  onlyUnassigned.value = filters.onlyUnassigned ?? false
+  onlyRecentlyActive.value = filters.onlyRecentlyActive ?? false
 }
 
 function formatDate(value: string | null): string {

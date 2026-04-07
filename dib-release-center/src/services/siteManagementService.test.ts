@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { SiteSummary } from '@/contracts/site-types'
 import {
+  createDefaultSiteFilterInput,
   buildQuickAssignGroupPayload,
   filterSites,
   findSiteRowBySiteId,
@@ -155,5 +156,14 @@ describe('siteManagementService', () => {
       siteId: '99999999-9999-9999-9999-999999999999',
       groupId: 'group-a',
     })).toBeNull()
+  })
+
+  it('should provide default site filters for reset action', () => {
+    expect(createDefaultSiteFilterInput()).toEqual({
+      keyword: '',
+      groupId: '',
+      onlyUnassigned: false,
+      onlyRecentlyActive: false,
+    })
   })
 })

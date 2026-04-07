@@ -8,6 +8,15 @@ export interface SiteFilterInput {
   now?: string
 }
 
+export function createDefaultSiteFilterInput(): SiteFilterInput {
+  return {
+    keyword: '',
+    groupId: '',
+    onlyUnassigned: false,
+    onlyRecentlyActive: false,
+  }
+}
+
 export function filterSites(sites: SiteSummary[], input: SiteFilterInput): SiteSummary[] {
   const keyword = input.keyword.trim().toLowerCase()
   const groupId = input.groupId.trim()
