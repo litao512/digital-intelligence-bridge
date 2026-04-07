@@ -110,6 +110,7 @@
           <tr>
             <th>站点</th>
             <th>分组</th>
+            <th>目标分组</th>
             <th>客户端版本</th>
             <th>最近活跃</th>
             <th>已授权未安装</th>
@@ -121,11 +122,30 @@
           <tr v-for="item in analytics.authorizationDrift" :key="item.siteId">
             <td>{{ item.siteName }}</td>
             <td>{{ item.groupName }}</td>
+            <td>
+              <select
+                :value="quickAssignSelections[item.siteId] ?? ''"
+                @change="updateQuickAssignSelection(item.siteId, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="">请选择分组</option>
+                <option v-for="group in groups" :key="group.id" :value="group.id">
+                  {{ group.groupName }} / {{ group.groupCode }}
+                </option>
+              </select>
+            </td>
             <td>{{ item.clientVersion }}</td>
             <td>{{ formatDate(item.lastSeenAt) }}</td>
             <td>{{ item.authorizedNotInstalled.join('、') || '无' }}</td>
             <td>{{ item.installedNotAuthorized.join('、') || '无' }}</td>
             <td class="action-cell">
+              <button
+                type="button"
+                class="ghost-button inline-button"
+                :disabled="!(quickAssignSelections[item.siteId] ?? '').trim()"
+                @click="emit('quickAssignGroup', { siteId: item.siteId, groupId: quickAssignSelections[item.siteId] ?? '' })"
+              >
+                分配分组
+              </button>
               <button type="button" class="ghost-button inline-button" @click="emit('openSite', item.siteId)">去站点管理</button>
               <button type="button" class="ghost-button inline-button" @click="emit('openSiteOverride', item.siteId)">去站点覆盖</button>
             </td>
@@ -137,16 +157,39 @@
 </template>
 
 <script setup lang="ts">
-import type { SiteAnalyticsSummary } from '@/contracts/site-types'
+import { reactive, watch } from 'vue'
+import type { SiteAnalyticsSummary, SiteGroup } from '@/contracts/site-types'
 
 const emit = defineEmits<{
   openSite: [siteId: string]
   openSiteOverride: [siteId: string]
+  quickAssignGroup: [payload: { siteId: string; groupId: string }]
 }>()
 
-defineProps<{
+const props = defineProps<{
   analytics: SiteAnalyticsSummary
+  groups: SiteGroup[]
 }>()
+
+const quickAssignSelections = reactive<Record<string, string>>({})
+
+watch(
+  () => props.analytics.authorizationDrift,
+  (items) => {
+    const siteIds = new Set(items.map((item) => item.siteId))
+
+    for (const key of Object.keys(quickAssignSelections)) {
+      if (!siteIds.has(key)) {
+        delete quickAssignSelections[key]
+      }
+    }
+  },
+  { immediate: true },
+)
+
+function updateQuickAssignSelection(siteId: string, groupId: string): void {
+  quickAssignSelections[siteId] = groupId
+}
 
 function formatDate(value: string | null): string {
   if (!value) {

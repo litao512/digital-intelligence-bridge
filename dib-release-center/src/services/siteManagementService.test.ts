@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { SiteSummary } from '@/contracts/site-types'
 import {
+  buildQuickAssignGroupPayload,
   filterSites,
   findSiteRowBySiteId,
   getSiteSearchSeed,
@@ -89,5 +90,36 @@ describe('siteManagementService', () => {
     })
 
     expect(result.map((item) => item.id)).toEqual(['site-row-2', 'site-row-1'])
+  })
+
+  it('should build quick assign payload from analytics site id and target group', () => {
+    const sites = [
+      createSite({ id: 'site-row-1', siteId: '11111111-1111-1111-1111-111111111111' }),
+      createSite({ id: 'site-row-2', siteId: '22222222-2222-2222-2222-222222222222' }),
+    ]
+
+    const result = buildQuickAssignGroupPayload(sites, {
+      siteId: '22222222-2222-2222-2222-222222222222',
+      groupId: 'group-b',
+    })
+
+    expect(result).toEqual({
+      siteRowId: 'site-row-2',
+      groupId: 'group-b',
+    })
+  })
+
+  it('should return null for quick assign when target group missing or site not found', () => {
+    const sites = [createSite({ id: 'site-row-1', siteId: '11111111-1111-1111-1111-111111111111' })]
+
+    expect(buildQuickAssignGroupPayload(sites, {
+      siteId: '11111111-1111-1111-1111-111111111111',
+      groupId: '',
+    })).toBeNull()
+
+    expect(buildQuickAssignGroupPayload(sites, {
+      siteId: '99999999-9999-9999-9999-999999999999',
+      groupId: 'group-a',
+    })).toBeNull()
   })
 })

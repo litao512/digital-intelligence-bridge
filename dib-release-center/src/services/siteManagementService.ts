@@ -71,3 +71,28 @@ export function filterSitesForSelection(
 
   return [...filteredSites, selectedSite]
 }
+
+export function buildQuickAssignGroupPayload(
+  sites: SiteSummary[],
+  input: {
+    siteId: string
+    groupId: string
+  },
+): { siteRowId: string; groupId: string } | null {
+  const normalizedGroupId = input.groupId.trim()
+
+  if (!normalizedGroupId) {
+    return null
+  }
+
+  const site = findSiteRowBySiteId(sites, input.siteId)
+
+  if (!site) {
+    return null
+  }
+
+  return {
+    siteRowId: site.id,
+    groupId: normalizedGroupId,
+  }
+}

@@ -134,8 +134,10 @@
       <SiteAnalyticsPage
         v-else-if="activeTab === 'site-analytics'"
         :analytics="siteAnalytics"
+        :groups="siteGroups"
         @open-site="handleOpenAnalyticsSite"
         @open-site-override="handleOpenAnalyticsSiteOverride"
+        @quick-assign-group="handleQuickAssignAnalyticsGroup"
       />
       <PluginReleasesPage
         v-else-if="activeTab === 'plugins'"
@@ -214,7 +216,7 @@ import SiteOverridesPage from '@/web/pages/SiteOverridesPage.vue'
 import SitesPage from '@/web/pages/SitesPage.vue'
 import { aggregateSiteAnalytics } from '@/services/siteAuthorizationService'
 import { buildGroupPolicyUpsert, buildSiteOverrideUpsert, type SiteGroupPolicyDraftInput, type SiteOverrideDraftInput } from '@/services/sitePolicyDraftService'
-import { findSiteRowBySiteId, getSiteSearchSeed } from '@/services/siteManagementService'
+import { buildQuickAssignGroupPayload, findSiteRowBySiteId, getSiteSearchSeed } from '@/services/siteManagementService'
 
 const tabs = [
   { id: 'channels', label: '发布渠道' },
@@ -497,6 +499,27 @@ function handleOpenAnalyticsSiteOverride(siteId: string): void {
   loadError.value = ''
   selectedOverrideSiteRowId.value = site.id
   activeTab.value = 'site-overrides'
+}
+
+async function handleQuickAssignAnalyticsGroup(payload: { siteId: string; groupId: string }): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  const assignment = buildQuickAssignGroupPayload(sites.value, payload)
+
+  if (!assignment) {
+    loadError.value = `未找到站点 ${payload.siteId} 或目标分组无效，无法快捷分配。`
+    return
+  }
+
+  try {
+    await updateSiteGroup(assignment.siteRowId, assignment.groupId)
+    statusMessage.value = '问题站点已快捷分配到目标分组。'
+    await loadData()
+    activeTab.value = 'site-analytics'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '快捷分配站点分组失败。'
+  }
 }
 
 async function handleUpsertGroupPolicy(draft: SiteGroupPolicyDraftInput): Promise<void> {
