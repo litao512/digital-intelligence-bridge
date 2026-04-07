@@ -115,7 +115,7 @@
           </label>
         </div>
       </header>
-      <table>
+      <table v-if="filteredIssueRows.length > 0">
         <thead>
           <tr>
             <th>站点</th>
