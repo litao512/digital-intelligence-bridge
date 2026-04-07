@@ -104,6 +104,16 @@
           <p class="panel-kicker">Authorization Drift</p>
           <h2>授权 / 安装差异</h2>
         </div>
+        <div class="filter-row">
+          <label class="checkbox-field compact-checkbox">
+            <input v-model="onlyUnassigned" type="checkbox">
+            <span>只看未分组</span>
+          </label>
+          <label class="checkbox-field compact-checkbox">
+            <input v-model="onlyAuthorizationDrift" type="checkbox">
+            <span>只看有授权漂移</span>
+          </label>
+        </div>
       </header>
       <table>
         <thead>
@@ -119,7 +129,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="item in analytics.authorizationDrift" :key="item.siteId">
+          <tr v-for="item in filteredIssueRows" :key="item.siteId">
             <td>{{ item.siteName }}</td>
             <td>{{ item.groupName }}</td>
             <td>
@@ -152,12 +162,13 @@
           </tr>
         </tbody>
       </table>
+      <p v-if="filteredIssueRows.length === 0" class="empty">当前筛选条件下没有问题站点。</p>
     </article>
   </section>
 </template>
 
 <script setup lang="ts">
-import { reactive, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import type { SiteAnalyticsSummary, SiteGroup } from '@/contracts/site-types'
 
 const emit = defineEmits<{
@@ -172,9 +183,23 @@ const props = defineProps<{
 }>()
 
 const quickAssignSelections = reactive<Record<string, string>>({})
+const onlyUnassigned = ref(false)
+const onlyAuthorizationDrift = ref(false)
+
+const filteredIssueRows = computed(() => props.analytics.issueRows.filter((item) => {
+  if (onlyUnassigned.value && !item.isUnassigned) {
+    return false
+  }
+
+  if (onlyAuthorizationDrift.value && !item.hasAuthorizationDrift) {
+    return false
+  }
+
+  return true
+}))
 
 watch(
-  () => props.analytics.authorizationDrift,
+  () => filteredIssueRows.value,
   (items) => {
     const siteIds = new Set(items.map((item) => item.siteId))
 
@@ -205,5 +230,15 @@ function formatDate(value: string | null): string {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.filter-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.compact-checkbox {
+  gap: 8px;
 }
 </style>

@@ -195,5 +195,66 @@ describe('siteAuthorizationService', () => {
       clientVersion: '1.0.1',
       installedNotAuthorized: ['bedside-rounding'],
     })
+    expect(analytics.issueRows).toEqual([
+      {
+        siteId: '11111111-1111-1111-1111-111111111111',
+        siteName: '门诊登记台 1',
+        groupName: '门诊基础版',
+        clientVersion: '1.0.0',
+        lastSeenAt: '2026-04-06T12:00:00Z',
+        authorizedNotInstalled: ['patient-registration'],
+        installedNotAuthorized: [],
+        isUnassigned: false,
+        hasAuthorizationDrift: true,
+      },
+      {
+        siteId: '22222222-2222-2222-2222-222222222222',
+        siteName: '门诊登记台 2',
+        groupName: '未分组',
+        clientVersion: '1.0.1',
+        lastSeenAt: null,
+        authorizedNotInstalled: [],
+        installedNotAuthorized: ['bedside-rounding'],
+        isUnassigned: true,
+        hasAuthorizationDrift: true,
+      },
+    ])
+  })
+
+  it('should keep unassigned sites in issue rows even when no authorization drift exists', () => {
+    const analytics = aggregateSiteAnalytics({
+      sites: [
+        createSite({
+          id: 'site-row-3',
+          siteId: '33333333-3333-3333-3333-333333333333',
+          siteName: '未分组接待台',
+          groupId: null,
+          groupCode: null,
+          groupName: null,
+          installedPlugins: [],
+          clientVersion: '1.0.2',
+          lastSeenAt: '2026-04-06T12:00:00Z',
+        }),
+      ],
+      groups: [createGroup()],
+      groupPolicies: [],
+      siteOverrides: [],
+      now: '2026-04-06T12:10:00Z',
+    })
+
+    expect(analytics.authorizationDrift).toEqual([])
+    expect(analytics.issueRows).toEqual([
+      {
+        siteId: '33333333-3333-3333-3333-333333333333',
+        siteName: '未分组接待台',
+        groupName: '未分组',
+        clientVersion: '1.0.2',
+        lastSeenAt: '2026-04-06T12:00:00Z',
+        authorizedNotInstalled: [],
+        installedNotAuthorized: [],
+        isUnassigned: true,
+        hasAuthorizationDrift: false,
+      },
+    ])
   })
 })

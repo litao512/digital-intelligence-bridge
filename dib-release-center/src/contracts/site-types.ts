@@ -91,6 +91,18 @@ export interface SiteAuthorizationDriftItem {
   installedNotAuthorized: string[]
 }
 
+export interface SiteAnalyticsIssueRow {
+  siteId: string
+  siteName: string
+  groupName: string
+  clientVersion: string
+  lastSeenAt: string | null
+  authorizedNotInstalled: string[]
+  installedNotAuthorized: string[]
+  isUnassigned: boolean
+  hasAuthorizationDrift: boolean
+}
+
 export interface SiteAnalyticsOverview {
   totalSiteCount: number
   activeSiteCount24h: number
@@ -117,4 +129,5 @@ export interface SiteAnalyticsSummary {
   groupRows: SiteAnalyticsGroupRow[]
   versionBreakdown: SiteAnalyticsVersionBreakdown[]
   authorizationDrift: SiteAuthorizationDriftItem[]
+  issueRows: SiteAnalyticsIssueRow[]
 }

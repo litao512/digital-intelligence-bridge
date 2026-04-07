@@ -69,7 +69,7 @@ export function aggregateSiteAnalytics(input: AggregateSiteAnalyticsInput): Site
   const groupBreakdownMap = new Map<string, { groupCode: string; groupName: string; count: number }>()
   const versionBreakdownMap = new Map<string, { version: string; count: number; activeCount24h: number }>()
   const groupRowMap = new Map<string, SiteAnalyticsGroupRow>()
-  const authorizationDrift = input.sites.map((site) => {
+  const issueRows = input.sites.map((site) => {
     const authorizedPlugins = resolveSiteAuthorizedPlugins({
       site,
       groupPolicies: input.groupPolicies,
@@ -97,13 +97,17 @@ export function aggregateSiteAnalytics(input: AggregateSiteAnalyticsInput): Site
     })
 
     const existingGroupRow = groupRowMap.get(groupCode)
+    const authorizedNotInstalled = authorizedPlugins.filter((pluginCode) => !installedSet.has(pluginCode))
+    const installedNotAuthorized = site.installedPlugins.filter((pluginCode) => !authorizedSet.has(pluginCode))
+    const hasAuthorizationDrift = authorizedNotInstalled.length > 0 || installedNotAuthorized.length > 0
+
     groupRowMap.set(groupCode, {
       groupCode,
       groupName,
       siteCount: (existingGroupRow?.siteCount ?? 0) + 1,
       activeSiteCount24h: (existingGroupRow?.activeSiteCount24h ?? 0) + (isActive ? 1 : 0),
       policyCount: existingGroupRow?.policyCount ?? input.groupPolicies.filter((item) => item.groupId === site.groupId).length,
-      driftSiteCount: (existingGroupRow?.driftSiteCount ?? 0) + ((authorizedPlugins.filter((pluginCode) => !installedSet.has(pluginCode)).length > 0 || site.installedPlugins.filter((pluginCode) => !authorizedSet.has(pluginCode)).length > 0) ? 1 : 0),
+      driftSiteCount: (existingGroupRow?.driftSiteCount ?? 0) + (hasAuthorizationDrift ? 1 : 0),
     })
 
     return {
@@ -112,12 +116,15 @@ export function aggregateSiteAnalytics(input: AggregateSiteAnalyticsInput): Site
       groupName,
       clientVersion: site.clientVersion,
       lastSeenAt: site.lastSeenAt,
-      authorizedNotInstalled: authorizedPlugins.filter((pluginCode) => !installedSet.has(pluginCode)),
-      installedNotAuthorized: site.installedPlugins.filter((pluginCode) => !authorizedSet.has(pluginCode)),
+      authorizedNotInstalled,
+      installedNotAuthorized,
+      isUnassigned: !site.groupId,
+      hasAuthorizationDrift,
     }
   })
 
-  const driftSiteCount = authorizationDrift.filter((item) => item.authorizedNotInstalled.length > 0 || item.installedNotAuthorized.length > 0).length
+  const authorizationDrift = issueRows.filter((item) => item.hasAuthorizationDrift)
+  const driftSiteCount = authorizationDrift.length
   const authorizedButNotInstalledSiteCount = authorizationDrift.filter((item) => item.authorizedNotInstalled.length > 0).length
   const installedButNotAuthorizedSiteCount = authorizationDrift.filter((item) => item.installedNotAuthorized.length > 0).length
 
@@ -137,7 +144,8 @@ export function aggregateSiteAnalytics(input: AggregateSiteAnalyticsInput): Site
     versionBreakdown: [...versionBreakdownMap.values()]
       .sort((left, right) => left.version.localeCompare(right.version)),
     authorizationDrift: authorizationDrift
-      .filter((item) => item.authorizedNotInstalled.length > 0 || item.installedNotAuthorized.length > 0)
+      .sort((left, right) => left.siteName.localeCompare(right.siteName)),
+    issueRows: issueRows
       .sort((left, right) => left.siteName.localeCompare(right.siteName)),
   }
 }
