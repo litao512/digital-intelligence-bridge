@@ -135,6 +135,7 @@
         v-else-if="activeTab === 'site-analytics'"
         :analytics="siteAnalytics"
         :groups="siteGroups"
+        :highlighted-site-id="highlightedAnalyticsSiteId"
         @open-site="handleOpenAnalyticsSite"
         @open-site-override="handleOpenAnalyticsSiteOverride"
         @quick-assign-group="handleQuickAssignAnalyticsGroup"
@@ -244,6 +245,7 @@ const siteGroups = ref<SiteGroup[]>([])
 const selectedPolicyGroupId = ref('')
 const selectedOverrideSiteRowId = ref('')
 const siteSearchSeed = ref('')
+const highlightedAnalyticsSiteId = ref('')
 const sites = ref<SiteSummary[]>([])
 const groupPluginPolicies = ref<SiteGroupPluginPolicy[]>([])
 const sitePluginOverrides = ref<SitePluginOverride[]>([])
@@ -253,6 +255,7 @@ const clientVersions = ref<ClientVersion[]>([])
 const releaseAssets = ref<ReleaseAsset[]>([])
 const previewChannelCode = ref('stable')
 let unsubscribeAuth: (() => void) | null = null
+let highlightedAnalyticsTimer: ReturnType<typeof setTimeout> | null = null
 
 const isAuthenticatedAdmin = computed(() => Boolean(session.value && currentAdmin.value?.isActive))
 
@@ -516,10 +519,24 @@ async function handleQuickAssignAnalyticsGroup(payload: { siteId: string; groupI
     await updateSiteGroup(assignment.siteRowId, assignment.groupId)
     statusMessage.value = '问题站点已快捷分配到目标分组。'
     await loadData()
+    setHighlightedAnalyticsSite(payload.siteId)
     activeTab.value = 'site-analytics'
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '快捷分配站点分组失败。'
   }
+}
+
+function setHighlightedAnalyticsSite(siteId: string): void {
+  highlightedAnalyticsSiteId.value = siteId
+
+  if (highlightedAnalyticsTimer) {
+    clearTimeout(highlightedAnalyticsTimer)
+  }
+
+  highlightedAnalyticsTimer = setTimeout(() => {
+    highlightedAnalyticsSiteId.value = ''
+    highlightedAnalyticsTimer = null
+  }, 5000)
 }
 
 async function handleUpsertGroupPolicy(draft: SiteGroupPolicyDraftInput): Promise<void> {
@@ -685,6 +702,9 @@ onMounted(async () => {
 
 onUnmounted(() => {
   unsubscribeAuth?.()
+  if (highlightedAnalyticsTimer) {
+    clearTimeout(highlightedAnalyticsTimer)
+  }
 })
 </script>
 

@@ -129,7 +129,11 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="item in filteredIssueRows" :key="item.siteId">
+            <tr
+              v-for="item in filteredIssueRows"
+              :key="item.siteId"
+              :class="{ 'highlight-row': isIssueRowHighlighted(item.siteId, highlightedSiteId ?? '') }"
+            >
             <td>{{ item.siteName }}</td>
             <td>{{ item.groupName }}</td>
             <td>
@@ -170,6 +174,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import type { SiteAnalyticsSummary, SiteGroup } from '@/contracts/site-types'
+import { filterIssueRows, isIssueRowHighlighted } from '@/services/siteAnalyticsViewService'
 
 const emit = defineEmits<{
   openSite: [siteId: string]
@@ -180,22 +185,16 @@ const emit = defineEmits<{
 const props = defineProps<{
   analytics: SiteAnalyticsSummary
   groups: SiteGroup[]
+  highlightedSiteId?: string
 }>()
 
 const quickAssignSelections = reactive<Record<string, string>>({})
 const onlyUnassigned = ref(false)
 const onlyAuthorizationDrift = ref(false)
 
-const filteredIssueRows = computed(() => props.analytics.issueRows.filter((item) => {
-  if (onlyUnassigned.value && !item.isUnassigned) {
-    return false
-  }
-
-  if (onlyAuthorizationDrift.value && !item.hasAuthorizationDrift) {
-    return false
-  }
-
-  return true
+const filteredIssueRows = computed(() => filterIssueRows(props.analytics.issueRows, {
+  onlyUnassigned: onlyUnassigned.value,
+  onlyAuthorizationDrift: onlyAuthorizationDrift.value,
 }))
 
 watch(
@@ -240,5 +239,10 @@ function formatDate(value: string | null): string {
 
 .compact-checkbox {
   gap: 8px;
+}
+
+.highlight-row td {
+  background: #edf9f2;
+  transition: background-color 0.3s ease;
 }
 </style>
