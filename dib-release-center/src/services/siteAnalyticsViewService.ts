@@ -6,6 +6,14 @@ export interface SiteAnalyticsIssueFilterInput {
   clientVersion: string
 }
 
+export function createDefaultSiteAnalyticsIssueFilterInput(): SiteAnalyticsIssueFilterInput {
+  return {
+    onlyUnassigned: false,
+    onlyAuthorizationDrift: false,
+    clientVersion: '',
+  }
+}
+
 export function filterIssueRows(
   rows: SiteAnalyticsIssueRow[],
   input: SiteAnalyticsIssueFilterInput,

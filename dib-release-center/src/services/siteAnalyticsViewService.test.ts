@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { SiteAnalyticsIssueRow } from '@/contracts/site-types'
-import { filterIssueRows, isIssueRowHighlighted } from '@/services/siteAnalyticsViewService'
+import {
+  createDefaultSiteAnalyticsIssueFilterInput,
+  filterIssueRows,
+  isIssueRowHighlighted,
+} from '@/services/siteAnalyticsViewService'
 
 function createIssueRow(overrides: Partial<SiteAnalyticsIssueRow> = {}): SiteAnalyticsIssueRow {
   return {
@@ -62,5 +66,13 @@ describe('siteAnalyticsViewService', () => {
     expect(isIssueRowHighlighted('site-a', 'site-a')).toBe(true)
     expect(isIssueRowHighlighted('site-a', 'site-b')).toBe(false)
     expect(isIssueRowHighlighted('site-a', '')).toBe(false)
+  })
+
+  it('should provide default analytics issue filters for reset action', () => {
+    expect(createDefaultSiteAnalyticsIssueFilterInput()).toEqual({
+      onlyUnassigned: false,
+      onlyAuthorizationDrift: false,
+      clientVersion: '',
+    })
   })
 })

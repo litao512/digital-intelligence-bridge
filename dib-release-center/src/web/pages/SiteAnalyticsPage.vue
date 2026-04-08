@@ -104,26 +104,29 @@
           <p class="panel-kicker">Authorization Drift</p>
           <h2>授权 / 安装差异</h2>
         </div>
-        <div class="filter-row">
-          <label>
-            <span>客户端版本</span>
-            <select v-model="clientVersionFilter">
-              <option value="">全部版本</option>
-              <option v-for="version in availableClientVersions" :key="version" :value="version">
-                {{ version }}
-              </option>
-            </select>
-          </label>
-          <label class="checkbox-field compact-checkbox">
-            <input v-model="onlyUnassigned" type="checkbox">
-            <span>只看未分组</span>
-          </label>
-          <label class="checkbox-field compact-checkbox">
-            <input v-model="onlyAuthorizationDrift" type="checkbox">
-            <span>只看有授权漂移</span>
-          </label>
-        </div>
       </header>
+      <div class="filter-row">
+        <label>
+          <span>客户端版本</span>
+          <select v-model="clientVersionFilter">
+            <option value="">全部版本</option>
+            <option v-for="version in availableClientVersions" :key="version" :value="version">
+              {{ version }}
+            </option>
+          </select>
+        </label>
+        <label class="checkbox-field compact-checkbox">
+          <input v-model="onlyUnassigned" type="checkbox">
+          <span>只看未分组</span>
+        </label>
+        <label class="checkbox-field compact-checkbox">
+          <input v-model="onlyAuthorizationDrift" type="checkbox">
+          <span>只看有授权漂移</span>
+        </label>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="ghost-button" @click="resetFilters">清空筛选</button>
+      </div>
       <table v-if="filteredIssueRows.length > 0">
         <thead>
           <tr>
@@ -183,7 +186,11 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import type { SiteAnalyticsSummary, SiteGroup } from '@/contracts/site-types'
-import { filterIssueRows, isIssueRowHighlighted } from '@/services/siteAnalyticsViewService'
+import {
+  createDefaultSiteAnalyticsIssueFilterInput,
+  filterIssueRows,
+  isIssueRowHighlighted,
+} from '@/services/siteAnalyticsViewService'
 
 const emit = defineEmits<{
   openSite: [siteId: string]
@@ -198,9 +205,10 @@ const props = defineProps<{
 }>()
 
 const quickAssignSelections = reactive<Record<string, string>>({})
-const onlyUnassigned = ref(false)
-const onlyAuthorizationDrift = ref(false)
-const clientVersionFilter = ref('')
+const defaultFilters = createDefaultSiteAnalyticsIssueFilterInput()
+const onlyUnassigned = ref(defaultFilters.onlyUnassigned)
+const onlyAuthorizationDrift = ref(defaultFilters.onlyAuthorizationDrift)
+const clientVersionFilter = ref(defaultFilters.clientVersion)
 
 const availableClientVersions = computed(() =>
   [...new Set(props.analytics.issueRows.map((item) => item.clientVersion))].sort((left, right) => left.localeCompare(right)),
@@ -230,6 +238,13 @@ function updateQuickAssignSelection(siteId: string, groupId: string): void {
   quickAssignSelections[siteId] = groupId
 }
 
+function resetFilters(): void {
+  const filters = createDefaultSiteAnalyticsIssueFilterInput()
+  onlyUnassigned.value = filters.onlyUnassigned
+  onlyAuthorizationDrift.value = filters.onlyAuthorizationDrift
+  clientVersionFilter.value = filters.clientVersion
+}
+
 function formatDate(value: string | null): string {
   if (!value) {
     return '尚未上报'
@@ -250,6 +265,7 @@ function formatDate(value: string | null): string {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  margin-bottom: 16px;
 }
 
 .compact-checkbox {
