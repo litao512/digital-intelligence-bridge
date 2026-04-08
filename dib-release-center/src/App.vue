@@ -7,47 +7,47 @@
     />
 
     <template v-else>
-      <section class="hero">
-        <div>
+      <section class="shell-header">
+        <div class="shell-header-main">
           <p class="eyebrow">Digital Intelligence Bridge</p>
           <h1>DIB 发布中心</h1>
           <p class="description">
             第一阶段已接入 prod101 的 Supabase 元数据结构，当前页面聚焦发布渠道、插件版本、资产登记与 manifest 发布的最小闭环。
           </p>
         </div>
-        <div class="hero-side">
-          <div class="metric-card">
-            <span>渠道</span>
-            <strong>{{ channels.length }}</strong>
+        <div class="shell-header-side">
+          <div class="status-pill">
+            <span>连接状态</span>
+            <strong>{{ connectionMessage }}</strong>
           </div>
-          <div class="metric-card">
-            <span>插件版本</span>
-            <strong>{{ pluginVersions.length }}</strong>
+          <div class="status-pill">
+            <span>当前账号</span>
+            <strong>{{ currentAdminSummary }}</strong>
           </div>
-          <div class="metric-card">
-            <span>客户端版本</span>
-            <strong>{{ clientVersions.length }}</strong>
+          <div class="status-pill subtle">
+            <span>环境变量</span>
+            <strong>{{ envMessage }}</strong>
           </div>
-          <div class="metric-card">
-            <span>发布资产</span>
-            <strong>{{ releaseAssets.length }}</strong>
-          </div>
+          <button type="button" class="ghost-button inline-button" @click="handleSignOut">退出登录</button>
         </div>
       </section>
 
-      <section class="status-grid">
-        <article class="status-card">
-          <h2>连接状态</h2>
-          <p>{{ connectionMessage }}</p>
+      <section class="metric-strip" aria-label="release center overview">
+        <article class="metric-pill">
+          <span>渠道</span>
+          <strong>{{ channels.length }}</strong>
         </article>
-        <article class="status-card">
-          <h2>环境变量</h2>
-          <p>{{ envMessage }}</p>
+        <article class="metric-pill">
+          <span>插件版本</span>
+          <strong>{{ pluginVersions.length }}</strong>
         </article>
-        <article class="status-card">
-          <h2>当前账号</h2>
-          <p>{{ currentAdminSummary }}</p>
-          <button type="button" class="ghost-button inline-button" @click="handleSignOut">退出登录</button>
+        <article class="metric-pill">
+          <span>客户端版本</span>
+          <strong>{{ clientVersions.length }}</strong>
+        </article>
+        <article class="metric-pill">
+          <span>发布资产</span>
+          <strong>{{ releaseAssets.length }}</strong>
         </article>
       </section>
 
@@ -68,42 +68,9 @@
         </button>
       </nav>
 
-      <section class="preview-bar">
-        <label>
-          <span>manifest 预览渠道</span>
-          <select v-model="previewChannelCode">
-            <option v-for="item in channels" :key="item.id" :value="item.channelCode">
-              {{ item.channelName }} / {{ item.channelCode }}
-            </option>
-          </select>
-        </label>
-        <button type="button" class="ghost-button" @click="refreshPreview">刷新预览</button>
-        <button type="button" @click="publishManifest">发布当前渠道 manifest</button>
-      </section>
-
-      <section class="manifest-grid">
-        <article class="panel manifest-card">
-          <header class="panel-header tight">
-            <div>
-              <p class="panel-kicker">Client Manifest</p>
-              <h2>客户端清单预览</h2>
-            </div>
-          </header>
-          <pre>{{ clientManifestText }}</pre>
-        </article>
-        <article class="panel manifest-card">
-          <header class="panel-header tight">
-            <div>
-              <p class="panel-kicker">Plugin Manifest</p>
-              <h2>插件清单预览</h2>
-            </div>
-          </header>
-          <pre>{{ pluginManifestText }}</pre>
-        </article>
-      </section>
-
-      <ChannelsPage v-if="activeTab === 'channels'" :channels="channels" />
-      <SitesPage
+      <section class="workspace">
+        <ChannelsPage v-if="activeTab === 'channels'" :channels="channels" />
+        <SitesPage
         v-else-if="activeTab === 'sites'"
         :sites="sites"
         :groups="siteGroups"
@@ -160,6 +127,61 @@
         @submit="handleCreateReleaseAsset"
         @upload="handleUploadReleaseAsset"
       />
+      </section>
+
+      <section class="manifest-panel panel">
+        <button
+          type="button"
+          class="manifest-toggle"
+          :aria-expanded="isManifestPanelOpen"
+          @click="isManifestPanelOpen = !isManifestPanelOpen"
+        >
+          <div>
+            <p class="panel-kicker">Manifest Workspace</p>
+            <h2>清单发布与预览</h2>
+            <p class="subline">
+              仅在需要确认渠道输出、刷新预览或发布最新 manifest 时展开，避免打断站点与授权类高频操作。
+            </p>
+          </div>
+          <span class="toggle-indicator">{{ isManifestPanelOpen ? '收起' : '展开' }}</span>
+        </button>
+
+        <div v-if="isManifestPanelOpen" class="manifest-panel-body">
+          <section class="preview-bar">
+            <label>
+              <span>manifest 预览渠道</span>
+              <select v-model="previewChannelCode">
+                <option v-for="item in channels" :key="item.id" :value="item.channelCode">
+                  {{ item.channelName }} / {{ item.channelCode }}
+                </option>
+              </select>
+            </label>
+            <button type="button" class="ghost-button" @click="refreshPreview">刷新预览</button>
+            <button type="button" @click="publishManifest">发布当前渠道 manifest</button>
+          </section>
+
+          <section class="manifest-grid">
+            <article class="panel manifest-card">
+              <header class="panel-header tight">
+                <div>
+                  <p class="panel-kicker">Client Manifest</p>
+                  <h2>客户端清单预览</h2>
+                </div>
+              </header>
+              <pre>{{ clientManifestText }}</pre>
+            </article>
+            <article class="panel manifest-card">
+              <header class="panel-header tight">
+                <div>
+                  <p class="panel-kicker">Plugin Manifest</p>
+                  <h2>插件清单预览</h2>
+                </div>
+              </header>
+              <pre>{{ pluginManifestText }}</pre>
+            </article>
+          </section>
+        </div>
+      </section>
     </template>
   </main>
 </template>
@@ -233,6 +255,7 @@ const tabs = [
 type TabId = (typeof tabs)[number]['id']
 
 const activeTab = ref<TabId>('channels')
+const isManifestPanelOpen = ref(false)
 const isLoading = ref(false)
 const loadError = ref('')
 const statusMessage = ref('')
@@ -791,15 +814,28 @@ onUnmounted(() => {
   padding: 40px 24px 56px;
 }
 
-.hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr);
-  gap: 20px;
-  padding: 28px;
+.shell-header,
+.metric-strip,
+.manifest-panel {
   border: 1px solid #d4e2ef;
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 24px 60px rgba(33, 74, 112, 0.08);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 20px 50px rgba(37, 83, 125, 0.06);
+}
+
+.shell-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.9fr);
+  gap: 16px;
+  padding: 22px 24px;
+}
+
+.shell-header-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+  justify-content: center;
 }
 
 .eyebrow {
@@ -818,21 +854,14 @@ h1 {
 }
 
 .description {
-  margin: 18px 0 0;
-  max-width: 44rem;
-  line-height: 1.8;
+  margin: 12px 0 0;
+  max-width: 48rem;
+  line-height: 1.7;
   color: #4f6883;
 }
 
-.hero-side {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  align-content: start;
-}
-
-.metric-card,
-.status-card,
+.status-pill,
+.metric-pill,
 .panel {
   border: 1px solid #d4e2ef;
   border-radius: 22px;
@@ -840,11 +869,13 @@ h1 {
   box-shadow: 0 20px 50px rgba(37, 83, 125, 0.06);
 }
 
-.metric-card {
-  padding: 18px;
+.status-pill {
+  padding: 14px 16px;
+  background: linear-gradient(180deg, rgba(246, 251, 255, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%);
 }
 
-.metric-card span {
+.status-pill span,
+.metric-pill span {
   display: block;
   font-size: 0.82rem;
   letter-spacing: 0.08em;
@@ -852,44 +883,51 @@ h1 {
   color: #5d7b96;
 }
 
-.metric-card strong {
+.status-pill strong,
+.metric-pill strong {
   display: block;
-  margin-top: 10px;
-  font-size: 2rem;
+  margin-top: 6px;
+  line-height: 1.5;
   color: #103253;
 }
 
-.status-grid,
-.manifest-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+.status-pill.subtle {
+  background: rgba(244, 249, 252, 0.9);
+}
+
+.metric-strip {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding: 14px;
+}
+
+.metric-pill {
+  min-width: 140px;
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: #f7fbfe;
+  box-shadow: none;
+}
+
+.metric-pill strong {
+  font-size: 1.5rem;
+}
+
+.workspace {
   margin-top: 20px;
 }
 
 .manifest-grid {
+  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin-bottom: 20px;
-}
-
-.status-card {
-  padding: 18px 20px;
-}
-
-.status-card h2 {
-  margin: 0 0 10px;
-  font-size: 1rem;
-  color: #113251;
-}
-
-.status-card p {
-  margin: 0 0 12px;
-  line-height: 1.7;
-  color: #5a7087;
+  gap: 16px;
 }
 
 .inline-button {
   padding: 8px 14px;
+  align-self: flex-start;
 }
 
 .tabbar {
@@ -910,6 +948,49 @@ h1 {
   border-color: #0a7ac9;
   background: linear-gradient(135deg, #0a7ac9 0%, #0b9f79 100%);
   color: #fff;
+}
+
+.manifest-panel {
+  margin-top: 20px;
+  padding: 18px 20px;
+}
+
+.manifest-toggle {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.manifest-toggle h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #0f2c49;
+}
+
+.toggle-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: #e9f4fb;
+  color: #0a5f99;
+  font-weight: 600;
+}
+
+.manifest-panel-body {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #d8e3ee;
 }
 
 .banner {
@@ -1052,19 +1133,15 @@ h1 {
 }
 
 @media (max-width: 920px) {
-  .hero,
-  .status-grid,
+  .shell-header,
   .manifest-grid,
   .field-grid,
   .field-grid-wide {
     grid-template-columns: 1fr;
   }
 
-  .hero-side {
-    grid-template-columns: 1fr;
-  }
-
   .tabbar,
+  .metric-strip,
   .preview-bar,
   .toggle-row,
   .form-actions {

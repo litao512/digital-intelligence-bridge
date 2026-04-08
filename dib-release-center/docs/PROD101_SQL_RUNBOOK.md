@@ -22,9 +22,10 @@
 12. `13_create_site_plugin_overrides.sql`
 13. `14_create_site_heartbeats.sql`
 14. `15_create_site_runtime_rpcs.sql`
-15. `07_create_release_center_views.sql`
-16. `09_create_release_center_admins_and_policies.sql`
-17. `08_validate_release_center_schema.sql`
+15. `16_seed_base_site_group_and_default_policy.sql`
+16. `07_create_release_center_views.sql`
+17. `09_create_release_center_admins_and_policies.sql`
+18. `08_validate_release_center_schema.sql`
 
 ## 3. 文件作用
 
@@ -136,6 +137,15 @@
 - `get_site_plugin_manifest` 用于按 `site_id + channel + client_version` 返回授权后的插件清单
 - `site_id` 输入值必须为 GUID
 - 通过 PostgREST 调用时需要使用 `dib_release` profile 头
+
+### `16_seed_base_site_group_and_default_policy.sql`
+
+新增正式默认分组与首注册默认授权基线：
+
+- 创建/更新默认分组 `base`
+- 将 `unassigned` 保留为人工兜底分组
+- 若存在 `patient-registration` 插件定义，则给 `base` 分组补一条默认授权
+- 重建 `register_site_heartbeat(...)`，让新站点优先进入 `base`，若 `base` 不存在再回退到 `unassigned`
 
 ## 4. 增量变更原则
 

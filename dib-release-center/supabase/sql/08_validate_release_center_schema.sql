@@ -22,6 +22,8 @@ declare
     v_suffix text := replace(gen_random_uuid()::text, '-', '');
     v_plugin_code text;
     v_validation_version text;
+    v_rpc_site_id text := gen_random_uuid()::text;
+    v_rpc_site_group_code text;
 begin
     v_plugin_code := 'validation-patient-registration-' || left(v_suffix, 8);
     v_validation_version := '1.0.' || (90000 + (abs(hashtext(v_suffix)) % 9999))::text;
@@ -37,6 +39,15 @@ begin
 
     if to_regclass('dib_release.site_groups') is null then
         raise exception 'validation failed: dib_release.site_groups missing';
+    end if;
+
+    if not exists (
+        select 1
+        from dib_release.site_groups
+        where group_code = 'base'
+          and is_active = true
+    ) then
+        raise exception 'validation failed: base site group missing';
     end if;
 
     if to_regclass('dib_release.sites') is null then
@@ -436,7 +447,7 @@ begin
     end if;
 
     perform dib_release.register_site_heartbeat(
-        gen_random_uuid()::text,
+        v_rpc_site_id,
         'RPC 验证站点',
         'stable',
         '1.0.0',
@@ -444,6 +455,16 @@ begin
         jsonb_build_array(v_plugin_code),
         'update_check'
     );
+
+    select sg.group_code
+    into v_rpc_site_group_code
+    from dib_release.sites s
+    left join dib_release.site_groups sg on sg.id = s.group_id
+    where s.site_id = v_rpc_site_id;
+
+    if v_rpc_site_group_code is distinct from 'base' then
+        raise exception 'validation failed: register_site_heartbeat should default to base group';
+    end if;
 
     select jsonb_array_length(coalesce((dib_release.get_site_plugin_manifest('stable', (
         select site_id from dib_release.sites where id = v_site_row_id
@@ -453,6 +474,11 @@ begin
     if v_site_total_count <> 0 then
         raise exception 'validation failed: site manifest should be empty after deny override';
     end if;
+
+    delete from dib_release.site_heartbeats where site_id in (
+        select id from dib_release.sites where site_id = v_rpc_site_id
+    );
+    delete from dib_release.sites where site_id = v_rpc_site_id;
 
     delete from dib_release.site_heartbeats where id = v_heartbeat_id;
     delete from dib_release.site_plugin_overrides where site_id = v_site_row_id;
