@@ -997,6 +997,29 @@ h1 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+:global(.page-filter-grid) {
+  margin-top: 16px;
+}
+
+:global(.page-filter-row) {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+:global(.page-filter-actions) {
+  justify-content: flex-start;
+  padding-top: 4px;
+}
+
+:global(.page-empty) {
+  padding: 16px 18px;
+  border: 1px dashed #c9d9e8;
+  border-radius: 16px;
+  background: #f7fbfe;
+}
+
 .toggle-row,
 .form-actions {
   display: flex;

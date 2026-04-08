@@ -105,7 +105,7 @@
           <h2>授权 / 安装差异</h2>
         </div>
       </header>
-      <div class="filter-row">
+      <div class="page-filter-row">
         <label>
           <span>客户端版本</span>
           <select v-model="clientVersionFilter">
@@ -124,7 +124,7 @@
           <span>只看有授权漂移</span>
         </label>
       </div>
-      <div class="form-actions">
+      <div class="form-actions page-filter-actions">
         <button type="button" class="ghost-button" @click="resetFilters">清空筛选</button>
       </div>
       <table v-if="filteredIssueRows.length > 0">
@@ -178,7 +178,7 @@
           </tr>
         </tbody>
       </table>
-      <p v-if="filteredIssueRows.length === 0" class="empty">当前筛选条件下没有问题站点。</p>
+      <p v-if="filteredIssueRows.length === 0" class="empty page-empty">当前筛选条件下没有问题站点。</p>
     </article>
   </section>
 </template>
@@ -259,13 +259,6 @@ function formatDate(value: string | null): string {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-}
-
-.filter-row {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
 }
 
 .compact-checkbox {

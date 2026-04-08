@@ -12,7 +12,7 @@
       每条记录代表一个 DIB 安装实例。调整所属分组后，后续按站点生成的插件授权将以最新分组为准。
     </p>
 
-    <div class="field-grid field-grid-wide">
+    <div class="field-grid field-grid-wide page-filter-grid">
       <label>
         <span>关键字搜索</span>
         <input v-model="keyword" placeholder="站点名 / SiteId / 机器名 / 分组 / 客户端版本">
@@ -37,7 +37,7 @@
       </label>
     </div>
 
-    <div class="filter-row">
+    <div class="page-filter-row">
       <label class="checkbox-field compact-checkbox">
         <input v-model="onlyUnassigned" type="checkbox">
         <span>只看未分组</span>
@@ -48,7 +48,7 @@
       </label>
     </div>
 
-    <div class="form-actions">
+    <div class="form-actions page-filter-actions">
       <button type="button" :disabled="selectedSiteIds.length === 0 || !bulkGroupId" @click="submitBulkAssign">批量分配分组</button>
       <button type="button" class="ghost-button" @click="resetFilters">清空筛选</button>
       <span class="form-tip">已选择 {{ selectedSiteIds.length }} 个站点</span>
@@ -96,7 +96,7 @@
       </table>
     </div>
 
-    <p v-else class="empty">当前还没有站点接入记录。</p>
+    <p v-else class="empty page-empty">当前还没有站点接入记录。</p>
   </section>
 </template>
 
@@ -197,13 +197,6 @@ function formatDate(value: string | null): string {
 </script>
 
 <style scoped>
-.filter-row {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 16px;
-}
-
 .compact-checkbox {
   gap: 8px;
 }
