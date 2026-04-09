@@ -80,6 +80,7 @@ public static class ConfigurationExtensions
         services.Configure<AppSettings>(options =>
         {
             configuration.Bind(options);
+            ConfigurationSafetyValidator.EnsureSafeRuntimeConfiguration(options, userConfigPath);
         });
 
         return services;

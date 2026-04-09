@@ -145,6 +145,7 @@ public partial class App : PrismApplication
         // 绑定并注册 AppSettings
         var appSettings = new AppSettings();
         configuration.Bind(appSettings);
+        ConfigurationSafetyValidator.EnsureSafeRuntimeConfiguration(appSettings, userConfigPath);
         containerRegistry.RegisterInstance<IOptions<AppSettings>>(Options.Create(appSettings));
     }
 

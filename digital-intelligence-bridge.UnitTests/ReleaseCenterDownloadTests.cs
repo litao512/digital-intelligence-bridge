@@ -79,6 +79,35 @@ public class ReleaseCenterDownloadTests
     }
 
     [Fact]
+    public async Task DownloadAvailablePluginPackagesAsync_ShouldResolveRelativePackageUrl_AgainstBaseUrl()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"release-cache-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var packageBytes = Encoding.UTF8.GetBytes("plugin-package-content");
+        var sha256 = Convert.ToHexString(SHA256.HashData(packageBytes)).ToLowerInvariant();
+
+        try
+        {
+            var service = CreatePluginDownloadService(tempDir, packageBytes, sha256, useRelativePackageUrl: true);
+
+            var result = await service.DownloadAvailablePluginPackagesAsync();
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(1, result.DownloadedCount);
+            var downloadedFile = Directory.GetFiles(tempDir, "*.zip", SearchOption.AllDirectories);
+            Assert.Single(downloadedFile);
+            Assert.Equal(packageBytes, await File.ReadAllBytesAsync(downloadedFile[0]));
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task DownloadAvailablePluginPackagesAsync_ShouldFail_WhenSha256DoesNotMatch()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"release-cache-{Guid.NewGuid():N}");
@@ -153,12 +182,15 @@ public class ReleaseCenterDownloadTests
             }));
     }
 
-    private static ReleaseCenterService CreatePluginDownloadService(string cacheDirectory, byte[] packageBytes, string sha256)
+    private static ReleaseCenterService CreatePluginDownloadService(string cacheDirectory, byte[] packageBytes, string sha256, bool useRelativePackageUrl = false)
     {
         var handler = new StubHttpMessageHandler(request =>
         {
             if (request.RequestUri!.AbsoluteUri.Contains("plugin-manifest", StringComparison.OrdinalIgnoreCase))
             {
+                var packageUrl = useRelativePackageUrl
+                    ? "/storage/v1/object/public/dib-releases/plugins/patient-registration/stable/1.0.1/patient-registration-1.0.1.zip"
+                    : "http://release-center.local/packages/patient-registration-1.0.1.zip";
                 var manifest = $$"""
 {
   "plugins": [
@@ -166,7 +198,7 @@ public class ReleaseCenterDownloadTests
       "pluginId": "patient-registration",
       "name": "就诊登记",
       "version": "1.0.1",
-      "packageUrl": "http://release-center.local/packages/patient-registration-1.0.1.zip",
+      "packageUrl": "{{packageUrl}}",
       "sha256": "{{sha256}}"
     }
   ]

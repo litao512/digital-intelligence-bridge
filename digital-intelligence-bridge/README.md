@@ -194,6 +194,7 @@ dotnet run
 
 - 模板文件：`digital-intelligence-bridge/appsettings.runtime.template.json`
 - 本机运行时配置路径：`%LOCALAPPDATA%/UniversalTrayTool/appsettings.runtime.json`
+- 配置安全说明：`docs/05-operations/DIB_CONFIG_SAFETY_GUIDE.md`
 
 生成运行时配置（避免把密钥写进仓库）：
 
@@ -402,3 +403,4 @@ dotnet digital-intelligence-bridge.Tests/bin/Debug/net10.0/digital-intelligence-
 - ✅ 数据绑定和属性变更通知
 - ✅ 命令模式处理用户交互
 - ✅ 自定义样式
+

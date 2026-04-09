@@ -62,6 +62,7 @@ public class ReleaseCenterConfig
     public string AnonKey { get; set; } = string.Empty;
     public string SiteId { get; set; } = string.Empty;
     public string SiteName { get; set; } = string.Empty;
+    public string SiteRemark { get; set; } = string.Empty;
     public string CacheDirectory { get; set; } = string.Empty;
     public string ClientCacheDirectory { get; set; } = string.Empty;
     public string StagingDirectory { get; set; } = string.Empty;

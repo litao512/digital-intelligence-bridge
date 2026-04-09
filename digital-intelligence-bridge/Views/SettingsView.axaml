@@ -141,6 +141,45 @@
 
                     <Separator/>
 
+                    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="12">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="站点信息" FontSize="15" FontWeight="SemiBold"/>
+                            <TextBlock Text="{Binding SiteProfileSummary}"
+                                       FontSize="12"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       TextWrapping="Wrap"/>
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                <StackPanel Grid.Column="0" Spacing="6">
+                                    <TextBlock Text="站点名称" FontWeight="Medium"/>
+                                    <TextBox Text="{Binding SiteNameInput}" Watermark="例如：门诊一楼登记台"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="6">
+                                    <TextBlock Text="站点备注（可选）" FontWeight="Medium"/>
+                                    <TextBox Text="{Binding SiteRemarkInput}" Watermark="例如：收费处旁"/>
+                                </StackPanel>
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <Button Content="保存站点信息"
+                                        Command="{Binding SaveSiteProfileCommand}"
+                                        Classes="Secondary"/>
+                                <Button Content="{Binding InitializeSitePluginsButtonText}"
+                                        Command="{Binding InitializeSitePluginsCommand}"
+                                        Classes="Primary"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding SiteProfileStatus}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding SiteInitializationSummary}"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding SiteInitializationDetail}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <Button Content="{Binding CheckUpdateButtonText}"
                                Command="{Binding CheckUpdateCommand}"

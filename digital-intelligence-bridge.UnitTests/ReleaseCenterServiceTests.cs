@@ -61,27 +61,22 @@ public class ReleaseCenterServiceTests
     [Fact]
     public async Task CheckForUpdatesAsync_ShouldGenerateAndPersistSiteId_WhenMissing()
     {
-        var configRoot = Path.Combine(Path.GetTempPath(), $"dib-site-config-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(configRoot);
-        var previousConfigRoot = Environment.GetEnvironmentVariable("DIB_CONFIG_DIR");
-        Environment.SetEnvironmentVariable("DIB_CONFIG_DIR", configRoot);
+        using var sandbox = new TestConfigSandbox();
 
-        try
+        var settings = new AppSettings
         {
-            var settings = new AppSettings
+            Application = new ApplicationConfig { Version = "1.0.0" },
+            ReleaseCenter = new ReleaseCenterConfig
             {
-                Application = new ApplicationConfig { Version = "1.0.0" },
-                ReleaseCenter = new ReleaseCenterConfig
-                {
-                    Enabled = true,
-                    BaseUrl = "http://release-center.local",
-                    Channel = "stable",
-                    SiteId = string.Empty,
-                    SiteName = "门诊登记台 1"
-                }
-            };
+                Enabled = true,
+                BaseUrl = "http://release-center.local",
+                Channel = "stable",
+                SiteId = string.Empty,
+                SiteName = "门诊登记台 1"
+            }
+        };
 
-            var service = CreateService("""
+        var service = CreateService("""
 {
   "latestVersion": "1.2.0",
   "minUpgradeVersion": "1.0.0"
@@ -92,28 +87,19 @@ public class ReleaseCenterServiceTests
 }
 """, settings);
 
-            var result = await service.CheckForUpdatesAsync();
+        var result = await service.CheckForUpdatesAsync();
 
-            Assert.True(result.IsSuccess);
-            Assert.False(string.IsNullOrWhiteSpace(settings.ReleaseCenter.SiteId));
-            Assert.Contains($"siteId={settings.ReleaseCenter.SiteId}", result.Detail);
+        Assert.True(result.IsSuccess);
+        Assert.False(string.IsNullOrWhiteSpace(settings.ReleaseCenter.SiteId));
+        Assert.Contains($"siteId={settings.ReleaseCenter.SiteId}", result.Detail);
 
-            var persistedJson = await File.ReadAllTextAsync(ConfigurationExtensions.GetConfigFilePath());
-            using var document = JsonDocument.Parse(persistedJson);
-            var persistedSiteId = document.RootElement
-                .GetProperty("ReleaseCenter")
-                .GetProperty("SiteId")
-                .GetString();
-            Assert.Equal(settings.ReleaseCenter.SiteId, persistedSiteId);
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("DIB_CONFIG_DIR", previousConfigRoot);
-            if (Directory.Exists(configRoot))
-            {
-                Directory.Delete(configRoot, recursive: true);
-            }
-        }
+        var persistedJson = await File.ReadAllTextAsync(ConfigurationExtensions.GetConfigFilePath());
+        using var document = JsonDocument.Parse(persistedJson);
+        var persistedSiteId = document.RootElement
+            .GetProperty("ReleaseCenter")
+            .GetProperty("SiteId")
+            .GetString();
+        Assert.Equal(settings.ReleaseCenter.SiteId, persistedSiteId);
     }
 
     [Fact]
@@ -287,5 +273,6 @@ public class ReleaseCenterServiceTests
         }
     }
 }
+
 
 

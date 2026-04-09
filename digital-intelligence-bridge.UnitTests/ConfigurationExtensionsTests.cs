@@ -12,7 +12,6 @@ public class ConfigurationExtensionsTests
     [Fact]
     public void AddAppConfiguration_ShouldBindRuntimeConfig_WhenFilesPresent()
     {
-        var originalConfigDir = Environment.GetEnvironmentVariable("DIB_CONFIG_DIR");
         var originalSupabaseUrl = Environment.GetEnvironmentVariable("Supabase__Url");
         var originalSupabaseAnonKey = Environment.GetEnvironmentVariable("Supabase__AnonKey");
         var originalSupabaseSchema = Environment.GetEnvironmentVariable("Supabase__Schema");
@@ -23,12 +22,11 @@ public class ConfigurationExtensionsTests
         var originalMssqlPassword = Environment.GetEnvironmentVariable("MSSQL_DB_PASSWORD");
         var originalMssqlEncrypt = Environment.GetEnvironmentVariable("MSSQL_DB_ENCRYPT");
         var originalMssqlTrust = Environment.GetEnvironmentVariable("MSSQL_DB_TRUST_SERVER_CERTIFICATE");
-        var tempRoot = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"dib-config-tests-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempRoot);
+        using var sandbox = new TestConfigSandbox();
+        var tempRoot = sandbox.RootDirectory;
 
         try
         {
-            Environment.SetEnvironmentVariable("DIB_CONFIG_DIR", tempRoot);
             Environment.SetEnvironmentVariable("Supabase__Url", null);
             Environment.SetEnvironmentVariable("Supabase__AnonKey", null);
             Environment.SetEnvironmentVariable("Supabase__Schema", null);
@@ -94,7 +92,6 @@ public class ConfigurationExtensionsTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("DIB_CONFIG_DIR", originalConfigDir);
             Environment.SetEnvironmentVariable("Supabase__Url", originalSupabaseUrl);
             Environment.SetEnvironmentVariable("Supabase__AnonKey", originalSupabaseAnonKey);
             Environment.SetEnvironmentVariable("Supabase__Schema", originalSupabaseSchema);
@@ -105,17 +102,12 @@ public class ConfigurationExtensionsTests
             Environment.SetEnvironmentVariable("MSSQL_DB_PASSWORD", originalMssqlPassword);
             Environment.SetEnvironmentVariable("MSSQL_DB_ENCRYPT", originalMssqlEncrypt);
             Environment.SetEnvironmentVariable("MSSQL_DB_TRUST_SERVER_CERTIFICATE", originalMssqlTrust);
-            if (Directory.Exists(tempRoot))
-            {
-                Directory.Delete(tempRoot, recursive: true);
-            }
         }
     }
 
     [Fact]
     public void AddAppConfiguration_ShouldCopyDefaultConfig_WhenUserConfigMissing()
     {
-        var originalConfigDir = Environment.GetEnvironmentVariable("DIB_CONFIG_DIR");
         var originalSupabaseUrl = Environment.GetEnvironmentVariable("Supabase__Url");
         var originalSupabaseAnonKey = Environment.GetEnvironmentVariable("Supabase__AnonKey");
         var originalSupabaseSchema = Environment.GetEnvironmentVariable("Supabase__Schema");
@@ -126,9 +118,10 @@ public class ConfigurationExtensionsTests
         var originalMssqlPassword = Environment.GetEnvironmentVariable("MSSQL_DB_PASSWORD");
         var originalMssqlEncrypt = Environment.GetEnvironmentVariable("MSSQL_DB_ENCRYPT");
         var originalMssqlTrust = Environment.GetEnvironmentVariable("MSSQL_DB_TRUST_SERVER_CERTIFICATE");
-        var tempRoot = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"dib-config-fallback-{Guid.NewGuid():N}");
-        var userConfigPath = System.IO.Path.Combine(tempRoot, "appsettings.json");
-        var runtimeConfigPath = System.IO.Path.Combine(tempRoot, "appsettings.runtime.json");
+        using var sandbox = new TestConfigSandbox();
+        var tempRoot = sandbox.RootDirectory;
+        var userConfigPath = Path.Combine(tempRoot, "appsettings.json");
+        var runtimeConfigPath = Path.Combine(tempRoot, "appsettings.runtime.json");
 
         if (Directory.Exists(tempRoot))
         {
@@ -137,7 +130,6 @@ public class ConfigurationExtensionsTests
 
         try
         {
-            Environment.SetEnvironmentVariable("DIB_CONFIG_DIR", tempRoot);
             Environment.SetEnvironmentVariable("Supabase__Url", null);
             Environment.SetEnvironmentVariable("Supabase__AnonKey", null);
             Environment.SetEnvironmentVariable("Supabase__Schema", null);
@@ -162,7 +154,6 @@ public class ConfigurationExtensionsTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("DIB_CONFIG_DIR", originalConfigDir);
             Environment.SetEnvironmentVariable("Supabase__Url", originalSupabaseUrl);
             Environment.SetEnvironmentVariable("Supabase__AnonKey", originalSupabaseAnonKey);
             Environment.SetEnvironmentVariable("Supabase__Schema", originalSupabaseSchema);
@@ -173,10 +164,40 @@ public class ConfigurationExtensionsTests
             Environment.SetEnvironmentVariable("MSSQL_DB_PASSWORD", originalMssqlPassword);
             Environment.SetEnvironmentVariable("MSSQL_DB_ENCRYPT", originalMssqlEncrypt);
             Environment.SetEnvironmentVariable("MSSQL_DB_TRUST_SERVER_CERTIFICATE", originalMssqlTrust);
-            if (Directory.Exists(tempRoot))
+        }
+    }
+
+    [Fact]
+    public void EnsureSafeRuntimeConfiguration_ShouldThrow_WhenTestSettingsLeakIntoRuntimeConfig()
+    {
+        var previousAllowUnsafeConfig = Environment.GetEnvironmentVariable("DIB_ALLOW_UNSAFE_CONFIG");
+        Environment.SetEnvironmentVariable("DIB_ALLOW_UNSAFE_CONFIG", null);
+
+        try
+        {
+            var settings = new AppSettings
             {
-                Directory.Delete(tempRoot, recursive: true);
-            }
+                Application = new ApplicationConfig { Name = "TestApp", Version = "1.0.0" },
+                Plugin = new PluginConfig { PluginDirectory = "plugins-tests" },
+                ReleaseCenter = new ReleaseCenterConfig
+                {
+                    Enabled = true,
+                    BaseUrl = "http://release-center.local",
+                    Channel = "stable"
+                }
+            };
+
+            var ex = Assert.Throws<InvalidOperationException>(() =>
+                ConfigurationSafetyValidator.EnsureSafeRuntimeConfiguration(settings, "C:\\Users\\Administrator\\AppData\\Local\\UniversalTrayTool\\appsettings.json"));
+
+            Assert.Contains("测试配置污染", ex.Message);
+            Assert.Contains("TestApp", ex.Message);
+            Assert.Contains("plugins-tests", ex.Message);
+            Assert.Contains("release-center.local", ex.Message);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("DIB_ALLOW_UNSAFE_CONFIG", previousAllowUnsafeConfig);
         }
     }
 
@@ -190,6 +211,7 @@ public class ConfigurationExtensionsTests
         var originalPassword = Environment.GetEnvironmentVariable("MSSQL_DB_PASSWORD");
         var originalEncrypt = Environment.GetEnvironmentVariable("MSSQL_DB_ENCRYPT");
         var originalTrust = Environment.GetEnvironmentVariable("MSSQL_DB_TRUST_SERVER_CERTIFICATE");
+        using var sandbox = new TestConfigSandbox();
 
         try
         {
@@ -226,4 +248,5 @@ public class ConfigurationExtensionsTests
         }
     }
 }
+
 

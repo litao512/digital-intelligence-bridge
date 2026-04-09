@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -62,6 +63,13 @@ public class SettingsViewModel : ViewModelBase
     private DateTime? _lastPluginRollbackAt;
     private bool _isPluginRollbackRunning;
     private string _restartRequiredNotice = string.Empty;
+    private string _siteNameInput = string.Empty;
+    private string _siteRemarkInput = string.Empty;
+    private string _siteProfileSummary = "站点信息：未填写";
+    private string _siteProfileStatus = string.Empty;
+    private string _siteInitializationSummary = "初始化本机插件：尚未执行";
+    private string _siteInitializationDetail = string.Empty;
+    private bool _isSiteInitializationRunning;
 
     public ObservableCollection<SelfCheckItem> SelfCheckItems { get; } = new();
 
@@ -98,6 +106,29 @@ public class SettingsViewModel : ViewModelBase
     public string PluginRollbackDetail { get => _pluginRollbackDetail; set => SetProperty(ref _pluginRollbackDetail, value); }
     public DateTime? LastPluginRollbackAt { get => _lastPluginRollbackAt; set => SetProperty(ref _lastPluginRollbackAt, value); }
     public string RestartRequiredNotice { get => _restartRequiredNotice; set => SetProperty(ref _restartRequiredNotice, value); }
+    public string SiteNameInput
+    {
+        get => _siteNameInput;
+        set
+        {
+            if (SetProperty(ref _siteNameInput, value))
+            {
+                RaisePropertyChanged(nameof(CanInitializeSitePlugins));
+                SaveSiteProfileCommand?.RaiseCanExecuteChanged();
+                InitializeSitePluginsCommand?.RaiseCanExecuteChanged();
+            }
+        }
+    }
+    public string SiteRemarkInput
+    {
+        get => _siteRemarkInput;
+        set => SetProperty(ref _siteRemarkInput, value);
+    }
+    public string SiteProfileSummary { get => _siteProfileSummary; set => SetProperty(ref _siteProfileSummary, value); }
+    public string SiteProfileStatus { get => _siteProfileStatus; set => SetProperty(ref _siteProfileStatus, value); }
+    public string SiteInitializationSummary { get => _siteInitializationSummary; set => SetProperty(ref _siteInitializationSummary, value); }
+    public string SiteInitializationDetail { get => _siteInitializationDetail; set => SetProperty(ref _siteInitializationDetail, value); }
+    public bool CanInitializeSitePlugins => !string.IsNullOrWhiteSpace(SiteNameInput);
 
     public bool IsSelfCheckRunning
     {
@@ -176,14 +207,30 @@ public class SettingsViewModel : ViewModelBase
         }
     }
 
+    public bool IsSiteInitializationRunning
+    {
+        get => _isSiteInitializationRunning;
+        private set
+        {
+            if (SetProperty(ref _isSiteInitializationRunning, value))
+            {
+                RaisePropertyChanged(nameof(InitializeSitePluginsButtonText));
+                RaisePropertyChanged(nameof(CanInitializeSitePlugins));
+                InitializeSitePluginsCommand?.RaiseCanExecuteChanged();
+            }
+        }
+    }
+
     public string RunSelfCheckButtonText => IsSelfCheckRunning ? "执行中..." : "运行自检";
     public string CheckUpdateButtonText => IsUpdateCheckRunning ? "检查中..." : "检查更新";
     public string DownloadClientPackageButtonText => IsClientPackageDownloadRunning ? "下载中..." : "下载客户端更新包";
     public string DownloadPluginPackagesButtonText => IsPluginDownloadRunning ? "下载中..." : "下载插件包";
     public string PreparePluginPackagesButtonText => IsPluginPrepareRunning ? "准备中..." : "生成预安装目录";
     public string RestoreLatestPluginBackupButtonText => IsPluginRollbackRunning ? "回滚中..." : "回滚最近备份";
+    public string InitializeSitePluginsButtonText => IsSiteInitializationRunning ? "初始化中..." : "初始化本机插件";
 
     public DelegateCommand SaveSettingsCommand { get; }
+    public DelegateCommand SaveSiteProfileCommand { get; }
     public DelegateCommand ExportDataCommand { get; }
     public DelegateCommand ImportDataCommand { get; }
     public DelegateCommand ClearAllDataCommand { get; }
@@ -192,6 +239,7 @@ public class SettingsViewModel : ViewModelBase
     public DelegateCommand DownloadPluginPackagesCommand { get; }
     public DelegateCommand PreparePluginPackagesCommand { get; }
     public DelegateCommand RestoreLatestPluginBackupCommand { get; }
+    public DelegateCommand InitializeSitePluginsCommand { get; }
     public DelegateCommand OpenLogFolderCommand { get; }
     public DelegateCommand RunSelfCheckCommand { get; }
     public DelegateCommand ExportSelfCheckReportCommand { get; }
@@ -206,6 +254,7 @@ public class SettingsViewModel : ViewModelBase
         _releaseCenterService = releaseCenterService;
         LoadSettings();
         SaveSettingsCommand = new DelegateCommand(SaveSettings);
+        SaveSiteProfileCommand = new DelegateCommand(SaveSiteProfile, () => !string.IsNullOrWhiteSpace(SiteNameInput));
         ExportDataCommand = new DelegateCommand(ExportData);
         ImportDataCommand = new DelegateCommand(ImportData);
         ClearAllDataCommand = new DelegateCommand(ClearAllData);
@@ -214,6 +263,7 @@ public class SettingsViewModel : ViewModelBase
         DownloadPluginPackagesCommand = new DelegateCommand(() => _ = DownloadPluginPackagesAsync(), () => !IsPluginDownloadRunning);
         PreparePluginPackagesCommand = new DelegateCommand(() => _ = PreparePluginPackagesAsync(), () => !IsPluginPrepareRunning);
         RestoreLatestPluginBackupCommand = new DelegateCommand(() => _ = RestoreLatestPluginBackupAsync(), () => !IsPluginRollbackRunning);
+        InitializeSitePluginsCommand = new DelegateCommand(() => _ = InitializeSitePluginsAsync(), () => !IsSiteInitializationRunning && CanInitializeSitePlugins);
         OpenLogFolderCommand = new DelegateCommand(OpenLogFolder);
         RunSelfCheckCommand = new DelegateCommand(() => _ = RunSelfCheckAsync(), () => !IsSelfCheckRunning);
         ExportSelfCheckReportCommand = new DelegateCommand(ExportSelfCheckReport);
@@ -230,6 +280,11 @@ public class SettingsViewModel : ViewModelBase
         AutoSaveInterval = 5;
         AppName = _settings.Application.Name;
         AppVersion = _settings.Application.Version;
+        SiteNameInput = _settings.ReleaseCenter.SiteName;
+        SiteRemarkInput = _settings.ReleaseCenter.SiteRemark;
+        SiteProfileSummary = string.IsNullOrWhiteSpace(SiteNameInput)
+            ? "站点信息：未填写"
+            : $"站点信息：{SiteNameInput}";
     }
 
     private void ApplyTheme(bool isDarkMode)
@@ -255,6 +310,22 @@ public class SettingsViewModel : ViewModelBase
         {
             _logger.LogError($"保存设置失败: {ex}");
         }
+    }
+
+    private void SaveSiteProfile()
+    {
+        var siteName = SiteNameInput.Trim();
+        if (string.IsNullOrWhiteSpace(siteName))
+        {
+            SiteProfileStatus = "请先填写站点名称。";
+            return;
+        }
+
+        _settings.ReleaseCenter.SiteName = siteName;
+        _settings.ReleaseCenter.SiteRemark = SiteRemarkInput.Trim();
+        PersistAppSettings();
+        SiteProfileSummary = $"站点信息：{_settings.ReleaseCenter.SiteName}";
+        SiteProfileStatus = "站点信息已保存，后续站点注册与心跳将使用新的站点名称。";
     }
 
     private void ExportData() => _logger.LogInformation("导出数据...");
@@ -476,6 +547,70 @@ public class SettingsViewModel : ViewModelBase
         }
     }
 
+    private async Task InitializeSitePluginsAsync()
+    {
+        if (IsSiteInitializationRunning) return;
+
+        var siteName = SiteNameInput.Trim();
+        if (string.IsNullOrWhiteSpace(siteName))
+        {
+            SiteInitializationSummary = "初始化本机插件：请先填写站点名称";
+            SiteInitializationDetail = "请先保存站点信息，再执行初始化。";
+            return;
+        }
+
+        IsSiteInitializationRunning = true;
+        SiteInitializationSummary = "初始化本机插件：正在执行";
+        SiteInitializationDetail = "正在保存站点信息并检查更新...";
+
+        try
+        {
+            SaveSiteProfile();
+            await CheckUpdateAsync();
+
+            if (_releaseCenterService is null)
+            {
+                SiteInitializationSummary = "初始化本机插件失败";
+                SiteInitializationDetail = "IReleaseCenterService 未注册。";
+                return;
+            }
+
+            SiteInitializationDetail = "正在下载授权插件包...";
+            await DownloadPluginPackagesAsync();
+
+            if (PluginDownloadSummary.Contains("失败", StringComparison.Ordinal))
+            {
+                SiteInitializationSummary = "初始化本机插件失败";
+                SiteInitializationDetail = PluginDownloadDetail;
+                return;
+            }
+
+            SiteInitializationDetail = "正在生成预安装目录...";
+            await PreparePluginPackagesAsync();
+
+            if (PluginPrepareSummary.Contains("失败", StringComparison.Ordinal))
+            {
+                SiteInitializationSummary = "初始化本机插件失败";
+                SiteInitializationDetail = PluginPrepareDetail;
+                return;
+            }
+
+            SiteInitializationSummary = "初始化本机插件完成";
+            SiteInitializationDetail = "基础插件已就绪，重启 DIB 后生效。";
+            RestartRequiredNotice = "已有插件更新就绪，重启 DIB 后生效。";
+        }
+        catch (Exception ex)
+        {
+            SiteInitializationSummary = "初始化本机插件失败";
+            SiteInitializationDetail = ex.Message;
+            _logger.LogError(ex, "初始化本机插件失败");
+        }
+        finally
+        {
+            IsSiteInitializationRunning = false;
+        }
+    }
+
     private static string BuildClientDownloadDetail(ReleaseCenterDownloadProgress item)
     {
         var progressText = BuildProgressText(item.BytesReceived, item.TotalBytes);
@@ -522,6 +657,17 @@ public class SettingsViewModel : ViewModelBase
         }
 
         return $"{Math.Max(0, remaining.Seconds)} 秒";
+    }
+
+    private void PersistAppSettings()
+    {
+        var configPath = ConfigurationExtensions.GetConfigFilePath();
+        Directory.CreateDirectory(Path.GetDirectoryName(configPath)!);
+        var json = JsonSerializer.Serialize(_settings, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+        File.WriteAllText(configPath, json);
     }
     private void OpenLogFolder()
     {

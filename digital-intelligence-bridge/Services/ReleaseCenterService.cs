@@ -207,7 +207,8 @@ public sealed class ReleaseCenterService : IReleaseCenterService
             {
                 var fileName = BuildDownloadFileName(plugin);
                 var targetPath = Path.Combine(cacheDirectory, fileName);
-                var bytes = await _httpClient.GetByteArrayAsync(plugin.PackageUrl!, cancellationToken).ConfigureAwait(false);
+                var packageUrl = NormalizePackageUrl(plugin.PackageUrl!);
+                var bytes = await _httpClient.GetByteArrayAsync(packageUrl, cancellationToken).ConfigureAwait(false);
                 ValidateSha256(plugin, bytes);
                 await File.WriteAllBytesAsync(targetPath, bytes, cancellationToken).ConfigureAwait(false);
                 downloaded.Add(targetPath);
@@ -520,6 +521,16 @@ public sealed class ReleaseCenterService : IReleaseCenterService
     private string ResolveStagingDirectory() => !string.IsNullOrWhiteSpace(_config.StagingDirectory) ? _config.StagingDirectory : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "UniversalTrayTool", "release-staging", "plugins", _config.Channel.Trim());
     private string ResolveRuntimePluginRoot() => !string.IsNullOrWhiteSpace(_config.RuntimePluginRoot) ? _config.RuntimePluginRoot : Path.Combine(AppContext.BaseDirectory, _pluginConfig.PluginDirectory);
     private string ResolveBackupDirectory() => !string.IsNullOrWhiteSpace(_config.BackupDirectory) ? _config.BackupDirectory : Path.Combine(AppContext.BaseDirectory, "release-backups", "plugins");
+    private string NormalizePackageUrl(string packageUrl)
+    {
+        if (Uri.TryCreate(packageUrl, UriKind.Absolute, out var absoluteUri))
+        {
+            return absoluteUri.ToString();
+        }
+
+        var baseUri = new Uri(_config.BaseUrl.TrimEnd('/') + "/");
+        return new Uri(baseUri, packageUrl).ToString();
+    }
 
     private bool HasClientUpdate(ClientManifestDto? manifest) => manifest is not null && !string.IsNullOrWhiteSpace(manifest.LatestVersion) && CompareVersions(manifest.LatestVersion, _currentAppVersion) > 0;
     private static string BuildClientSummary(ClientManifestDto? manifest) => manifest is null || string.IsNullOrWhiteSpace(manifest.LatestVersion) ? "客户端更新：暂无发布版本" : $"客户端最新版本：{manifest.LatestVersion}（最低升级版本：{manifest.MinUpgradeVersion ?? "未限制"}）";
