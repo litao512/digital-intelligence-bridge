@@ -673,7 +673,7 @@ public class SettingsViewModel : ViewModelBase
     {
         try
         {
-            var logPath = Path.Combine(AppContext.BaseDirectory, "logs");
+            var logPath = ConfigurationExtensions.GetLogsDirectory(_settings.Logging.LogPath);
             if (Directory.Exists(logPath))
             {
                 Process.Start(new ProcessStartInfo { FileName = logPath, UseShellExecute = true });
@@ -709,17 +709,13 @@ public class SettingsViewModel : ViewModelBase
             AddResult("默认配置文件", File.Exists(defaultConfigPath), defaultConfigPath);
             var iconAvailable = IsTrayIconAvailable(_settings.Tray.IconPath, out var iconDetail);
             AddResult("托盘图标文件", iconAvailable, iconDetail);
-            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var appFolder = Path.Combine(appDataPath, "UniversalTrayTool");
-            var pluginDir = Path.Combine(appFolder, _settings.Plugin.PluginDirectory);
+            var pluginDir = ConfigurationExtensions.GetRuntimePluginsDirectory(_settings.Plugin.PluginDirectory);
             var pluginExists = Directory.Exists(pluginDir);
             var pluginCount = pluginExists ? Directory.GetDirectories(pluginDir).Length + Directory.GetFiles(pluginDir, "*.dll").Length : 0;
             AddResult("插件目录", pluginExists, $"{pluginDir}（发现 {pluginCount} 项）");
-            var logDir = Path.Combine(appFolder, _settings.Logging.LogPath);
+            var logDir = ConfigurationExtensions.GetLogsDirectory(_settings.Logging.LogPath);
             var logWritable = EnsureWritable(logDir, out var writeDetail);
             AddResult("日志目录写入", logWritable, writeDetail);
-            AddResult("导航配置", _settings.Navigation.Count > 0, $"Navigation 项数: {_settings.Navigation.Count}");
-
             if (_supabaseService == null)
             {
                 AddResult("Supabase 表访问", false, "ISupabaseService 未注册");
@@ -768,8 +764,7 @@ public class SettingsViewModel : ViewModelBase
                 RunSelfCheckAsync().GetAwaiter().GetResult();
             }
 
-            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var reportDir = Path.Combine(appDataPath, "UniversalTrayTool", "logs");
+            var reportDir = ConfigurationExtensions.GetLogsDirectory(_settings.Logging.LogPath);
             Directory.CreateDirectory(reportDir);
             var fileName = $"selfcheck-{DateTime.Now:yyyyMMdd-HHmmss}.md";
             var filePath = Path.Combine(reportDir, fileName);

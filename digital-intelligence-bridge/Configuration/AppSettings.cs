@@ -10,7 +10,6 @@ public class AppSettings
     public PluginConfig Plugin { get; set; } = new();
     public SupabaseConfig Supabase { get; set; } = new();
     public ReleaseCenterConfig ReleaseCenter { get; set; } = new();
-    public List<NavigationMenuItemConfig> Navigation { get; set; } = new();
     public LoggingConfig Logging { get; set; } = new();
     public MedicalDrugImportConfig MedicalDrugImport { get; set; } = new();
 }
@@ -34,16 +33,6 @@ public class PluginConfig
     public string PluginDirectory { get; set; } = "plugins";
     public bool AutoLoad { get; set; } = true;
     public bool AllowUnsigned { get; set; } = false;
-}
-
-public class NavigationMenuItemConfig
-{
-    public string Id { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public string Icon { get; set; } = string.Empty;
-    public string Type { get; set; } = string.Empty;
-    public bool IsInstalled { get; set; } = true;
-    public int Order { get; set; } = 0;
 }
 
 public class SupabaseConfig

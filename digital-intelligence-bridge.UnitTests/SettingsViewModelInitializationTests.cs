@@ -67,9 +67,11 @@ public class SettingsViewModelInitializationTests
 
     private static async Task WaitForInitializationAsync(SettingsViewModel vm)
     {
+        var started = false;
         for (var i = 0; i < 100; i++)
         {
-            if (!vm.IsSiteInitializationRunning)
+            started |= vm.IsSiteInitializationRunning;
+            if (started && !vm.IsSiteInitializationRunning)
             {
                 return;
             }
@@ -91,8 +93,7 @@ public class SettingsViewModelInitializationTests
                 Enabled = true,
                 BaseUrl = "http://release-center.local",
                 Channel = "stable"
-            },
-            Navigation = new List<NavigationMenuItemConfig> { new() { Id = "home", Name = "首页", Type = "Home", Order = 1 } }
+            }
         };
 
         return new SettingsViewModel(

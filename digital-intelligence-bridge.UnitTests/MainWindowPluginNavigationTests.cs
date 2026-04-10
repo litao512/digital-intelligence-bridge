@@ -11,14 +11,7 @@ public class MainWindowPluginNavigationTests
     [Fact]
     public void Constructor_ShouldAppendExternalPluginMenus_WithoutReusingInstalledPluginSemantics()
     {
-        var settings = new AppSettings
-        {
-            Navigation =
-            [
-                new NavigationMenuItemConfig { Id = "home", Name = "首页", Type = "Home", IsInstalled = true, Order = 10 },
-                new NavigationMenuItemConfig { Id = "todo", Name = "待办事项", Type = "Todo", IsInstalled = true, Order = 20 }
-            ]
-        };
+        var settings = new AppSettings();
         IReadOnlyList<PluginMenuItem> externalMenus =
         [
             new PluginMenuItem { Id = "medical-drug-import.home", Name = "医保导入插件", Icon = "🧩", Order = 30 }
@@ -27,6 +20,7 @@ public class MainWindowPluginNavigationTests
         var vm = new MainWindowViewModel(new TestLogger(), Options.Create(settings), null, null, externalMenus);
 
         var pluginMenu = Assert.Single(vm.MenuItems, item => item.IsExternalPlugin);
+        Assert.Contains(vm.MenuItems, item => item.Id == "home" && item.ViewType == MainViewType.Home);
         Assert.Equal("medical-drug-import.home", pluginMenu.Id);
         Assert.Equal(MainViewType.PluginHost, pluginMenu.ViewType);
         Assert.True(pluginMenu.IsInstalled);
@@ -35,38 +29,25 @@ public class MainWindowPluginNavigationTests
     }
 
     [Fact]
-    public void Constructor_ShouldUseMedicalDrugImportEnabled_ForBuiltInDrugImportMenu()
+    public void Constructor_ShouldNotCreateBuiltInDrugImportMenu_EvenWhenEnabled()
     {
         var settings = new AppSettings
         {
             MedicalDrugImport = new MedicalDrugImportConfig
             {
                 Enabled = true
-            },
-            Navigation =
-            [
-                new NavigationMenuItemConfig { Id = "home", Name = "首页", Type = "Home", IsInstalled = true, Order = 10 },
-                new NavigationMenuItemConfig { Id = "drug-import", Name = "医保药品导入", Type = "DrugImport", IsInstalled = false, Order = 20 }
-            ]
+            }
         };
 
         var vm = new MainWindowViewModel(new TestLogger(), Options.Create(settings));
 
-        var drugImportMenu = Assert.Single(vm.MenuItems, item => item.Id == "drug-import");
-        Assert.True(drugImportMenu.IsInstalled);
-        Assert.False(drugImportMenu.IsExternalPlugin);
+        Assert.DoesNotContain(vm.MenuItems, item => item.Id == "drug-import");
     }
 
     [Fact]
     public void NavigateCommand_ShouldOpenPluginHostTab_WhenNavigatingToExternalPluginTarget()
     {
-        var settings = new AppSettings
-        {
-            Navigation =
-            [
-                new NavigationMenuItemConfig { Id = "home", Name = "首页", Type = "Home", IsInstalled = true, Order = 10 }
-            ]
-        };
+        var settings = new AppSettings();
         IReadOnlyList<PluginMenuItem> externalMenus =
         [
             new PluginMenuItem { Id = "medical-drug-import.home", Name = "医保导入插件", Icon = "🧩", Order = 30 }

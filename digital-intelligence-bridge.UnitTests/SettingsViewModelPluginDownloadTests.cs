@@ -41,7 +41,6 @@ public class SettingsViewModelPluginDownloadTests
             Tray = new TrayConfig { IconPath = "Assets/avalonia-logo.ico", ShowNotifications = true },
             Plugin = new PluginConfig { PluginDirectory = "plugins-tests" },
             Logging = new LoggingConfig { LogPath = "logs" },
-            Navigation = new List<NavigationMenuItemConfig> { new() { Id = "home", Name = "首页", Type = "Home", Order = 1 } }
         };
 
         return new SettingsViewModel(

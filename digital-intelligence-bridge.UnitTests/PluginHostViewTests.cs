@@ -12,13 +12,7 @@ public class PluginHostViewTests
     [Fact]
     public void NavigateCommand_ShouldCreateErrorHostViewModel_WhenPluginMenuHasNoLoadedPlugin()
     {
-        var settings = new AppSettings
-        {
-            Navigation =
-            [
-                new NavigationMenuItemConfig { Id = "home", Name = "首页", Type = "Home", IsInstalled = true, Order = 10 }
-            ]
-        };
+        var settings = new AppSettings();
         IReadOnlyList<PluginMenuItem> externalMenus =
         [
             new PluginMenuItem { Id = "medical-drug-import.home", Name = "医保导入插件", Icon = "🧩", Order = 30 }

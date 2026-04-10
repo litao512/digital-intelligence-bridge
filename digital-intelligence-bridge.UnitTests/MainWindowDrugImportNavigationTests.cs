@@ -9,22 +9,15 @@ namespace DigitalIntelligenceBridge.UnitTests;
 public class MainWindowDrugImportNavigationTests
 {
     [Fact]
-    public void Constructor_ShouldIncludeDrugImportMenu_WhenConfigured()
+    public void Constructor_ShouldNotIncludeDrugImportMenu()
     {
-        var settings = new AppSettings
-        {
-            Navigation = new List<NavigationMenuItemConfig>
-            {
-                new() { Id = "home", Name = "首页", Type = "Home", Order = 10, IsInstalled = true },
-                new() { Id = "drug-import", Name = "医保药品导入", Type = "DrugImport", Order = 20, IsInstalled = true }
-            }
-        };
+        var settings = new AppSettings();
 
         var vm = new MainWindowViewModel(
             new NullLoggerService<MainWindowViewModel>(),
             Options.Create(settings));
 
-        Assert.Contains(vm.MenuItems, item => item.Id == "drug-import" && item.ViewType == MainViewType.DrugImport);
+        Assert.DoesNotContain(vm.MenuItems, item => item.Id == "drug-import" && item.ViewType == MainViewType.DrugImport);
     }
 
     [Fact]

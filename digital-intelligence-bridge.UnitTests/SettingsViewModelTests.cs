@@ -108,12 +108,7 @@ public class SettingsViewModelTests
             Application = new ApplicationConfig { Name = "TestApp", Version = "9.9.9" },
             Tray = new TrayConfig { IconPath = "Assets/avalonia-logo.ico", ShowNotifications = true },
             Plugin = new PluginConfig { PluginDirectory = "plugins-tests" },
-            Logging = new LoggingConfig { LogPath = "logs" },
-            Navigation = new List<NavigationMenuItemConfig>
-            {
-                new() { Id = "home", Name = "首页", Type = "Home", Order = 1 },
-                new() { Id = "todo", Name = "待办", Type = "Todo", Order = 2 }
-            }
+            Logging = new LoggingConfig { LogPath = "logs" }
         };
 
         return new SettingsViewModel(

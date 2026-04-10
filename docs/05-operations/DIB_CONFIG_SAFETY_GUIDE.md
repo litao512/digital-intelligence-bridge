@@ -25,12 +25,12 @@
 ### 测试/联调
 
 - 必须使用独立沙箱目录
-- 通过环境变量 `DIB_CONFIG_DIR` 指向临时目录
+- 通过环境变量 `DIB_CONFIG_ROOT` 指向临时目录
 - 如需允许测试配置值，额外设置：`DIB_ALLOW_UNSAFE_CONFIG=1`
 
 说明：
 
-- `DIB_CONFIG_DIR` 用于切换配置根目录
+- `DIB_CONFIG_ROOT` 用于切换配置根目录
 - `DIB_ALLOW_UNSAFE_CONFIG=1` 仅用于测试，允许 `TestApp`、`plugins-tests`、`release-center.local` 这类测试特征通过校验
 
 ## 如何判断配置被测试环境污染

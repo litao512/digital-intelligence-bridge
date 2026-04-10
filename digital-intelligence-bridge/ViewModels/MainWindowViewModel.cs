@@ -4,6 +4,8 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
 using DigitalIntelligenceBridge.Configuration;
 using DigitalIntelligenceBridge.Models;
 using DigitalIntelligenceBridge.Plugin.Abstractions;
@@ -120,6 +122,7 @@ public class MainWindowViewModel : ViewModelBase
     private string _pageTitle = "首页";
     private string _pageSubtitle = "欢迎使用";
     private TabItemModel? _selectedTab;
+    private bool _isMenuCollapsed;
 
     // 搜索和筛选字段
     private string _searchText = string.Empty;
@@ -187,6 +190,36 @@ public class MainWindowViewModel : ViewModelBase
         get => _pageSubtitle;
         set => SetProperty(ref _pageSubtitle, value);
     }
+
+    public bool IsMenuCollapsed
+    {
+        get => _isMenuCollapsed;
+        set
+        {
+            if (SetProperty(ref _isMenuCollapsed, value))
+            {
+                RaisePropertyChanged(nameof(IsMenuExpanded));
+                RaisePropertyChanged(nameof(MenuToggleGlyph));
+                RaisePropertyChanged(nameof(SidebarWidth));
+                RaisePropertyChanged(nameof(SidebarHeaderPadding));
+                RaisePropertyChanged(nameof(SidebarScrollPadding));
+                RaisePropertyChanged(nameof(SidebarFooterPadding));
+                RaisePropertyChanged(nameof(NavButtonPadding));
+                RaisePropertyChanged(nameof(MenuItemSpacing));
+            }
+        }
+    }
+
+    public bool IsMenuExpanded => !IsMenuCollapsed;
+
+    public string MenuToggleGlyph => IsMenuCollapsed ? "▶" : "◀";
+
+    public double SidebarWidth => IsMenuCollapsed ? 48 : 220;
+    public Thickness SidebarHeaderPadding => IsMenuCollapsed ? new Thickness(4, 8) : new Thickness(15, 20);
+    public Thickness SidebarScrollPadding => IsMenuCollapsed ? new Thickness(4) : new Thickness(10);
+    public Thickness SidebarFooterPadding => IsMenuCollapsed ? new Thickness(4, 8) : new Thickness(15, 10);
+    public Thickness NavButtonPadding => IsMenuCollapsed ? new Thickness(6, 10) : new Thickness(12, 10);
+    public double MenuItemSpacing => IsMenuCollapsed ? 0 : 10;
 
     public DrugImportViewModel? DrugImportToolViewModel => _drugImportViewModel;
 
@@ -351,6 +384,7 @@ public class MainWindowViewModel : ViewModelBase
     public DelegateCommand ShowTodoViewCommand { get; }
     public DelegateCommand ShowSettingsViewCommand { get; }
     public DelegateCommand<object?> NavigateCommand { get; }
+    public DelegateCommand ToggleMenuCollapseCommand { get; }
 
     // 筛选命令
     public DelegateCommand ClearFilterCommand { get; }
@@ -389,6 +423,7 @@ public class MainWindowViewModel : ViewModelBase
         ShowTodoViewCommand = new DelegateCommand(() => NavigateTo(MainViewType.Todo));
         ShowSettingsViewCommand = new DelegateCommand(() => NavigateTo(MainViewType.Settings));
         NavigateCommand = new DelegateCommand<object?>(NavigateTo);
+        ToggleMenuCollapseCommand = new DelegateCommand(() => IsMenuCollapsed = !IsMenuCollapsed);
 
         // 初始化筛选命令
         ClearFilterCommand = new DelegateCommand(ClearFilter);
@@ -732,94 +767,15 @@ public class MainWindowViewModel : ViewModelBase
 
     private void InitializeMenuItems()
     {
-        var configuredItems = _settings.Navigation ?? new List<NavigationMenuItemConfig>();
-        var installedPluginIds = DiscoverInstalledPluginIds();
-        var hasConfiguredMenu = configuredItems.Count > 0;
-
-        if (hasConfiguredMenu)
+        MenuItems.Add(new MenuItem
         {
-            foreach (var config in configuredItems.OrderBy(x => x.Order))
-            {
-                if (!TryMapViewType(config.Type, out var viewType))
-                {
-                    _logger.LogWarning("忽略未知导航类型: {Type}", config.Type);
-                    continue;
-                }
-
-                var isBuiltIn = viewType is MainViewType.Home or MainViewType.Todo;
-                var isMedicalDrugImport = viewType == MainViewType.DrugImport;
-                var isInstalled = isBuiltIn
-                                  || (isMedicalDrugImport && _settings.MedicalDrugImport.Enabled)
-                                  || (!isMedicalDrugImport && (config.IsInstalled || installedPluginIds.Contains(config.Id)));
-
-                MenuItems.Add(new MenuItem
-                {
-                    Id = config.Id,
-                    TargetKey = GetBuiltInTargetKey(viewType),
-                    Name = string.IsNullOrWhiteSpace(config.Name) ? config.Id : config.Name,
-                    Icon = string.IsNullOrWhiteSpace(config.Icon) ? GetDefaultIcon(viewType) : config.Icon,
-                    ViewType = viewType,
-                    IsInstalled = isInstalled,
-                    IsPlaceholder = !isInstalled
-                });
-            }
-        }
-
-        if (MenuItems.Count == 0)
-        {
-            // 配置缺失时使用内置默认导航
-            MenuItems.Add(new MenuItem
-            {
-                Id = "home",
-                TargetKey = "home",
-                Name = "首页",
-                Icon = "🏠",
-                ViewType = MainViewType.Home,
-                IsInstalled = true
-            });
-
-            MenuItems.Add(new MenuItem
-            {
-                Id = "todo",
-                TargetKey = "todo",
-                Name = "待办事项",
-                Icon = "📋",
-                ViewType = MainViewType.Todo,
-                IsInstalled = true
-            });
-
-            MenuItems.Add(new MenuItem
-            {
-                Id = "drug-import",
-                TargetKey = "drug-import",
-                Name = "医保药品导入",
-                Icon = "💊",
-                ViewType = MainViewType.DrugImport,
-                IsInstalled = _settings.MedicalDrugImport.Enabled
-            });
-
-            MenuItems.Add(new MenuItem
-            {
-                Id = "patient",
-                TargetKey = "patient",
-                Name = "患者管理",
-                Icon = "👤",
-                ViewType = MainViewType.PatientMgmt,
-                IsInstalled = installedPluginIds.Contains("patient"),
-                IsPlaceholder = !installedPluginIds.Contains("patient")
-            });
-
-            MenuItems.Add(new MenuItem
-            {
-                Id = "schedule",
-                TargetKey = "schedule",
-                Name = "日程安排",
-                Icon = "📅",
-                ViewType = MainViewType.Schedule,
-                IsInstalled = installedPluginIds.Contains("schedule"),
-                IsPlaceholder = !installedPluginIds.Contains("schedule")
-            });
-        }
+            Id = "home",
+            TargetKey = "home",
+            Name = "首页",
+            Icon = "🏠",
+            ViewType = MainViewType.Home,
+            IsInstalled = true
+        });
 
         foreach (var pluginMenu in _externalPluginMenus.OrderBy(item => item.Order))
         {
@@ -837,48 +793,6 @@ public class MainWindowViewModel : ViewModelBase
         }
 
         _logger.LogInformation("菜单项初始化完成，共 {Count} 项", MenuItems.Count);
-    }
-
-    private HashSet<string> DiscoverInstalledPluginIds()
-    {
-        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        try
-        {
-            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var appFolder = Path.Combine(appDataPath, "UniversalTrayTool");
-            var pluginRoot = Path.Combine(appFolder, _settings.Plugin.PluginDirectory);
-            if (!Directory.Exists(pluginRoot))
-            {
-                return result;
-            }
-
-            foreach (var dir in Directory.GetDirectories(pluginRoot))
-            {
-                result.Add(Path.GetFileName(dir));
-            }
-
-            foreach (var dll in Directory.GetFiles(pluginRoot, "*.dll", SearchOption.TopDirectoryOnly))
-            {
-                result.Add(Path.GetFileNameWithoutExtension(dll));
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning("扫描插件目录失败: {Message}", ex.Message);
-        }
-
-        return result;
-    }
-
-    private static bool TryMapViewType(string type, out MainViewType viewType)
-    {
-        if (Enum.TryParse(type, true, out viewType))
-        {
-            return true;
-        }
-
-        viewType = MainViewType.Home;
-        return false;
     }
 
     private static string GetDefaultIcon(MainViewType viewType)
