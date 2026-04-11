@@ -48,15 +48,7 @@ public static class LoggingConfiguration
     /// </summary>
     private static string GetLogPath(string configLogPath)
     {
-        // 如果是绝对路径，直接使用
-        if (Path.IsPathRooted(configLogPath))
-        {
-            return configLogPath;
-        }
-
-        // 否则使用 LocalAppData 目录
-        var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(appDataPath, "UniversalTrayTool", configLogPath);
+        return ConfigurationExtensions.GetLogsDirectory(configLogPath);
     }
 
     /// <summary>

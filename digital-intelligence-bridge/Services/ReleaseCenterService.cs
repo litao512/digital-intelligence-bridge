@@ -519,8 +519,8 @@ public sealed class ReleaseCenterService : IReleaseCenterService
     private string ResolveCacheDirectory() => !string.IsNullOrWhiteSpace(_config.CacheDirectory) ? _config.CacheDirectory : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "UniversalTrayTool", "release-cache", "plugins", _config.Channel.Trim());
     private string ResolveClientCacheDirectory() => !string.IsNullOrWhiteSpace(_config.ClientCacheDirectory) ? _config.ClientCacheDirectory : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "UniversalTrayTool", "release-cache", "clients", _config.Channel.Trim());
     private string ResolveStagingDirectory() => !string.IsNullOrWhiteSpace(_config.StagingDirectory) ? _config.StagingDirectory : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "UniversalTrayTool", "release-staging", "plugins", _config.Channel.Trim());
-    private string ResolveRuntimePluginRoot() => !string.IsNullOrWhiteSpace(_config.RuntimePluginRoot) ? _config.RuntimePluginRoot : Path.Combine(AppContext.BaseDirectory, _pluginConfig.PluginDirectory);
-    private string ResolveBackupDirectory() => !string.IsNullOrWhiteSpace(_config.BackupDirectory) ? _config.BackupDirectory : Path.Combine(AppContext.BaseDirectory, "release-backups", "plugins");
+    private string ResolveRuntimePluginRoot() => !string.IsNullOrWhiteSpace(_config.RuntimePluginRoot) ? _config.RuntimePluginRoot : ConfigurationExtensions.GetRuntimePluginsDirectory(_pluginConfig.PluginDirectory);
+    private string ResolveBackupDirectory() => !string.IsNullOrWhiteSpace(_config.BackupDirectory) ? _config.BackupDirectory : ConfigurationExtensions.GetReleaseBackupsDirectory();
     private string NormalizePackageUrl(string packageUrl)
     {
         if (Uri.TryCreate(packageUrl, UriKind.Absolute, out var absoluteUri))

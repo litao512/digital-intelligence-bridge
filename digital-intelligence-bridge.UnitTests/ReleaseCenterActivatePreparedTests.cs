@@ -61,6 +61,37 @@ public class ReleaseCenterActivatePreparedTests
         }
     }
 
+    [Fact]
+    public async Task ActivatePreparedPluginPackagesAsync_ShouldUseConfigRootPluginDirectory_WhenRuntimeRootNotSpecified()
+    {
+        using var sandbox = new TestConfigSandbox();
+        var staging = Path.Combine(sandbox.RootDirectory, "staging");
+        Directory.CreateDirectory(staging);
+
+        var preparedDir = Path.Combine(staging, "patient-registration-1.0.1");
+        Directory.CreateDirectory(preparedDir);
+        await File.WriteAllTextAsync(Path.Combine(preparedDir, "plugin.json"), """
+{
+  "id": "patient-registration",
+  "name": "就诊登记",
+  "entryAssembly": "PatientRegistration.Plugin.dll",
+  "entryType": "PatientRegistration.Plugin.PatientRegistrationPlugin, PatientRegistration.Plugin"
+}
+""");
+        await File.WriteAllTextAsync(Path.Combine(preparedDir, "PatientRegistration.Plugin.dll"), "new-binary");
+
+        var service = CreateService(staging, string.Empty, string.Empty);
+        var result = await service.ActivatePreparedPluginPackagesAsync();
+
+        var expectedRuntimeDll = Path.Combine(sandbox.RootDirectory, "plugins", "patient-registration", "PatientRegistration.Plugin.dll");
+        var expectedBackupRoot = Path.Combine(sandbox.RootDirectory, "release-backups", "plugins");
+
+        Assert.True(result.IsSuccess);
+        Assert.True(File.Exists(expectedRuntimeDll));
+        Assert.Equal(Path.Combine(sandbox.RootDirectory, "plugins"), result.RuntimePluginRoot);
+        Assert.True(Directory.Exists(expectedBackupRoot));
+    }
+
     private static ReleaseCenterService CreateService(string stagingDirectory, string runtimePluginRoot, string backupDirectory)
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)

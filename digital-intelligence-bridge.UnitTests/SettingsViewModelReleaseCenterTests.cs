@@ -49,6 +49,17 @@ public class SettingsViewModelReleaseCenterTests
         Assert.Equal("授权插件：未注册服务", vm.AuthorizedPluginSummary);
     }
 
+    [Fact]
+    public void RestartApplicationCommand_ShouldInvokeApplicationRestart()
+    {
+        var appService = new StubApplicationService();
+        var vm = CreateVm(appService: appService);
+
+        vm.RestartApplicationCommand.Execute();
+
+        Assert.True(appService.RestartCalled);
+    }
+
     private static async Task WaitForUpdateCheckAsync(SettingsViewModel vm)
     {
         for (var i = 0; i < 50; i++)
@@ -62,7 +73,7 @@ public class SettingsViewModelReleaseCenterTests
         }
     }
 
-    private static SettingsViewModel CreateVm(IReleaseCenterService? releaseCenterService = null)
+    private static SettingsViewModel CreateVm(IReleaseCenterService? releaseCenterService = null, StubApplicationService? appService = null)
     {
         var settings = new AppSettings
         {
@@ -73,7 +84,7 @@ public class SettingsViewModelReleaseCenterTests
         };
 
         return new SettingsViewModel(
-            new StubApplicationService(),
+            appService ?? new StubApplicationService(),
             new StubTrayService(),
             new NullLoggerService<SettingsViewModel>(),
             Options.Create(settings),
@@ -102,11 +113,13 @@ public class SettingsViewModelReleaseCenterTests
     private sealed class StubApplicationService : IApplicationService
     {
         public bool IsInitialized => true;
+        public bool RestartCalled { get; private set; }
         public string GetApplicationName() => "TestApp";
         public string GetVersion() => "1.0.0";
         public Task InitializeAsync() => Task.CompletedTask;
         public Task OnShutdownAsync() => Task.CompletedTask;
         public Task OnStartedAsync() => Task.CompletedTask;
+        public void RestartApplication() => RestartCalled = true;
     }
 
     private sealed class StubTrayService : ITrayService

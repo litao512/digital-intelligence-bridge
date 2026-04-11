@@ -79,6 +79,7 @@ public class SettingsViewModelRollbackTests
         public Task InitializeAsync() => Task.CompletedTask;
         public Task OnShutdownAsync() => Task.CompletedTask;
         public Task OnStartedAsync() => Task.CompletedTask;
+        public void RestartApplication() { }
     }
 
     private sealed class StubTrayService : ITrayService
@@ -108,6 +109,8 @@ public class SettingsViewModelRollbackTests
         public void LogWarning(string message, params object[] args) { }
     }
 }
+
+
 
 
 

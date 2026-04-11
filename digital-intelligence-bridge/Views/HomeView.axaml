@@ -3,73 +3,125 @@
              xmlns:vm="using:DigitalIntelligenceBridge.ViewModels"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
+             mc:Ignorable="d"
+             d:DesignWidth="980"
+             d:DesignHeight="680"
              x:Class="DigitalIntelligenceBridge.Views.HomeView"
-             x:DataType="vm:MainWindowViewModel"
-             x:Name="HomeViewRoot">
+             x:DataType="vm:HomeDashboardViewModel">
 
     <Design.DataContext>
-        <vm:MainWindowViewModel/>
+        <vm:HomeDashboardViewModel/>
     </Design.DataContext>
 
-    <Grid RowDefinitions="Auto,Auto,*" RowSpacing="14" Margin="14">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*"
+          RowSpacing="14"
+          Margin="14">
         <Border Grid.Row="0"
                 Classes="Card"
                 Padding="20">
-            <Grid ColumnDefinitions="*,Auto">
+            <Grid ColumnDefinitions="*,Auto"
+                  ColumnSpacing="12">
                 <StackPanel Spacing="6">
-                    <TextBlock Text="欢迎使用通用工具箱"
+                    <TextBlock Text="当前终端概览"
                                FontSize="24"
                                FontWeight="Bold"
-                               Foreground="{StaticResource TextMainBrush}"/>
-                    <TextBlock Text="统一入口管理你的常用模块，保持轻量、清晰、可扩展。"
+                               Foreground="{DynamicResource TextMainBrush}"/>
+                    <TextBlock Text="查看本站点、插件授权、初始化与更新状态"
                                FontSize="13"
-                               Foreground="{StaticResource TextMutedBrush}"/>
+                               Foreground="{DynamicResource TextMutedBrush}"/>
                 </StackPanel>
-                <Border Grid.Column="1"
-                        Background="#110077FA"
-                        CornerRadius="10"
-                        Padding="14,8"
-                        VerticalAlignment="Center">
-                    <StackPanel Spacing="2">
-                        <TextBlock Text="v1.0.1"
-                                   FontWeight="Bold"
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            VerticalAlignment="Top">
+                    <Border Background="#110077FA"
+                            CornerRadius="999"
+                            Padding="10,5">
+                        <TextBlock Text="{Binding AppVersion}"
                                    Foreground="{StaticResource PrimaryBrush}"
-                                   HorizontalAlignment="Center"/>
-                        <TextBlock Text="稳定版"
-                                   FontSize="12"
-                                   Foreground="{StaticResource TextMutedBrush}"
-                                   HorizontalAlignment="Center"/>
-                    </StackPanel>
-                </Border>
+                                   FontWeight="SemiBold"/>
+                    </Border>
+                    <Border Background="{DynamicResource CardBgBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="999"
+                            Padding="10,5">
+                        <TextBlock Text="{Binding ChannelLabel}"
+                                   Foreground="{DynamicResource TextMutedBrush}"/>
+                    </Border>
+                </StackPanel>
             </Grid>
         </Border>
 
-        <Grid Grid.Row="1" ColumnDefinitions="*,*,*" ColumnSpacing="12">
-            <Border Grid.Column="0" Classes="Card" Padding="16">
+        <Grid Grid.Row="1"
+              ColumnDefinitions="*,*,*,*"
+              ColumnSpacing="12">
+            <Border Grid.Column="0"
+                    Classes="Card"
+                    Padding="16">
                 <StackPanel Spacing="6">
-                    <TextBlock Text="快速开始" FontWeight="SemiBold"/>
-                    <TextBlock Text="从左侧导航进入待办或设置模块。"
+                    <TextBlock Text="当前站点"
                                FontSize="12"
-                               Foreground="{StaticResource TextMutedBrush}"
+                               Foreground="{DynamicResource TextMutedBrush}"/>
+                    <TextBlock Text="{Binding SiteDisplayName}"
+                               FontSize="18"
+                               FontWeight="Bold"
+                               TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding SiteStatus}"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
-            <Border Grid.Column="1" Classes="Card" Padding="16">
+
+            <Border Grid.Column="1"
+                    Classes="Card"
+                    Padding="16">
                 <StackPanel Spacing="6">
-                    <TextBlock Text="托盘常驻" FontWeight="SemiBold"/>
-                    <TextBlock Text="关闭窗口后应用可继续后台运行。"
+                    <TextBlock Text="当前分组"
                                FontSize="12"
-                               Foreground="{StaticResource TextMutedBrush}"
+                               Foreground="{DynamicResource TextMutedBrush}"/>
+                    <TextBlock Text="{Binding SiteGroupDisplayName}"
+                               FontSize="18"
+                               FontWeight="Bold"/>
+                    <TextBlock Text="{Binding SiteGroupStatus}"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
-            <Border Grid.Column="2" Classes="Card" Padding="16">
+
+            <Border Grid.Column="2"
+                    Classes="Card"
+                    Padding="16">
                 <StackPanel Spacing="6">
-                    <TextBlock Text="插件扩展" FontWeight="SemiBold"/>
-                    <TextBlock Text="后续可从插件仓库接入更多业务模块。"
+                    <TextBlock Text="授权插件"
                                FontSize="12"
-                               Foreground="{StaticResource TextMutedBrush}"
+                               Foreground="{DynamicResource TextMutedBrush}"/>
+                    <TextBlock Text="{Binding AuthorizedPluginCountText}"
+                               FontSize="18"
+                               FontWeight="Bold"/>
+                    <TextBlock Text="{Binding AuthorizedPluginSummaryText}"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextMutedBrush}"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="3"
+                    Classes="Card"
+                    Padding="16">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="待生效状态"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextMutedBrush}"/>
+                    <TextBlock Text="{Binding PendingActionTitle}"
+                               FontSize="18"
+                               FontWeight="Bold"/>
+                    <TextBlock Text="{Binding PendingActionDetail}"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
@@ -77,58 +129,146 @@
 
         <Border Grid.Row="2"
                 Classes="Card"
-                Padding="20">
-            <Grid RowDefinitions="Auto,*" RowSpacing="12">
-                <TextBlock Text="今日概览"
+                Padding="18">
+            <Grid ColumnDefinitions="*,*"
+                  ColumnSpacing="18"
+                  RowDefinitions="Auto,Auto"
+                  RowSpacing="10">
+                <TextBlock Grid.Row="0"
+                           Grid.ColumnSpan="2"
+                           Text="当前状态"
                            FontSize="18"
                            FontWeight="SemiBold"/>
-                <Grid Grid.Row="1" ColumnDefinitions="2*,*,*" ColumnSpacing="12">
-                    <Border Grid.Column="0"
-                            Background="#F7FAFF"
-                            BorderBrush="#D9E8FF"
-                            BorderThickness="1"
-                            CornerRadius="10"
-                            Padding="14">
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="建议下一步"
+
+                <StackPanel Grid.Row="1"
+                            Grid.Column="0"
+                            Spacing="10">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="发布中心状态"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource TextMutedBrush}"/>
+                        <TextBlock Text="{Binding ReleaseCenterStatusText}"
+                                   FontWeight="SemiBold"/>
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="最近检查更新"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource TextMutedBrush}"/>
+                        <TextBlock Text="{Binding LastUpdateCheckStatus}"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Grid.Row="1"
+                            Grid.Column="1"
+                            Spacing="10">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="最近初始化结果"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource TextMutedBrush}"/>
+                        <TextBlock Text="{Binding LastInitializationStatus}"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="最近预安装结果"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource TextMutedBrush}"/>
+                        <TextBlock Text="{Binding LastPrepareStatus}"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="3"
+                Classes="Card"
+                Padding="18">
+            <StackPanel Spacing="14">
+                <TextBlock Text="快捷操作"
+                           FontSize="18"
+                           FontWeight="SemiBold"/>
+                <WrapPanel Orientation="Horizontal"
+                           ItemWidth="160"
+                           ItemHeight="40">
+                    <Button Content="初始化本机插件"
+                            Classes="Primary"
+                            Command="{Binding InitializeSitePluginsCommand}"/>
+                    <Button Content="检查更新"
+                            Classes="Secondary"
+                            Command="{Binding CheckUpdatesCommand}"
+                            Margin="10,0,0,0"/>
+                    <Button Content="打开设置"
+                            Classes="Secondary"
+                            Command="{Binding OpenSettingsCommand}"
+                            Margin="10,0,0,0"/>
+                    <Button Content="重启 DIB"
+                            Classes="Secondary"
+                            Command="{Binding RestartApplicationCommand}"
+                            Margin="10,0,0,0"/>
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="4"
+                Classes="Card"
+                Padding="18">
+            <Grid RowDefinitions="Auto,*"
+                  RowSpacing="12">
+                <TextBlock Text="当前插件清单"
+                           FontSize="18"
+                           FontWeight="SemiBold"/>
+
+                <Border Grid.Row="1"
+                        Background="{DynamicResource CardBgBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="14">
+                    <Grid RowDefinitions="Auto,*"
+                          RowSpacing="8">
+                        <Grid ColumnDefinitions="3*,*,*"
+                              ColumnSpacing="12">
+                            <TextBlock Text="插件名称"
                                        FontSize="12"
-                                       Foreground="{StaticResource TextMutedBrush}"/>
-                            <TextBlock Text="进入“待办事项”整理今日任务优先级。"
                                        FontWeight="SemiBold"
-                                       TextWrapping="Wrap"/>
-                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
-                                <Button Content="打开待办"
-                                       Command="{Binding ShowTodoViewCommand}"
-                                       Classes="Primary"/>
-                                <Button Content="打开设置"
-                                       Command="{Binding ShowSettingsViewCommand}"
-                                       Classes="Secondary"/>
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-                    <Border Grid.Column="1"
-                            Background="#F4FBF4"
-                            BorderBrush="#D8F2DA"
-                            BorderThickness="1"
-                            CornerRadius="10"
-                            Padding="14">
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="状态" FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
-                            <TextBlock Text="运行中" FontSize="20" FontWeight="Bold" Foreground="{StaticResource SuccessBrush}"/>
-                        </StackPanel>
-                    </Border>
-                    <Border Grid.Column="2"
-                            Background="#FFF9F0"
-                            BorderBrush="#FFE7BE"
-                            BorderThickness="1"
-                            CornerRadius="10"
-                            Padding="14">
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="平台" FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
-                            <TextBlock Text=".NET + Avalonia" FontSize="16" FontWeight="Bold" Foreground="{StaticResource WarningBrush}"/>
-                        </StackPanel>
-                    </Border>
-                </Grid>
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock Grid.Column="1"
+                                       Text="版本"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock Grid.Column="2"
+                                       Text="状态"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                        </Grid>
+
+                        <ItemsControl Grid.Row="1"
+                                      ItemsSource="{Binding PluginItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="vm:HomePluginStatusItem">
+                                    <Border BorderBrush="{DynamicResource BorderBrush}"
+                                            BorderThickness="0,1,0,0"
+                                            Padding="0,10">
+                                        <Grid ColumnDefinitions="3*,*,*"
+                                              ColumnSpacing="12">
+                                            <TextBlock Text="{Binding Name}"
+                                                       FontWeight="SemiBold"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding Version}"
+                                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding Status}"
+                                                       Foreground="{DynamicResource TextMutedBrush}"/>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </Border>
             </Grid>
         </Border>
     </Grid>

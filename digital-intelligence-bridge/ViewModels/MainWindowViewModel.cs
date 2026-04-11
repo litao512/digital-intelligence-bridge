@@ -98,6 +98,8 @@ public class MainWindowViewModel : ViewModelBase
     private readonly DrugImportViewModel? _drugImportViewModel;
     private readonly IReadOnlyList<PluginMenuItem> _externalPluginMenus;
     private readonly Dictionary<string, LoadedPlugin> _loadedPluginsByMenuId;
+    private readonly IApplicationService? _applicationService;
+    private readonly IReleaseCenterService? _releaseCenterService;
 
     // 集合
     public ObservableCollection<TodoItem> TodoItems { get; } = new();
@@ -222,6 +224,7 @@ public class MainWindowViewModel : ViewModelBase
     public double MenuItemSpacing => IsMenuCollapsed ? 0 : 10;
 
     public DrugImportViewModel? DrugImportToolViewModel => _drugImportViewModel;
+    public HomeDashboardViewModel HomeDashboard { get; }
 
     /// <summary>
     /// 当前选中的标签页
@@ -235,6 +238,10 @@ public class MainWindowViewModel : ViewModelBase
             {
                 PageTitle = value.Title;
                 PageSubtitle = value.Subtitle;
+                if (value.TabType == TabItemType.Home)
+                {
+                    _ = HomeDashboard.RefreshAsync();
+                }
             }
         }
     }
@@ -403,7 +410,9 @@ public class MainWindowViewModel : ViewModelBase
         ITodoRepository? todoRepository = null,
         DrugImportViewModel? drugImportViewModel = null,
         IReadOnlyList<PluginMenuItem>? externalPluginMenus = null,
-        IReadOnlyList<LoadedPlugin>? loadedPlugins = null)
+        IReadOnlyList<LoadedPlugin>? loadedPlugins = null,
+        IApplicationService? applicationService = null,
+        IReleaseCenterService? releaseCenterService = null)
     {
         _logger = logger;
         _settings = appSettings?.Value ?? new AppSettings();
@@ -411,6 +420,8 @@ public class MainWindowViewModel : ViewModelBase
         _drugImportViewModel = drugImportViewModel;
         _externalPluginMenus = externalPluginMenus ?? [];
         _loadedPluginsByMenuId = BuildLoadedPluginIndex(loadedPlugins);
+        _applicationService = applicationService;
+        _releaseCenterService = releaseCenterService;
 
         // 初始化命令
         AddTodoCommand = new DelegateCommand(OnAddTodo, CanAddTodo);
@@ -424,6 +435,12 @@ public class MainWindowViewModel : ViewModelBase
         ShowSettingsViewCommand = new DelegateCommand(() => NavigateTo(MainViewType.Settings));
         NavigateCommand = new DelegateCommand<object?>(NavigateTo);
         ToggleMenuCollapseCommand = new DelegateCommand(() => IsMenuCollapsed = !IsMenuCollapsed);
+        HomeDashboard = new HomeDashboardViewModel(
+            new ForwardingLoggerService<HomeDashboardViewModel>(_logger),
+            _applicationService ?? new NullApplicationService(_settings),
+            Options.Create(_settings),
+            _releaseCenterService,
+            () => NavigateTo(MainViewType.Settings));
 
         // 初始化筛选命令
         ClearFilterCommand = new DelegateCommand(ClearFilter);
@@ -447,6 +464,7 @@ public class MainWindowViewModel : ViewModelBase
         // 初始化首页标签页
         InitializeHomeTab();
         UpdateMenuSelection(CurrentView);
+        _ = HomeDashboard.RefreshAsync();
 
         _logger.LogInformation("主窗口视图模型已初始化");
     }
@@ -490,7 +508,7 @@ public class MainWindowViewModel : ViewModelBase
             Id = "home",
             TargetKey = "home",
             Title = "首页",
-            Subtitle = "欢迎使用",
+            Subtitle = "当前终端概览",
             TabType = TabItemType.Home
         };
         OpenTabs.Add(homeTab);
@@ -545,7 +563,7 @@ public class MainWindowViewModel : ViewModelBase
                         Id = "home",
                         TargetKey = targetKey,
                         Title = "首页",
-                        Subtitle = "欢迎使用",
+                        Subtitle = "当前终端概览",
                         TabType = TabItemType.Home
                     };
                     OpenTabs.Add(existingTab);
@@ -1139,6 +1157,27 @@ public class MainWindowViewModel : ViewModelBase
             TodoItem.PriorityLevel.Low => "低",
             _ => "未知"
         };
+    }
+
+    private sealed class ForwardingLoggerService<TTarget>(ILoggerService<MainWindowViewModel> source) : ILoggerService<TTarget>
+    {
+        public void LogCritical(string message, params object[] args) => source.LogCritical(message, args);
+        public void LogDebug(string message, params object[] args) => source.LogDebug(message, args);
+        public void LogError(string message, params object[] args) => source.LogError(message, args);
+        public void LogError(Exception exception, string message, params object[] args) => source.LogError(exception, message, args);
+        public void LogInformation(string message, params object[] args) => source.LogInformation(message, args);
+        public void LogWarning(string message, params object[] args) => source.LogWarning(message, args);
+    }
+
+    private sealed class NullApplicationService(AppSettings settings) : IApplicationService
+    {
+        public bool IsInitialized => true;
+        public Task InitializeAsync() => Task.CompletedTask;
+        public Task OnStartedAsync() => Task.CompletedTask;
+        public Task OnShutdownAsync() => Task.CompletedTask;
+        public string GetVersion() => settings.Application.Version;
+        public string GetApplicationName() => settings.Application.Name;
+        public void RestartApplication() { }
     }
 }
 

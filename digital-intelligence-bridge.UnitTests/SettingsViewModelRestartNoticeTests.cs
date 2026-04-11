@@ -88,6 +88,7 @@ public class SettingsViewModelRestartNoticeTests
         public Task InitializeAsync() => Task.CompletedTask;
         public Task OnShutdownAsync() => Task.CompletedTask;
         public Task OnStartedAsync() => Task.CompletedTask;
+        public void RestartApplication() { }
     }
 
     private sealed class StubTrayService : ITrayService
@@ -117,6 +118,8 @@ public class SettingsViewModelRestartNoticeTests
         public void LogWarning(string message, params object[] args) { }
     }
 }
+
+
 
 
 

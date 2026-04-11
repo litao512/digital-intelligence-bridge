@@ -240,6 +240,7 @@ public class SettingsViewModel : ViewModelBase
     public DelegateCommand PreparePluginPackagesCommand { get; }
     public DelegateCommand RestoreLatestPluginBackupCommand { get; }
     public DelegateCommand InitializeSitePluginsCommand { get; }
+    public DelegateCommand RestartApplicationCommand { get; }
     public DelegateCommand OpenLogFolderCommand { get; }
     public DelegateCommand RunSelfCheckCommand { get; }
     public DelegateCommand ExportSelfCheckReportCommand { get; }
@@ -264,6 +265,7 @@ public class SettingsViewModel : ViewModelBase
         PreparePluginPackagesCommand = new DelegateCommand(() => _ = PreparePluginPackagesAsync(), () => !IsPluginPrepareRunning);
         RestoreLatestPluginBackupCommand = new DelegateCommand(() => _ = RestoreLatestPluginBackupAsync(), () => !IsPluginRollbackRunning);
         InitializeSitePluginsCommand = new DelegateCommand(() => _ = InitializeSitePluginsAsync(), () => !IsSiteInitializationRunning && CanInitializeSitePlugins);
+        RestartApplicationCommand = new DelegateCommand(RestartApplication);
         OpenLogFolderCommand = new DelegateCommand(OpenLogFolder);
         RunSelfCheckCommand = new DelegateCommand(() => _ = RunSelfCheckAsync(), () => !IsSelfCheckRunning);
         ExportSelfCheckReportCommand = new DelegateCommand(ExportSelfCheckReport);
@@ -669,6 +671,13 @@ public class SettingsViewModel : ViewModelBase
         });
         File.WriteAllText(configPath, json);
     }
+
+    private void RestartApplication()
+    {
+        _logger.LogInformation("用户请求重启 DIB");
+        _appService.RestartApplication();
+    }
+
     private void OpenLogFolder()
     {
         try

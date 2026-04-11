@@ -20,12 +20,12 @@
                     <TextBlock Text="设置中心" FontSize="24" FontWeight="Bold"/>
                     <TextBlock Text="管理应用外观、托盘行为与数据策略"
                                FontSize="12"
-                               Foreground="{StaticResource TextMutedBrush}"/>
+                               Foreground="{DynamicResource TextMutedBrush}"/>
                 </StackPanel>
             </Border>
 
             <!-- 外观设置 -->
-            <Border Classes="Card" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="15">
+            <Border Classes="Card" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="15">
                 <StackPanel Spacing="15">
                     <TextBlock Text="外观" FontSize="16" FontWeight="SemiBold"/>
 
@@ -66,7 +66,7 @@
             </Border>
 
             <!-- 托盘设置 -->
-            <Border Classes="Card" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="15">
+            <Border Classes="Card" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="15">
                 <StackPanel Spacing="15">
                     <TextBlock Text="系统托盘" FontSize="16" FontWeight="SemiBold"/>
 
@@ -95,7 +95,7 @@
             </Border>
 
             <!-- 数据设置 -->
-            <Border Classes="Card" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="15">
+            <Border Classes="Card" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="15">
                 <StackPanel Spacing="15">
                     <TextBlock Text="数据管理" FontSize="16" FontWeight="SemiBold"/>
 
@@ -128,7 +128,7 @@
             </Border>
 
             <!-- 关于 -->
-            <Border Classes="Card" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="15">
+            <Border Classes="Card" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="15">
                 <StackPanel Spacing="10">
                     <TextBlock Text="关于" FontSize="16" FontWeight="SemiBold"/>
 
@@ -141,12 +141,12 @@
 
                     <Separator/>
 
-                    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="12">
+                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="12">
                         <StackPanel Spacing="10">
                             <TextBlock Text="站点信息" FontSize="15" FontWeight="SemiBold"/>
                             <TextBlock Text="{Binding SiteProfileSummary}"
                                        FontSize="12"
-                                       Foreground="{StaticResource TextMutedBrush}"
+                                       Foreground="{DynamicResource TextMutedBrush}"
                                        TextWrapping="Wrap"/>
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                                 <StackPanel Grid.Column="0" Spacing="6">
@@ -168,14 +168,14 @@
                             </StackPanel>
                             <TextBlock Text="{Binding SiteProfileStatus}"
                                        FontSize="11"
-                                       Foreground="{StaticResource TextMutedBrush}"
+                                       Foreground="{DynamicResource TextMutedBrush}"
                                        TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding SiteInitializationSummary}"
                                        FontWeight="SemiBold"
                                        TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding SiteInitializationDetail}"
                                        FontSize="11"
-                                       Foreground="{StaticResource TextMutedBrush}"
+                                       Foreground="{DynamicResource TextMutedBrush}"
                                        TextWrapping="Wrap"/>
                         </StackPanel>
                     </Border>
@@ -196,85 +196,88 @@
                         <Button Content="{Binding RestoreLatestPluginBackupButtonText}"
                                Command="{Binding RestoreLatestPluginBackupCommand}"
                                Classes="Secondary"/>
+                        <Button Content="重启 DIB"
+                               Command="{Binding RestartApplicationCommand}"
+                               Classes="Secondary"/>
                         <Button Content="打开日志文件夹"
                                Command="{Binding OpenLogFolderCommand}"
                                Classes="Tertiary"/>
                     </StackPanel>
 
                     <TextBlock Text="{Binding ClientUpgradeNotice}"
-                               Foreground="{StaticResource TextMutedBrush}"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                FontSize="12"
                                FontWeight="SemiBold"
                                TextWrapping="Wrap"/>
                     <TextBlock Text="{Binding RestartRequiredNotice}"
-                               Foreground="{StaticResource TextMutedBrush}"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                FontSize="12"
                                FontWeight="SemiBold"
                                TextWrapping="Wrap"/>
-                    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10">
+                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10">
                         <StackPanel Spacing="4">
                             <TextBlock Text="{Binding UpdateCheckSummary}" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding ClientUpdateSummary}" FontSize="12" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
-                            <TextBlock Text="{Binding PluginUpdateSummary}" FontSize="12" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
-                            <TextBlock Text="{Binding SiteAuthorizationSummary}" FontSize="12" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
-                            <TextBlock Text="{Binding AuthorizedPluginSummary}" FontSize="12" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
-                            <TextBlock Text="{Binding AuthorizedPluginDetail}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
-                            <TextBlock Text="{Binding UpdateCheckDetail}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding ClientUpdateSummary}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding PluginUpdateSummary}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding SiteAuthorizationSummary}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding AuthorizedPluginSummary}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding AuthorizedPluginDetail}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding UpdateCheckDetail}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding LastUpdateCheckAt, StringFormat='最近检查: {0:yyyy-MM-dd HH:mm:ss}'}"
                                        FontSize="11"
-                                       Foreground="{StaticResource TextMutedBrush}"/>
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </Border>
-                    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10">
+                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10">
                         <StackPanel Spacing="4">
                             <TextBlock Text="{Binding ClientPackageDownloadSummary}" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding ClientPackageDownloadDetail}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding ClientPackageDownloadDetail}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding LastClientPackageDownloadAt, StringFormat='最近客户端下载: {0:yyyy-MM-dd HH:mm:ss}'}"
                                        FontSize="11"
-                                       Foreground="{StaticResource TextMutedBrush}"/>
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </Border>
-                    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10">
+                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10">
                         <StackPanel Spacing="4">
                             <TextBlock Text="{Binding PluginDownloadSummary}" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding PluginDownloadDetail}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding PluginDownloadDetail}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding LastPluginDownloadAt, StringFormat='最近下载: {0:yyyy-MM-dd HH:mm:ss}'}"
                                        FontSize="11"
-                                       Foreground="{StaticResource TextMutedBrush}"/>
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </Border>
-                    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10">
+                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10">
                         <StackPanel Spacing="4">
                             <TextBlock Text="{Binding PluginPrepareSummary}" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding PluginPrepareDetail}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding PluginPrepareDetail}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding LastPluginPrepareAt, StringFormat='最近预安装: {0:yyyy-MM-dd HH:mm:ss}'}"
                                        FontSize="11"
-                                       Foreground="{StaticResource TextMutedBrush}"/>
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </Border>
-                    <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10">
+                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10">
                         <StackPanel Spacing="4">
                             <TextBlock Text="{Binding PluginRollbackSummary}" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding PluginRollbackDetail}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="{Binding PluginRollbackDetail}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding LastPluginRollbackAt, StringFormat='最近回滚: {0:yyyy-MM-dd HH:mm:ss}'}"
                                        FontSize="11"
-                                       Foreground="{StaticResource TextMutedBrush}"/>
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
             </Border>
 
             <!-- 自检面板 -->
-            <Border Classes="Card" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="15">
+            <Border Classes="Card" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="15">
                 <StackPanel Spacing="10">
                     <Grid ColumnDefinitions="*,Auto">
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Text="系统自检" FontSize="16" FontWeight="SemiBold"/>
-                            <TextBlock Text="{Binding SelfCheckSummary}" FontSize="12" Foreground="{StaticResource TextMutedBrush}"/>
-                            <TextBlock Text="{Binding SelfCheckNotice}" FontSize="11" Foreground="{StaticResource TextMutedBrush}"/>
+                            <TextBlock Text="{Binding SelfCheckSummary}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                            <TextBlock Text="{Binding SelfCheckNotice}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                             <TextBlock Text="{Binding LastSelfCheckAt, StringFormat='最近执行: {0:yyyy-MM-dd HH:mm:ss}'}"
                                        FontSize="11"
-                                       Foreground="{StaticResource TextMutedBrush}"/>
+                                       Foreground="{DynamicResource TextMutedBrush}"/>
                         </StackPanel>
                         <Button Grid.Column="1"
                                Content="{Binding RunSelfCheckButtonText}"
@@ -289,19 +292,19 @@
                                Command="{Binding ExportSelfCheckReportCommand}"/>
                         <TextBlock Text="报告保存到 LocalAppData/UniversalTrayTool/logs"
                                    FontSize="11"
-                                   Foreground="{StaticResource TextMutedBrush}"
+                                   Foreground="{DynamicResource TextMutedBrush}"
                                    VerticalAlignment="Center"/>
                     </StackPanel>
 
                     <ItemsControl ItemsSource="{Binding SelfCheckItems}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="vm:SelfCheckItem">
-                                <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,4,0,0">
+                                <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,4,0,0">
                                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                                         <TextBlock Grid.Column="0" Text="{Binding StatusIcon}" FontSize="14" VerticalAlignment="Center"/>
                                         <StackPanel Grid.Column="1" Spacing="2">
                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
-                                            <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{StaticResource TextMutedBrush}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding Detail}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" TextTrimming="CharacterEllipsis"/>
                                         </StackPanel>
                                         <TextBlock Grid.Column="2"
                                                    Text="{Binding StatusText}"
@@ -326,6 +329,7 @@
         </StackPanel>
     </ScrollViewer>
 </UserControl>
+
 
 
 

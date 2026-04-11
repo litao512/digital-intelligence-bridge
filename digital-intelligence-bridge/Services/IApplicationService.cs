@@ -34,6 +34,11 @@ public interface IApplicationService
     string GetApplicationName();
 
     /// <summary>
+    /// 重启当前应用程序
+    /// </summary>
+    void RestartApplication();
+
+    /// <summary>
     /// 应用程序是否已初始化
     /// </summary>
     bool IsInitialized { get; }

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Threading;
@@ -164,6 +165,25 @@ public async Task OnShutdownAsync()
         return _appSettings.Value.Application.Name;
     }
 
+    public void RestartApplication()
+    {
+        var executablePath = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(executablePath) || !File.Exists(executablePath))
+        {
+            throw new InvalidOperationException("无法解析当前应用程序路径，不能执行重启。");
+        }
+
+        _logger.LogInformation("正在重启应用程序: {Path}", executablePath);
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = executablePath,
+            WorkingDirectory = Path.GetDirectoryName(executablePath) ?? AppContext.BaseDirectory,
+            UseShellExecute = true
+        });
+
+        _trayService.ExitApplication();
+    }
+
     /// <summary>
     /// 确保必要的目录存在
     /// </summary>
@@ -212,4 +232,5 @@ public async Task OnShutdownAsync()
         }
     }
 }
+
 

@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Linq;
 using Avalonia;
 using Avalonia.Animation;
@@ -36,11 +37,58 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Opened += OnOpened;
+        DataContextChanged += OnDataContextChanged;
     }
 
     private void InitializeComponent()
     {
         AvaloniaXamlLoader.Load(this);
+    }
+
+    private void OnOpened(object? sender, EventArgs e)
+    {
+        ApplySidebarWidth();
+    }
+
+    private void OnDataContextChanged(object? sender, EventArgs e)
+    {
+        if (sender is not MainWindow)
+        {
+            return;
+        }
+
+        if (DataContext is INotifyPropertyChanged vm)
+        {
+            vm.PropertyChanged -= OnViewModelPropertyChanged;
+            vm.PropertyChanged += OnViewModelPropertyChanged;
+        }
+
+        ApplySidebarWidth();
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainWindowViewModel.SidebarWidth) ||
+            e.PropertyName == nameof(MainWindowViewModel.IsMenuCollapsed))
+        {
+            ApplySidebarWidth();
+        }
+    }
+
+    private void ApplySidebarWidth()
+    {
+        if (DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        if (Content is not Grid grid || grid.ColumnDefinitions.Count == 0)
+        {
+            return;
+        }
+
+        grid.ColumnDefinitions[0].Width = new GridLength(vm.SidebarWidth);
     }
 
     /// <summary>
@@ -56,6 +104,11 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {
+        if (DataContext is INotifyPropertyChanged vm)
+        {
+            vm.PropertyChanged -= OnViewModelPropertyChanged;
+        }
+
         // 逻辑由 TrayService 处理
         base.OnClosing(e);
     }

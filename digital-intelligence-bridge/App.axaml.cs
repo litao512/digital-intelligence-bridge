@@ -50,7 +50,7 @@ public partial class App : PrismApplication
             appLogger.LogInformation("启动时已激活 {Count} 个插件目录", activationResult.ActivatedCount);
         }
         var runtimePlugins = LoadRuntimePlugins(
-            AppContext.BaseDirectory,
+            DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.GetConfigRootDirectory(),
             appSettings,
             Container.Resolve<PluginCatalogService>(),
             Container.Resolve<PluginLoaderService>(),
@@ -68,7 +68,9 @@ public partial class App : PrismApplication
             Container.Resolve<ITodoRepository>(),
             Container.Resolve<DrugImportViewModel>(),
             externalMenus,
-            runtimePlugins);
+            runtimePlugins,
+            Container.Resolve<IApplicationService>(),
+            releaseCenterService);
         return _mainWindow;
     }
 
@@ -217,11 +219,13 @@ public partial class App : PrismApplication
 
     private void ConfigureLogging()
     {
+        var logRoot = DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.GetLogsDirectory();
+        Directory.CreateDirectory(logRoot);
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
             .WriteTo.Console()
             .WriteTo.File(
-                Path.Combine(AppContext.BaseDirectory, "logs", "app-.log"),
+                Path.Combine(logRoot, "app-.log"),
                 rollingInterval: RollingInterval.Day,
                 retainedFileCountLimit: 7)
             .CreateLogger();
@@ -309,7 +313,7 @@ public partial class App : PrismApplication
         PluginLoaderService loaderService,
         ILoggerService<App> logger)
     {
-        var pluginRoot = Path.Combine(appBaseDirectory, appSettings.Value.Plugin.PluginDirectory);
+        var pluginRoot = DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.GetRuntimePluginsDirectory(appSettings.Value.Plugin.PluginDirectory);
         var discoveredPlugins = catalogService.DiscoverManifests(pluginRoot);
         var hostVersion = typeof(App).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
         var loadedPlugins = new List<LoadedPlugin>();

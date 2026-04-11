@@ -168,6 +168,54 @@ public class ConfigurationExtensionsTests
     }
 
     [Fact]
+    public void RepairReleaseCenterSettings_ShouldBackfillMissingReleaseCenterFields_FromValidSourceConfig()
+    {
+        using var sandbox = new TestConfigSandbox();
+        var tempRoot = sandbox.RootDirectory;
+        var userConfigPath = Path.Combine(tempRoot, "appsettings.json");
+        var sourceConfigPath = Path.Combine(tempRoot, "source.appsettings.json");
+
+        File.WriteAllText(
+            userConfigPath,
+            """
+            {
+              "Application": { "Name": "通用工具箱", "Version": "1.0.0" },
+              "Plugin": { "PluginDirectory": "plugins", "AutoLoad": true, "AllowUnsigned": false },
+              "ReleaseCenter": {
+                "Enabled": false,
+                "BaseUrl": "http://101.42.19.26:8000",
+                "Channel": "stable",
+                "AnonKey": ""
+              },
+              "Logging": { "LogLevel": { "Default": "Information", "Microsoft": "Warning" }, "LogPath": "logs" },
+              "Navigation": []
+            }
+            """);
+
+        File.WriteAllText(
+            sourceConfigPath,
+            """
+            {
+              "ReleaseCenter": {
+                "Enabled": true,
+                "BaseUrl": "http://101.42.19.26:8000",
+                "Channel": "stable",
+                "AnonKey": "valid-anon-key"
+              }
+            }
+            """);
+
+        ConfigurationExtensions.RepairReleaseCenterSettings(userConfigPath, sourceConfigPath);
+
+        var repaired = System.Text.Json.JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(userConfigPath));
+        Assert.NotNull(repaired);
+        Assert.True(repaired!.ReleaseCenter.Enabled);
+        Assert.Equal("http://101.42.19.26:8000", repaired.ReleaseCenter.BaseUrl);
+        Assert.Equal("stable", repaired.ReleaseCenter.Channel);
+        Assert.Equal("valid-anon-key", repaired.ReleaseCenter.AnonKey);
+    }
+
+    [Fact]
     public void EnsureSafeRuntimeConfiguration_ShouldThrow_WhenTestSettingsLeakIntoRuntimeConfig()
     {
         var previousAllowUnsafeConfig = Environment.GetEnvironmentVariable("DIB_ALLOW_UNSAFE_CONFIG");
@@ -246,6 +294,22 @@ public class ConfigurationExtensionsTests
             Environment.SetEnvironmentVariable("MSSQL_DB_ENCRYPT", originalEncrypt);
             Environment.SetEnvironmentVariable("MSSQL_DB_TRUST_SERVER_CERTIFICATE", originalTrust);
         }
+    }
+
+    [Fact]
+    public void ConfigurationExtensions_ShouldResolveRuntimePaths_UnderConfigRootDirectory()
+    {
+        using var sandbox = new TestConfigSandbox();
+
+        var root = ConfigurationExtensions.GetConfigRootDirectory();
+        var logs = ConfigurationExtensions.GetLogsDirectory();
+        var plugins = ConfigurationExtensions.GetRuntimePluginsDirectory();
+        var backups = ConfigurationExtensions.GetReleaseBackupsDirectory();
+
+        Assert.Equal(sandbox.RootDirectory, root);
+        Assert.Equal(Path.Combine(sandbox.RootDirectory, "logs"), logs);
+        Assert.Equal(Path.Combine(sandbox.RootDirectory, "plugins"), plugins);
+        Assert.Equal(Path.Combine(sandbox.RootDirectory, "release-backups", "plugins"), backups);
     }
 }
 
