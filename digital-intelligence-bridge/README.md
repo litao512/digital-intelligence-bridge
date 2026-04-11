@@ -190,26 +190,22 @@ cd DigitalIntelligenceBridge
 dotnet run
 ```
 
-## 运行时配置（Supabase）
+## 配置分层
 
-- 模板文件：`digital-intelligence-bridge/appsettings.runtime.template.json`
-- 本机运行时配置路径：`%LOCALAPPDATA%/UniversalTrayTool/appsettings.runtime.json`
+- 安装目录 `appsettings.json`：部署默认配置
+- `%LOCALAPPDATA%/UniversalTrayTool/appsettings.json`：本机用户状态配置
+- 配置架构说明：`docs/05-operations/CONFIGURATION_ARCHITECTURE_SPEC.md`
+- 运行时目录说明：`docs/05-operations/RUNTIME_DIRECTORY_GUIDE.md`
 - 配置安全说明：`docs/05-operations/DIB_CONFIG_SAFETY_GUIDE.md`
+- 插件打包规范：`docs/05-operations/PLUGIN_PACKAGING_GUIDE.md`
+- 新电脑安装指南：`docs/05-operations/NEW_MACHINE_SETUP_GUIDE.md`
 
-生成运行时配置（避免把密钥写进仓库）：
+建议：
 
-```powershell
-./scripts/new-runtime-config.ps1 `
-  -SupabaseUrl "http://your-supabase-host:8000" `
-  -SupabaseAnonKey "<anon-key>" `
-  -Schema "dib"
-```
-
-验证运行时配置可访问 Supabase REST：
-
-```powershell
-./scripts/verify-supabase-runtime.ps1
-```
+1. 仓库中的 `appsettings.json` 只保留默认模板值，不写入真实密钥。
+2. 实际分发时，把目标环境的 `ReleaseCenter` 默认配置写入安装目录 `appsettings.json`。
+3. 应用首次启动会把安装目录默认配置复制到 `%LOCALAPPDATA%/UniversalTrayTool/appsettings.json`。
+4. 若用户配置已存在但 `ReleaseCenter` 关键字段缺失，程序会从安装目录默认配置补齐。
 
 同步 GitHub Actions Secrets（从本机用户配置读取）：
 
