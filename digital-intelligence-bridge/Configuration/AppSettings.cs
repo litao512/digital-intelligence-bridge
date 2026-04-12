@@ -29,6 +29,11 @@ public class AppSettings
     public SupabaseConfig Supabase { get; set; } = new();
 
     /// <summary>
+    /// 发布中心配置
+    /// </summary>
+    public ReleaseCenterConfig ReleaseCenter { get; set; } = new();
+
+    /// <summary>
     /// 导航菜单配置
     /// </summary>
     public List<NavigationMenuItemConfig> Navigation { get; set; } = new();
@@ -96,6 +101,25 @@ public class SupabaseConfig
     public string AnonKey { get; set; } = string.Empty;
     public string ServiceRoleKey { get; set; } = string.Empty;
     public string Schema { get; set; } = "dib";
+}
+
+/// <summary>
+/// 发布中心配置
+/// </summary>
+public class ReleaseCenterConfig
+{
+    public bool Enabled { get; set; } = false;
+    public string BaseUrl { get; set; } = string.Empty;
+    public string Channel { get; set; } = "stable";
+    public string AnonKey { get; set; } = string.Empty;
+    public string SiteId { get; set; } = string.Empty;
+    public string SiteName { get; set; } = string.Empty;
+    public string SiteRemark { get; set; } = string.Empty;
+    public string CacheDirectory { get; set; } = string.Empty;
+    public string ClientCacheDirectory { get; set; } = string.Empty;
+    public string StagingDirectory { get; set; } = string.Empty;
+    public string RuntimePluginRoot { get; set; } = string.Empty;
+    public string BackupDirectory { get; set; } = string.Empty;
 }
 
 // 注：WebApplicationConfig 已移除，WebView 功能将作为可选插件在后续版本提供

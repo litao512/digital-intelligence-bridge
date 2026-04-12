@@ -39,7 +39,7 @@ public partial class App : PrismApplication
     {
         var appSettings = Container.Resolve<IOptions<AppSettings>>();
         var runtimePlugins = LoadRuntimePlugins(
-            AppContext.BaseDirectory,
+            DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.GetConfigRootDirectory(),
             appSettings,
             Container.Resolve<PluginCatalogService>(),
             Container.Resolve<PluginLoaderService>(),
@@ -79,7 +79,7 @@ public partial class App : PrismApplication
         containerRegistry.RegisterSingleton<IApplicationService, ApplicationService>();
         containerRegistry.RegisterInstance(new HttpClient
         {
-            Timeout = TimeSpan.FromSeconds(8)
+            Timeout = TimeSpan.FromMinutes(10)
         });
         containerRegistry.RegisterSingleton<ISupabaseService, SupabaseService>();
         containerRegistry.RegisterSingleton<ITodoRepository, SupabaseTodoRepository>();
@@ -106,16 +106,19 @@ public partial class App : PrismApplication
     {
         // 获取用户配置路径
         var userConfigPath = DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.GetConfigFilePath();
-        var runtimeConfigPath = DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.GetRuntimeConfigFilePath();
+        var defaultConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
 
         // 如果用户配置文件不存在，从程序目录复制默认配置
         if (!File.Exists(userConfigPath))
         {
-            var defaultConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
             if (File.Exists(defaultConfigPath))
             {
                 File.Copy(defaultConfigPath, userConfigPath);
             }
+        }
+        else
+        {
+            DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.RepairReleaseCenterSettings(userConfigPath, defaultConfigPath);
         }
 
         // 构建配置
@@ -123,7 +126,6 @@ public partial class App : PrismApplication
             .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
             .AddJsonFile(userConfigPath, optional: true, reloadOnChange: true)
-            .AddJsonFile(runtimeConfigPath, optional: true, reloadOnChange: true)
             .AddEnvironmentVariables()
             .Build();
 
@@ -133,6 +135,7 @@ public partial class App : PrismApplication
         // 绑定并注册 AppSettings
         var appSettings = new AppSettings();
         configuration.Bind(appSettings);
+        ConfigurationSafetyValidator.EnsureSafeUserConfiguration(appSettings, userConfigPath);
         containerRegistry.RegisterInstance<IOptions<AppSettings>>(Options.Create(appSettings));
     }
 
@@ -204,11 +207,13 @@ public partial class App : PrismApplication
 
     private void ConfigureLogging()
     {
+        var logRoot = DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.GetLogsDirectory();
+        Directory.CreateDirectory(logRoot);
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
             .WriteTo.Console()
             .WriteTo.File(
-                Path.Combine(AppContext.BaseDirectory, "logs", "app-.log"),
+                Path.Combine(logRoot, "app-.log"),
                 rollingInterval: RollingInterval.Day,
                 retainedFileCountLimit: 7)
             .CreateLogger();
@@ -296,7 +301,7 @@ public partial class App : PrismApplication
         PluginLoaderService loaderService,
         ILoggerService<App> logger)
     {
-        var pluginRoot = Path.Combine(appBaseDirectory, appSettings.Value.Plugin.PluginDirectory);
+        var pluginRoot = DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.GetRuntimePluginsDirectory(appSettings.Value.Plugin.PluginDirectory);
         var discoveredPlugins = catalogService.DiscoverManifests(pluginRoot);
         var hostVersion = typeof(App).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
         var loadedPlugins = new List<LoadedPlugin>();
@@ -331,3 +336,6 @@ public partial class App : PrismApplication
         return loadedPlugins;
     }
 }
+
+
+

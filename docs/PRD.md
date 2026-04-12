@@ -249,9 +249,15 @@ Supabase 部署约束：
 ## 11. 运行时敏感配置交付方案（草案）
 
 ### 11.1 临时阶段（当前）
-- 为保障交付进度，客户端可从 `%LOCALAPPDATA%/UniversalTrayTool/appsettings.runtime.json` 读取运行时敏感配置。
+- 为保障交付和排障简单性，客户端采用“两层配置”：
+  - 安装目录 `appsettings.json`：部署默认配置
+  - `%LOCALAPPDATA%/UniversalTrayTool/appsettings.json`：用户状态配置
 - 该文件仅限本机使用，严禁提交到代码仓库。
-- 生效配置加载顺序：`appsettings.json` -> 用户 `appsettings.json` -> `appsettings.runtime.json` -> 环境变量。
+- 生效配置加载顺序：`appsettings.json` -> 用户 `appsettings.json` -> 环境变量。
+- 详细规则见：
+  - `docs/05-operations/CONFIGURATION_ARCHITECTURE_SPEC.md`
+  - `docs/05-operations/RUNTIME_DIRECTORY_GUIDE.md`
+  - `docs/05-operations/NEW_MACHINE_SETUP_GUIDE.md`
 
 ### 11.2 目标阶段（随插件仓库能力实现）
 - 为桌面客户端引入远程配置分发服务。
