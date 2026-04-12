@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.Json;
 
 namespace DigitalIntelligenceBridge.Configuration;
 
@@ -13,11 +14,11 @@ namespace DigitalIntelligenceBridge.Configuration;
 public static class ConfigurationExtensions
 {
     /// <summary>
-    /// 获取应用配置根目录（默认 LocalAppData，可通过环境变量 DIB_CONFIG_DIR 覆盖）
+    /// 获取应用配置根目录（默认 LocalAppData，可通过环境变量 DIB_CONFIG_ROOT 覆盖）
     /// </summary>
     public static string GetConfigRootDirectory()
     {
-        var overrideDir = Environment.GetEnvironmentVariable("DIB_CONFIG_DIR");
+        var overrideDir = Environment.GetEnvironmentVariable("DIB_CONFIG_ROOT");
         if (!string.IsNullOrWhiteSpace(overrideDir))
         {
             Directory.CreateDirectory(overrideDir);
@@ -38,12 +39,23 @@ public static class ConfigurationExtensions
         return Path.Combine(GetConfigRootDirectory(), "appsettings.json");
     }
 
-    /// <summary>
-    /// 获取运行时配置文件路径（用于部署后下发敏感配置）
-    /// </summary>
-    public static string GetRuntimeConfigFilePath()
+    public static string GetLogsDirectory(string logPath = "logs")
     {
-        return Path.Combine(GetConfigRootDirectory(), "appsettings.runtime.json");
+        return Path.IsPathRooted(logPath)
+            ? logPath
+            : Path.Combine(GetConfigRootDirectory(), logPath);
+    }
+
+    public static string GetRuntimePluginsDirectory(string pluginDirectory = "plugins")
+    {
+        return Path.IsPathRooted(pluginDirectory)
+            ? pluginDirectory
+            : Path.Combine(GetConfigRootDirectory(), pluginDirectory);
+    }
+
+    public static string GetReleaseBackupsDirectory()
+    {
+        return Path.Combine(GetConfigRootDirectory(), "release-backups", "plugins");
     }
 
     /// <summary>
@@ -53,23 +65,25 @@ public static class ConfigurationExtensions
     {
         // 获取用户配置路径
         var userConfigPath = GetConfigFilePath();
-        var runtimeConfigPath = GetRuntimeConfigFilePath();
+        var defaultConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
 
         // 如果用户配置文件不存在，从程序目录复制默认配置
         if (!File.Exists(userConfigPath))
         {
-            var defaultConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
             if (File.Exists(defaultConfigPath))
             {
                 File.Copy(defaultConfigPath, userConfigPath);
             }
+        }
+        else
+        {
+            RepairReleaseCenterSettings(userConfigPath, defaultConfigPath);
         }
 
         var configuration = new ConfigurationBuilder()
             .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
             .AddJsonFile(userConfigPath, optional: true, reloadOnChange: true)
-            .AddJsonFile(runtimeConfigPath, optional: true, reloadOnChange: true)
             .AddEnvironmentVariables()
             .AddInMemoryCollection(GetLegacySqlServerEnvironmentOverrides())
             .Build();
@@ -80,6 +94,7 @@ public static class ConfigurationExtensions
         services.Configure<AppSettings>(options =>
         {
             configuration.Bind(options);
+            ConfigurationSafetyValidator.EnsureSafeUserConfiguration(options, userConfigPath);
         });
 
         return services;
@@ -126,6 +141,61 @@ public static class ConfigurationExtensions
             WriteIndented = true
         });
         File.WriteAllText(configPath, json);
+    }
+
+    internal static void RepairReleaseCenterSettings(string userConfigPath, string defaultConfigPath)
+    {
+        if (!File.Exists(userConfigPath) || !File.Exists(defaultConfigPath))
+        {
+            return;
+        }
+
+        AppSettings? userSettings;
+        AppSettings? defaultSettings;
+        try
+        {
+            userSettings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(userConfigPath));
+            defaultSettings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(defaultConfigPath));
+        }
+        catch
+        {
+            return;
+        }
+
+        if (userSettings is null || defaultSettings is null)
+        {
+            return;
+        }
+
+        if (!IsValidReleaseCenterConfig(defaultSettings.ReleaseCenter))
+        {
+            return;
+        }
+
+        if (IsValidReleaseCenterConfig(userSettings.ReleaseCenter))
+        {
+            return;
+        }
+
+        userSettings.ReleaseCenter.Enabled = defaultSettings.ReleaseCenter.Enabled;
+        userSettings.ReleaseCenter.BaseUrl = defaultSettings.ReleaseCenter.BaseUrl;
+        userSettings.ReleaseCenter.Channel = defaultSettings.ReleaseCenter.Channel;
+        userSettings.ReleaseCenter.AnonKey = defaultSettings.ReleaseCenter.AnonKey;
+
+        File.WriteAllText(
+            userConfigPath,
+            JsonSerializer.Serialize(userSettings, new JsonSerializerOptions
+            {
+                WriteIndented = true
+            }));
+    }
+
+    private static bool IsValidReleaseCenterConfig(ReleaseCenterConfig config)
+    {
+        return config.Enabled
+            && !string.IsNullOrWhiteSpace(config.BaseUrl)
+            && !string.IsNullOrWhiteSpace(config.Channel)
+            && !string.IsNullOrWhiteSpace(config.AnonKey);
     }
 
     /// <summary>
