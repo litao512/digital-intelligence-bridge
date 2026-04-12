@@ -13,6 +13,9 @@ public class PluginEndToEndNavigationTests
     [Fact]
     public void LoadRuntimePlugins_ShouldDiscoverAndInitializeSamplePlugin()
     {
+        using var sandbox = new TestConfigSandbox();
+        PrepareRuntimePluginSandbox(sandbox.RootDirectory);
+
         var loadedPlugins = App.LoadRuntimePlugins(
             GetRepositoryRoot(),
             Options.Create(new AppSettings()),
@@ -28,6 +31,9 @@ public class PluginEndToEndNavigationTests
     [Fact]
     public void Constructor_ShouldAppendRuntimePluginMenus_AndOpenPluginPage()
     {
+        using var sandbox = new TestConfigSandbox();
+        PrepareRuntimePluginSandbox(sandbox.RootDirectory);
+
         var loadedPlugins = App.LoadRuntimePlugins(
             GetRepositoryRoot(),
             Options.Create(new AppSettings()),
@@ -75,6 +81,30 @@ public class PluginEndToEndNavigationTests
     private static string GetRepositoryRoot()
     {
         return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+    }
+
+    private static void PrepareRuntimePluginSandbox(string sandboxRoot)
+    {
+        var sourceDir = Path.Combine(GetRepositoryRoot(), "plugins", "MedicalDrugImport");
+        var targetDir = Path.Combine(sandboxRoot, "plugins", "MedicalDrugImport");
+        CopyDirectory(sourceDir, targetDir);
+    }
+
+    private static void CopyDirectory(string sourceDir, string targetDir)
+    {
+        Directory.CreateDirectory(targetDir);
+
+        foreach (var file in Directory.GetFiles(sourceDir))
+        {
+            var targetFile = Path.Combine(targetDir, Path.GetFileName(file));
+            File.Copy(file, targetFile, overwrite: true);
+        }
+
+        foreach (var directory in Directory.GetDirectories(sourceDir))
+        {
+            var childTarget = Path.Combine(targetDir, Path.GetFileName(directory));
+            CopyDirectory(directory, childTarget);
+        }
     }
 
     private sealed class ThrowingPluginModule : IPluginModule

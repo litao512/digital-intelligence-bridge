@@ -38,17 +38,6 @@ public partial class App : PrismApplication
     protected override AvaloniaObject CreateShell()
     {
         var appSettings = Container.Resolve<IOptions<AppSettings>>();
-        var appLogger = Container.Resolve<ILoggerService<App>>();
-        var releaseCenterService = Container.Resolve<IReleaseCenterService>();
-        var activationResult = releaseCenterService.ActivatePreparedPluginPackagesAsync().GetAwaiter().GetResult();
-        if (!activationResult.IsSuccess)
-        {
-            appLogger.LogWarning("启动时插件激活失败: {Detail}", activationResult.Detail);
-        }
-        else if (activationResult.ActivatedCount > 0)
-        {
-            appLogger.LogInformation("启动时已激活 {Count} 个插件目录", activationResult.ActivatedCount);
-        }
         var runtimePlugins = LoadRuntimePlugins(
             DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.GetConfigRootDirectory(),
             appSettings,
@@ -68,9 +57,7 @@ public partial class App : PrismApplication
             Container.Resolve<ITodoRepository>(),
             Container.Resolve<DrugImportViewModel>(),
             externalMenus,
-            runtimePlugins,
-            Container.Resolve<IApplicationService>(),
-            releaseCenterService);
+            runtimePlugins);
         return _mainWindow;
     }
 
@@ -95,7 +82,6 @@ public partial class App : PrismApplication
             Timeout = TimeSpan.FromMinutes(10)
         });
         containerRegistry.RegisterSingleton<ISupabaseService, SupabaseService>();
-        containerRegistry.RegisterSingleton<IReleaseCenterService, ReleaseCenterService>();
         containerRegistry.RegisterSingleton<ITodoRepository, SupabaseTodoRepository>();
         containerRegistry.RegisterSingleton<PluginCatalogService>();
         containerRegistry.RegisterSingleton<PluginLoaderService>();
