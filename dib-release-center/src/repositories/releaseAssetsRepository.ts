@@ -67,10 +67,11 @@ export async function upsertReleaseAsset(payload: ReleaseAssetInsertPayload): Pr
 }
 
 export async function uploadManifestAsset(bucketName: string, storagePath: string, content: string): Promise<void> {
+  const contentBytes = new TextEncoder().encode(content)
   const { error } = await getSupabaseClient()
     .storage
     .from(bucketName)
-    .upload(storagePath, new Blob([content], { type: 'application/json' }), {
+    .upload(storagePath, contentBytes, {
       upsert: true,
       contentType: 'application/json',
     })

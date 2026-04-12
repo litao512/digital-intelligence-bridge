@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ClientVersion, PluginVersion } from '@/contracts/release-types'
 import {
   buildClientVersionInsert,
@@ -70,6 +70,10 @@ function createClientVersion(overrides: Partial<ClientVersion> = {}): ClientVers
 }
 
 describe('releaseDraftService', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('buildPluginPackageInsert should normalize plugin definition payload', () => {
     const payload = buildPluginPackageInsert({
       pluginCode: 'bedside-rounding',
@@ -206,5 +210,31 @@ describe('releaseDraftService', () => {
     expect(plan.assets[0]?.payload.sha256).toHaveLength(64)
     expect(plan.assets[0]?.content).toContain('"latestVersion": "1.1.0"')
     expect(plan.assets[1]?.content).toContain('"pluginId": "patient-registration"')
+  })
+
+  it('buildManifestPublishPlan should still work when crypto.subtle is unavailable', async () => {
+    vi.stubGlobal('crypto', {})
+
+    const plan = await buildManifestPublishPlan('stable', [
+      createPluginVersion({ id: 'plugin-version-2', version: '1.0.2', publishedAt: '2026-04-05T13:00:00Z' }),
+    ], [
+      createClientVersion({ id: 'client-version-2', version: '1.0.2', publishedAt: '2026-04-05T14:00:00Z' }),
+    ])
+
+    expect(plan.assets[0]?.payload.sha256).toHaveLength(64)
+    expect(plan.assets[1]?.payload.sha256).toHaveLength(64)
+  })
+
+  it('buildManifestPublishPlan should still work when crypto.subtle exists without digest', async () => {
+    vi.stubGlobal('crypto', { subtle: {} })
+
+    const plan = await buildManifestPublishPlan('stable', [
+      createPluginVersion({ id: 'plugin-version-2', version: '1.0.2', publishedAt: '2026-04-05T13:00:00Z' }),
+    ], [
+      createClientVersion({ id: 'client-version-2', version: '1.0.2', publishedAt: '2026-04-05T14:00:00Z' }),
+    ])
+
+    expect(plan.assets[0]?.payload.sha256).toHaveLength(64)
+    expect(plan.assets[1]?.payload.sha256).toHaveLength(64)
   })
 })
