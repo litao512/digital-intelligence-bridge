@@ -28,7 +28,7 @@ public static class ConfigurationSafetyValidator
         return reasons.Count == 0 ? null : string.Join("；", reasons);
     }
 
-    public static void EnsureSafeRuntimeConfiguration(AppSettings settings, string? configPath = null)
+    public static void EnsureSafeUserConfiguration(AppSettings settings, string? configPath = null)
     {
         if (string.Equals(Environment.GetEnvironmentVariable("DIB_ALLOW_UNSAFE_CONFIG"), "1", StringComparison.Ordinal))
         {

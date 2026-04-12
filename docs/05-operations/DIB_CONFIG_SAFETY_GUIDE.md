@@ -20,7 +20,7 @@
 
 - 配置根目录：`%LOCALAPPDATA%\\UniversalTrayTool`
 - 主配置：`appsettings.json`
-- 运行时配置：`appsettings.runtime.json`
+- 安装目录默认配置：安装目录下的 `appsettings.json`
 
 ### 测试/联调
 
@@ -66,6 +66,20 @@
 - `%LOCALAPPDATA%\\UniversalTrayTool\\appsettings.json`
 
 然后重新启动 DIB，程序会从安装目录默认配置复制一份新的用户配置。
+
+## 当前最佳实践
+
+对于这个托盘插件宿主，配置只保留两层：
+
+1. 安装目录 `appsettings.json`
+- 用于分发默认配置
+- 应包含目标环境的 `ReleaseCenter` 默认值
+
+2. `%LOCALAPPDATA%\\UniversalTrayTool\\appsettings.json`
+- 用于保存本机用户状态
+- 例如 `SiteId`、`SiteName`、主题、托盘偏好
+
+不再使用 `appsettings.runtime.json`。
 
 ## 测试约束
 

@@ -39,14 +39,6 @@ public static class ConfigurationExtensions
         return Path.Combine(GetConfigRootDirectory(), "appsettings.json");
     }
 
-    /// <summary>
-    /// 获取运行时配置文件路径（用于部署后下发敏感配置）
-    /// </summary>
-    public static string GetRuntimeConfigFilePath()
-    {
-        return Path.Combine(GetConfigRootDirectory(), "appsettings.runtime.json");
-    }
-
     public static string GetLogsDirectory(string logPath = "logs")
     {
         return Path.IsPathRooted(logPath)
@@ -73,12 +65,11 @@ public static class ConfigurationExtensions
     {
         // 获取用户配置路径
         var userConfigPath = GetConfigFilePath();
-        var runtimeConfigPath = GetRuntimeConfigFilePath();
+        var defaultConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
 
         // 如果用户配置文件不存在，从程序目录复制默认配置
         if (!File.Exists(userConfigPath))
         {
-            var defaultConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
             if (File.Exists(defaultConfigPath))
             {
                 File.Copy(defaultConfigPath, userConfigPath);
@@ -86,7 +77,6 @@ public static class ConfigurationExtensions
         }
         else
         {
-            var defaultConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
             RepairReleaseCenterSettings(userConfigPath, defaultConfigPath);
         }
 
@@ -94,7 +84,6 @@ public static class ConfigurationExtensions
             .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
             .AddJsonFile(userConfigPath, optional: true, reloadOnChange: true)
-            .AddJsonFile(runtimeConfigPath, optional: true, reloadOnChange: true)
             .AddEnvironmentVariables()
             .AddInMemoryCollection(GetLegacySqlServerEnvironmentOverrides())
             .Build();
@@ -105,7 +94,7 @@ public static class ConfigurationExtensions
         services.Configure<AppSettings>(options =>
         {
             configuration.Bind(options);
-            ConfigurationSafetyValidator.EnsureSafeRuntimeConfiguration(options, userConfigPath);
+            ConfigurationSafetyValidator.EnsureSafeUserConfiguration(options, userConfigPath);
         });
 
         return services;

@@ -10,7 +10,7 @@ namespace DigitalIntelligenceBridge.UnitTests;
 public class ConfigurationExtensionsTests
 {
     [Fact]
-    public void AddAppConfiguration_ShouldBindRuntimeConfig_WhenFilesPresent()
+    public void AddAppConfiguration_ShouldBindProgramAndUserConfig_WhenFilesPresent()
     {
         var originalSupabaseUrl = Environment.GetEnvironmentVariable("Supabase__Url");
         var originalSupabaseAnonKey = Environment.GetEnvironmentVariable("Supabase__AnonKey");
@@ -39,13 +39,11 @@ public class ConfigurationExtensionsTests
             Environment.SetEnvironmentVariable("MSSQL_DB_TRUST_SERVER_CERTIFICATE", null);
 
             var userConfigPath = ConfigurationExtensions.GetConfigFilePath();
-            var runtimeConfigPath = ConfigurationExtensions.GetRuntimeConfigFilePath();
-
             File.WriteAllText(
                 userConfigPath,
                 """
                 {
-                  "Supabase": { "Url": "http://localhost:54321", "AnonKey": "", "Schema": "dib" },
+                  "Supabase": { "Url": "https://user-config.test", "AnonKey": "user-anon", "Schema": "dib" },
                   "MedicalDrugImport": {
                     "Enabled": true,
                     "PostgresSchema": "etl",
@@ -59,16 +57,7 @@ public class ConfigurationExtensionsTests
                       "TrustServerCertificate": true
                     }
                   },
-                  "Logging": { "LogLevel": { "Default": "Information", "Microsoft": "Warning" }, "LogPath": "logs" },
-                  "Navigation": []
-                }
-                """);
-
-            File.WriteAllText(
-                runtimeConfigPath,
-                """
-                {
-                  "Supabase": { "Url": "https://example.test", "AnonKey": "runtime-anon", "Schema": "dib" }
+                  "Logging": { "LogLevel": { "Default": "Information", "Microsoft": "Warning" }, "LogPath": "logs" }
                 }
                 """);
 
@@ -77,8 +66,8 @@ public class ConfigurationExtensionsTests
             using var provider = services.BuildServiceProvider();
 
             var settings = provider.GetRequiredService<IOptions<AppSettings>>().Value;
-            Assert.Equal("https://example.test", settings.Supabase.Url);
-            Assert.Equal("runtime-anon", settings.Supabase.AnonKey);
+            Assert.Equal("https://user-config.test", settings.Supabase.Url);
+            Assert.Equal("user-anon", settings.Supabase.AnonKey);
             Assert.Equal("dib", settings.Supabase.Schema);
             Assert.True(settings.MedicalDrugImport.Enabled);
             Assert.Equal("etl", settings.MedicalDrugImport.PostgresSchema);
@@ -121,8 +110,6 @@ public class ConfigurationExtensionsTests
         using var sandbox = new TestConfigSandbox();
         var tempRoot = sandbox.RootDirectory;
         var userConfigPath = Path.Combine(tempRoot, "appsettings.json");
-        var runtimeConfigPath = Path.Combine(tempRoot, "appsettings.runtime.json");
-
         if (Directory.Exists(tempRoot))
         {
             Directory.Delete(tempRoot, recursive: true);
@@ -146,7 +133,6 @@ public class ConfigurationExtensionsTests
             using var provider = services.BuildServiceProvider();
 
             Assert.True(File.Exists(userConfigPath));
-            Assert.False(File.Exists(runtimeConfigPath));
 
             var settings = provider.GetRequiredService<IOptions<AppSettings>>().Value;
             Assert.Equal("通用工具箱", settings.Application.Name);
@@ -187,8 +173,7 @@ public class ConfigurationExtensionsTests
                 "Channel": "stable",
                 "AnonKey": ""
               },
-              "Logging": { "LogLevel": { "Default": "Information", "Microsoft": "Warning" }, "LogPath": "logs" },
-              "Navigation": []
+              "Logging": { "LogLevel": { "Default": "Information", "Microsoft": "Warning" }, "LogPath": "logs" }
             }
             """);
 
@@ -216,7 +201,7 @@ public class ConfigurationExtensionsTests
     }
 
     [Fact]
-    public void EnsureSafeRuntimeConfiguration_ShouldThrow_WhenTestSettingsLeakIntoRuntimeConfig()
+    public void EnsureSafeUserConfiguration_ShouldThrow_WhenTestSettingsLeakIntoUserConfig()
     {
         var previousAllowUnsafeConfig = Environment.GetEnvironmentVariable("DIB_ALLOW_UNSAFE_CONFIG");
         Environment.SetEnvironmentVariable("DIB_ALLOW_UNSAFE_CONFIG", null);
@@ -236,7 +221,7 @@ public class ConfigurationExtensionsTests
             };
 
             var ex = Assert.Throws<InvalidOperationException>(() =>
-                ConfigurationSafetyValidator.EnsureSafeRuntimeConfiguration(settings, "C:\\Users\\Administrator\\AppData\\Local\\UniversalTrayTool\\appsettings.json"));
+                ConfigurationSafetyValidator.EnsureSafeUserConfiguration(settings, "C:\\Users\\Administrator\\AppData\\Local\\UniversalTrayTool\\appsettings.json"));
 
             Assert.Contains("测试配置污染", ex.Message);
             Assert.Contains("TestApp", ex.Message);

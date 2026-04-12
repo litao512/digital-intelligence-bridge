@@ -120,16 +120,19 @@ public partial class App : PrismApplication
     {
         // 获取用户配置路径
         var userConfigPath = DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.GetConfigFilePath();
-        var runtimeConfigPath = DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.GetRuntimeConfigFilePath();
+        var defaultConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
 
         // 如果用户配置文件不存在，从程序目录复制默认配置
         if (!File.Exists(userConfigPath))
         {
-            var defaultConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
             if (File.Exists(defaultConfigPath))
             {
                 File.Copy(defaultConfigPath, userConfigPath);
             }
+        }
+        else
+        {
+            DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.RepairReleaseCenterSettings(userConfigPath, defaultConfigPath);
         }
 
         // 构建配置
@@ -137,7 +140,6 @@ public partial class App : PrismApplication
             .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
             .AddJsonFile(userConfigPath, optional: true, reloadOnChange: true)
-            .AddJsonFile(runtimeConfigPath, optional: true, reloadOnChange: true)
             .AddEnvironmentVariables()
             .Build();
 
@@ -147,7 +149,7 @@ public partial class App : PrismApplication
         // 绑定并注册 AppSettings
         var appSettings = new AppSettings();
         configuration.Bind(appSettings);
-        ConfigurationSafetyValidator.EnsureSafeRuntimeConfiguration(appSettings, userConfigPath);
+        ConfigurationSafetyValidator.EnsureSafeUserConfiguration(appSettings, userConfigPath);
         containerRegistry.RegisterInstance<IOptions<AppSettings>>(Options.Create(appSettings));
     }
 
