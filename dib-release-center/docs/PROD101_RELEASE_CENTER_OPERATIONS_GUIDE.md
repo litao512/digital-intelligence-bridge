@@ -170,6 +170,53 @@ chmod -R a+rX /data/dib-release-center/dist
 find /data/dib-release-center/dist -type d -exec chmod 755 {} +
 ```
 
+### 5.4 发布中心页面热更新清单
+
+发布中心前端热修复时，必须按下面顺序执行，避免“本地已修、线上仍跑旧包”或“构建产物缺环境变量”的问题：
+
+1. 构建前确认 `.env` 已包含：
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+2. 不要用缺少上述环境变量的本地产物直接覆盖线上，否则页面会失去 Supabase 连接能力。
+3. 当前 `prod101` 的实际静态入口目录是：
+   - `/data/dib-release-center/dist/release-center`
+4. 部署后必须核对线上实际引用的资源 hash，而不是只看服务器文件是否已复制：
+
+```bash
+curl http://101.42.19.26:8000/release-center/ | grep -E 'index-.*\.js|index-.*\.css'
+cat /data/dib-release-center/dist/release-center/index.html
+```
+
+5. 若浏览器仍加载旧 bundle，验证时应强制刷新，或追加查询参数避开缓存，例如：
+
+```text
+http://101.42.19.26:8000/release-center/?v=20260412
+```
+
+### 5.5 manifest 发布专项验收
+
+每次修改 manifest 发布相关前端逻辑后，至少执行以下专项验收：
+
+1. 登录发布中心管理员账号
+2. 展开“清单发布与预览”
+3. 点击“发布当前渠道 manifest”
+4. 确认页面出现成功提示，而不是前端异常
+5. 确认浏览器网络面板出现：
+   - `POST /storage/v1/object/dib-releases/manifests/...`
+   - `POST /rest/v1/release_assets?on_conflict=bucket_name,storage_path`
+6. 确认 `release_assets` 中两条 manifest 记录的 `updated_at` 已更新
+7. 直接访问公开 manifest 地址并确认返回 `200`
+
+如果点击按钮后没有任何 Storage / PostgREST 写请求发出，问题通常还卡在前端本地逻辑，而不是服务端权限。
+
+### 5.6 前端兼容性结论
+
+manifest 发布链路依赖前端计算 `sha256`。运维与开发都应注意：
+
+1. 某些运行环境会出现“`globalThis.crypto` 存在，但 `crypto.subtle` 或 `crypto.subtle.digest` 不可用”。
+2. 哈希逻辑不能只判断 `crypto` 是否存在，必须判断 `subtle.digest` 是否可调用，并在失败时回退到纯 JS 实现。
+3. 上传 manifest 文件时，优先使用原始字节内容，避免不必要地走 `Blob/FormData` 分支，减少浏览器兼容差异。
+
 ## 6. 站点授权与统计运维
 
 ### 6.1 站点接入基线
@@ -270,7 +317,7 @@ docker exec -i supabase-db psql -U postgres -d postgres -c "select email, is_act
 
 ```bash
 curl -I http://101.42.19.26:8000/release-center/
-curl -I http://101.42.19.26:8000/release-center/assets/index-DQLm775K.js
+curl http://101.42.19.26:8000/release-center/ | grep -E 'index-.*\.js|index-.*\.css'
 ```
 
 ### 7.7 检查运行时 RPC 是否可执行
@@ -344,6 +391,48 @@ chmod -R a+rX /data/dib-release-center/dist
 find /data/dib-release-center/dist -type d -exec chmod 755 {} +
 docker restart dib-release-center-web
 ```
+
+### 8.5 点击“发布当前渠道 manifest”报 `Cannot read properties of undefined (reading 'digest')`
+
+根因：
+
+- 浏览器环境里 `globalThis.crypto` 存在，但 `crypto.subtle.digest` 不可用
+- 前端哈希逻辑未正确回退到纯 JS 实现
+
+处理：
+
+1. 确认线上已部署包含回退逻辑的新 bundle
+2. 强制刷新浏览器缓存，确认实际加载的是新 hash 资源
+3. 重新点击按钮，检查是否出现以下写请求：
+   - `POST /storage/v1/object/dib-releases/manifests/...`
+   - `POST /rest/v1/release_assets?on_conflict=bucket_name,storage_path`
+
+如果页面仍报错，但网络里没有任何 manifest 写请求，优先回看前端 bundle 是否仍为旧版本。
+
+### 8.6 PowerShell + SSH + psql 引号导致命令异常
+
+症状：
+
+- PowerShell 报 `ParserError`
+- `psql` 提示参数被拆散
+- 远端 SQL 未真正执行
+
+建议：
+
+1. 不要把复杂 SQL 直接塞进多层引号中
+2. 优先使用 here-string 通过标准输入喂给远端 `psql`
+
+示例：
+
+```powershell
+@'
+select email, is_active, coalesce(user_id::text, 'NULL') as user_id
+from dib_release.release_center_admins
+order by created_at desc;
+'@ | ssh prod-101 "docker exec -i supabase-db psql -U postgres -d postgres -At"
+```
+
+3. 若需要复制构建产物到服务器，先检查临时目录实际内容，再执行覆盖，避免误以为通配符已在远端展开。
 
 ## 9. 建议的例行检查
 
