@@ -398,28 +398,42 @@ public class SettingsViewModel : ViewModelBase
             }
 
             using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+            var progressGate = new object();
+            var isDownloadFinalized = false;
             var progress = new Progress<ReleaseCenterDownloadProgress>(item =>
             {
-                ClientPackageDownloadSummary = item.Stage switch
+                lock (progressGate)
                 {
-                    "verifying" => "正在校验客户端更新包...",
-                    "completed" => "客户端更新包下载完成，正在收尾...",
-                    "failed" => "客户端下载失败",
-                    _ => "正在下载客户端更新包..."
-                };
-                ClientPackageDownloadDetail = BuildClientDownloadDetail(item);
+                    if (isDownloadFinalized)
+                    {
+                        return;
+                    }
+
+                    ClientPackageDownloadSummary = item.Stage switch
+                    {
+                        "verifying" => "正在校验客户端更新包...",
+                        "completed" => "客户端更新包下载完成，正在收尾...",
+                        "failed" => "客户端下载失败",
+                        _ => "正在下载客户端更新包..."
+                    };
+                    ClientPackageDownloadDetail = BuildClientDownloadDetail(item);
+                }
             });
             var result = await _releaseCenterService.DownloadLatestClientPackageAsync(progress, cts.Token);
-            ClientPackageDownloadSummary = result.Summary;
-            if (result.IsSuccess)
+            lock (progressGate)
             {
-                ClientPackageDownloadDetail = string.IsNullOrWhiteSpace(ClientPackageDownloadDetail)
-                    ? (string.IsNullOrWhiteSpace(result.Detail) ? result.CacheDirectory : result.Detail)
-                    : ClientPackageDownloadDetail + Environment.NewLine + $"文件：{result.PackagePath}";
-            }
-            else
-            {
-                ClientPackageDownloadDetail = string.IsNullOrWhiteSpace(result.Detail) ? result.CacheDirectory : result.Detail;
+                isDownloadFinalized = true;
+                ClientPackageDownloadSummary = result.Summary;
+                if (result.IsSuccess)
+                {
+                    ClientPackageDownloadDetail = string.IsNullOrWhiteSpace(ClientPackageDownloadDetail)
+                        ? (string.IsNullOrWhiteSpace(result.Detail) ? result.CacheDirectory : result.Detail)
+                        : ClientPackageDownloadDetail + Environment.NewLine + $"文件：{result.PackagePath}";
+                }
+                else
+                {
+                    ClientPackageDownloadDetail = string.IsNullOrWhiteSpace(result.Detail) ? result.CacheDirectory : result.Detail;
+                }
             }
             LastClientPackageDownloadAt = DateTime.Now;
             if (result.IsSuccess && !string.IsNullOrWhiteSpace(result.PackagePath))

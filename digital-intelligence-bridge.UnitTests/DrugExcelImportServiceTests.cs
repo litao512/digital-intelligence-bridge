@@ -75,6 +75,7 @@ public class DrugExcelImportServiceTests
     [Fact]
     public void AddApplicationServices_ShouldRegisterDrugExcelImportService()
     {
+        using var sandbox = new TestConfigSandbox();
         var services = new ServiceCollection();
 
         services.AddApplicationServices();
@@ -114,6 +115,7 @@ public class DrugExcelImportServiceTests
     [Fact]
     public void AddApplicationServices_ShouldRegisterDrugImportPipelineDependencies()
     {
+        using var sandbox = new TestConfigSandbox();
         var services = new ServiceCollection();
 
         services.AddApplicationServices();
