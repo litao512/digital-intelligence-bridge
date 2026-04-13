@@ -80,19 +80,20 @@ public class ReleaseCenterActivatePreparedTests
 """);
         await File.WriteAllTextAsync(Path.Combine(preparedDir, "PatientRegistration.Plugin.dll"), "new-binary");
 
-        var service = CreateService(staging, string.Empty, string.Empty);
+        var pluginRoot = Path.Combine(sandbox.RootDirectory, "plugins");
+        var backupRoot = Path.Combine(sandbox.RootDirectory, "release-backups", "plugins");
+        var service = CreateService(staging, string.Empty, backupRoot, pluginRoot);
         var result = await service.ActivatePreparedPluginPackagesAsync();
 
         var expectedRuntimeDll = Path.Combine(sandbox.RootDirectory, "plugins", "patient-registration", "PatientRegistration.Plugin.dll");
-        var expectedBackupRoot = Path.Combine(sandbox.RootDirectory, "release-backups", "plugins");
 
         Assert.True(result.IsSuccess);
         Assert.True(File.Exists(expectedRuntimeDll));
         Assert.Equal(Path.Combine(sandbox.RootDirectory, "plugins"), result.RuntimePluginRoot);
-        Assert.True(Directory.Exists(expectedBackupRoot));
+        Assert.True(Directory.Exists(backupRoot));
     }
 
-    private static ReleaseCenterService CreateService(string stagingDirectory, string runtimePluginRoot, string backupDirectory)
+    private static ReleaseCenterService CreateService(string stagingDirectory, string runtimePluginRoot, string backupDirectory, string pluginDirectory = "plugins")
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
         {
@@ -105,7 +106,7 @@ public class ReleaseCenterActivatePreparedTests
             Options.Create(new AppSettings
             {
                 Application = new ApplicationConfig { Version = "1.0.0" },
-                Plugin = new PluginConfig { PluginDirectory = "plugins" },
+                Plugin = new PluginConfig { PluginDirectory = pluginDirectory },
                 ReleaseCenter = new ReleaseCenterConfig
                 {
                     Enabled = true,

@@ -13,9 +13,11 @@ public class PluginEndToEndNavigationTests
     [Fact]
     public void LoadRuntimePlugins_ShouldDiscoverAndInitializeSamplePlugin()
     {
+        using var sandbox = new TestConfigSandbox();
+        var appSettings = CreateAppSettings();
         var loadedPlugins = App.LoadRuntimePlugins(
             GetRepositoryRoot(),
-            Options.Create(new AppSettings()),
+            Options.Create(appSettings),
             new PluginCatalogService(),
             new PluginLoaderService(),
             new TestAppLogger());
@@ -28,14 +30,19 @@ public class PluginEndToEndNavigationTests
     [Fact]
     public void Constructor_ShouldAppendRuntimePluginMenus_AndOpenPluginPage()
     {
+        using var sandbox = new TestConfigSandbox();
+        var appSettings = CreateAppSettings();
         var loadedPlugins = App.LoadRuntimePlugins(
             GetRepositoryRoot(),
-            Options.Create(new AppSettings()),
+            Options.Create(appSettings),
             new PluginCatalogService(),
             new PluginLoaderService(),
             new TestAppLogger());
-        var menus = loadedPlugins.SelectMany(plugin => plugin.Module!.CreateMenuItems()).ToList();
-        var vm = new MainWindowViewModel(new TestMainWindowLogger(), Options.Create(new AppSettings()), null, null, menus, loadedPlugins);
+        var menus = loadedPlugins
+            .Where(plugin => plugin.Module is not null)
+            .SelectMany(plugin => plugin.Module!.CreateMenuItems())
+            .ToList();
+        var vm = new MainWindowViewModel(new TestMainWindowLogger(), Options.Create(appSettings), null, null, menus, loadedPlugins);
 
         var pluginMenu = Assert.Single(vm.MenuItems, item => item.IsExternalPlugin);
 
@@ -75,6 +82,17 @@ public class PluginEndToEndNavigationTests
     private static string GetRepositoryRoot()
     {
         return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+    }
+
+    private static AppSettings CreateAppSettings()
+    {
+        return new AppSettings
+        {
+            Plugin = new PluginConfig
+            {
+                PluginDirectory = Path.Combine(GetRepositoryRoot(), "plugins")
+            }
+        };
     }
 
     private sealed class ThrowingPluginModule : IPluginModule

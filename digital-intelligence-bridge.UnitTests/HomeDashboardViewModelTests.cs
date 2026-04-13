@@ -26,13 +26,18 @@ public class HomeDashboardViewModelTests
     public async Task RefreshAsync_ShouldMergeAuthorizedAndRuntimePlugins_WhenPluginAlreadyActive()
     {
         using var sandbox = new TestConfigSandbox();
+        var runtimeRoot = Path.Combine(sandbox.RootDirectory, "runtime-plugins");
+        var stagingRoot = Path.Combine(sandbox.RootDirectory, "release-staging", "plugins", "stable");
         CreatePluginManifest(
-            ConfigurationExtensions.GetRuntimePluginsDirectory(),
+            runtimeRoot,
             "patient-registration",
             "就诊登记",
             "1.0.1");
 
-        var vm = CreateVm(new DashboardReleaseCenterService());
+        var vm = CreateVm(
+            new DashboardReleaseCenterService(),
+            runtimePluginRoot: runtimeRoot,
+            stagingDirectory: stagingRoot);
         await vm.RefreshAsync();
 
         Assert.Equal("门诊一楼登记台", vm.SiteDisplayName);
@@ -48,11 +53,8 @@ public class HomeDashboardViewModelTests
     public async Task RefreshAsync_ShouldMarkPluginAsPendingRestart_WhenStagingPluginExists()
     {
         using var sandbox = new TestConfigSandbox();
-        var stagingRoot = Path.Combine(
-            ConfigurationExtensions.GetConfigRootDirectory(),
-            "release-staging",
-            "plugins",
-            "stable");
+        var runtimeRoot = Path.Combine(sandbox.RootDirectory, "runtime-plugins");
+        var stagingRoot = Path.Combine(sandbox.RootDirectory, "release-staging", "plugins", "stable");
         CreatePluginManifest(
             stagingRoot,
             "patient-registration",
@@ -60,7 +62,10 @@ public class HomeDashboardViewModelTests
             "1.0.2",
             folderName: "patient-registration-1.0.2");
 
-        var vm = CreateVm(new DashboardReleaseCenterService());
+        var vm = CreateVm(
+            new DashboardReleaseCenterService(),
+            runtimePluginRoot: runtimeRoot,
+            stagingDirectory: stagingRoot);
         await vm.RefreshAsync();
 
         var plugin = Assert.Single(vm.PluginItems);
@@ -134,7 +139,9 @@ public class HomeDashboardViewModelTests
         StubApplicationService? appService = null,
         Action? openSettings = null,
         string siteName = "门诊一楼登记台",
-        string siteRemark = "收费处旁")
+        string siteRemark = "收费处旁",
+        string? runtimePluginRoot = null,
+        string? stagingDirectory = null)
     {
         var settings = new AppSettings
         {
@@ -145,7 +152,7 @@ public class HomeDashboardViewModelTests
             },
             Plugin = new PluginConfig
             {
-                PluginDirectory = "plugins"
+                PluginDirectory = runtimePluginRoot ?? "plugins"
             },
             ReleaseCenter = new ReleaseCenterConfig
             {
@@ -153,7 +160,9 @@ public class HomeDashboardViewModelTests
                 BaseUrl = "http://101.42.19.26:8000",
                 Channel = "stable",
                 SiteName = siteName,
-                SiteRemark = siteRemark
+                SiteRemark = siteRemark,
+                RuntimePluginRoot = runtimePluginRoot ?? string.Empty,
+                StagingDirectory = stagingDirectory ?? string.Empty
             }
         };
 
