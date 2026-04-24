@@ -1,8 +1,0 @@
-{
-  "id": "medical-drug-import",
-  "name": "医保药品导入",
-  "version": "0.1.0",
-  "entryAssembly": "MedicalDrugImport.Plugin.dll",
-  "entryType": "MedicalDrugImport.Plugin.MedicalDrugImportPlugin",
-  "minHostVersion": "1.0.0"
-}
