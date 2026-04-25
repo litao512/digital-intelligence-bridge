@@ -1,4 +1,5 @@
 using DigitalIntelligenceBridge.Configuration;
+using DigitalIntelligenceBridge.Models;
 using DigitalIntelligenceBridge.Services;
 using DigitalIntelligenceBridge.ViewModels;
 using Microsoft.Extensions.Options;
@@ -22,6 +23,27 @@ public class SettingsViewModelClientDownloadTests
         Assert.Contains("进度：", vm.ClientPackageDownloadDetail);
         Assert.Contains("速度：", vm.ClientPackageDownloadDetail);
         Assert.NotNull(vm.LastClientPackageDownloadAt);
+    }
+
+    [Fact]
+    public async Task CancelClientPackageDownloadCommand_ShouldCancelRunningDownload()
+    {
+        var service = new BlockingReleaseCenterService();
+        var vm = CreateVm(service);
+
+        vm.DownloadClientPackageCommand.Execute();
+        await WaitForConditionAsync(() => vm.IsClientPackageDownloadRunning);
+
+        Assert.True(vm.CancelClientPackageDownloadCommand.CanExecute());
+
+        vm.CancelClientPackageDownloadCommand.Execute();
+        await WaitForDownloadAsync(vm);
+
+        Assert.Equal("客户端下载已取消", vm.ClientPackageDownloadSummary);
+        Assert.Contains("已取消", vm.ClientPackageDownloadDetail);
+        Assert.Empty(vm.ClientUpgradeNotice);
+        Assert.False(vm.IsClientPackageDownloadRunning);
+        Assert.False(vm.CancelClientPackageDownloadCommand.CanExecute());
     }
 
     private static async Task WaitForDownloadAsync(SettingsViewModel vm)
@@ -73,6 +95,9 @@ public class SettingsViewModelClientDownloadTests
     {
         public bool IsConfigured => true;
         public Task<ReleaseCenterCheckResult> CheckForUpdatesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterCheckResult(true, "ok", "client", "plugin", "detail", "site", "authorized", "authorized-detail"));
+        public Task<ResourceDiscoverySnapshot> DiscoverResourcesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ResourceDiscoverySnapshot());
+        public Task<AuthorizedResourceSnapshot> GetAuthorizedResourcesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new AuthorizedResourceSnapshot());
+        public Task<ResourceApplicationSubmitResult> ApplyResourceAsync(string resourceId, string pluginCode, string reason, CancellationToken cancellationToken = default) => Task.FromResult(new ResourceApplicationSubmitResult(true, "ok", "apply-test", "Submitted"));
         public Task<ReleaseCenterClientDownloadResult> DownloadLatestClientPackageAsync(IProgress<ReleaseCenterDownloadProgress>? progress = null, CancellationToken cancellationToken = default)
         {
             progress?.Report(new ReleaseCenterDownloadProgress("downloading", "正在下载客户端更新包", 50, 100, 2048, TimeSpan.FromSeconds(1)));
@@ -84,6 +109,25 @@ public class SettingsViewModelClientDownloadTests
         public Task<ReleaseCenterPluginPrepareResult> PrepareCachedPluginPackagesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterPluginPrepareResult(true, "已生成 1 个预安装目录", "detail", 1, "C:\\staging"));
         public Task<ReleaseCenterPluginActivateResult> ActivatePreparedPluginPackagesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterPluginActivateResult(true, "已激活 1 个插件目录", "detail", 1, "C:\\runtime"));
         public Task<ReleaseCenterPluginRollbackResult> RestoreLatestPluginBackupAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterPluginRollbackResult(true, "已恢复最近一次插件备份", "detail", 1, "C:\\runtime"));
+    }
+
+    private sealed class BlockingReleaseCenterService : IReleaseCenterService
+    {
+        public bool IsConfigured => true;
+        public Task<ReleaseCenterCheckResult> CheckForUpdatesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterCheckResult(true, "ok", "client", "plugin", "detail", "site", "authorized", "authorized-detail"));
+        public Task<ResourceDiscoverySnapshot> DiscoverResourcesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ResourceDiscoverySnapshot());
+        public Task<AuthorizedResourceSnapshot> GetAuthorizedResourcesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new AuthorizedResourceSnapshot());
+        public Task<ResourceApplicationSubmitResult> ApplyResourceAsync(string resourceId, string pluginCode, string reason, CancellationToken cancellationToken = default) => Task.FromResult(new ResourceApplicationSubmitResult(true, "ok", "apply-test", "Submitted"));
+        public async Task<ReleaseCenterClientDownloadResult> DownloadLatestClientPackageAsync(IProgress<ReleaseCenterDownloadProgress>? progress = null, CancellationToken cancellationToken = default)
+        {
+            progress?.Report(new ReleaseCenterDownloadProgress("downloading", "正在下载客户端更新包", 10, 100, 1024, TimeSpan.FromSeconds(5)));
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return new ReleaseCenterClientDownloadResult(true, "unexpected", string.Empty, "1.0.1", "C:\\cache", "C:\\cache\\dib-win-x64-portable-1.0.1.zip");
+        }
+        public Task<ReleaseCenterPluginDownloadResult> DownloadAvailablePluginPackagesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterPluginDownloadResult(true, "插件包已缓存 0 项", string.Empty, 0, "C:\\cache"));
+        public Task<ReleaseCenterPluginPrepareResult> PrepareCachedPluginPackagesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterPluginPrepareResult(true, "已生成 0 个预安装目录", string.Empty, 0, "C:\\staging"));
+        public Task<ReleaseCenterPluginActivateResult> ActivatePreparedPluginPackagesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterPluginActivateResult(true, "已激活 0 个插件目录", string.Empty, 0, "C:\\runtime"));
+        public Task<ReleaseCenterPluginRollbackResult> RestoreLatestPluginBackupAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterPluginRollbackResult(true, "已恢复最近一次插件备份", string.Empty, 0, "C:\\runtime"));
     }
 
     private sealed class StubSupabaseService : ISupabaseService

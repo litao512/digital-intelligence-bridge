@@ -17,7 +17,7 @@ public class MainWindowPluginNavigationTests
             new PluginMenuItem { Id = "medical-drug-import.home", Name = "医保导入插件", Icon = "🧩", Order = 30 }
         ];
 
-        var vm = new MainWindowViewModel(new TestLogger(), Options.Create(settings), null, null, externalMenus);
+        var vm = new MainWindowViewModel(new TestLogger(), Options.Create(settings), null, externalMenus);
 
         var pluginMenu = Assert.Single(vm.MenuItems, item => item.IsExternalPlugin);
         Assert.Contains(vm.MenuItems, item => item.Id == "home" && item.ViewType == MainViewType.Home);
@@ -29,19 +29,14 @@ public class MainWindowPluginNavigationTests
     }
 
     [Fact]
-    public void Constructor_ShouldNotCreateBuiltInDrugImportMenu_EvenWhenEnabled()
+    public void Constructor_ShouldNotExposeBuiltInDrugImportSurface()
     {
-        var settings = new AppSettings
-        {
-            MedicalDrugImport = new MedicalDrugImportConfig
-            {
-                Enabled = true
-            }
-        };
-
-        var vm = new MainWindowViewModel(new TestLogger(), Options.Create(settings));
+        var vm = new MainWindowViewModel(new TestLogger(), Options.Create(new AppSettings()));
 
         Assert.DoesNotContain(vm.MenuItems, item => item.Id == "drug-import");
+        Assert.DoesNotContain("DrugImport", Enum.GetNames(typeof(MainViewType)));
+        Assert.DoesNotContain("DrugImport", Enum.GetNames(typeof(TabItemType)));
+        Assert.Null(typeof(MainWindowViewModel).GetProperty("DrugImportToolViewModel"));
     }
 
     [Fact]
@@ -52,7 +47,7 @@ public class MainWindowPluginNavigationTests
         [
             new PluginMenuItem { Id = "medical-drug-import.home", Name = "医保导入插件", Icon = "🧩", Order = 30 }
         ];
-        var vm = new MainWindowViewModel(new TestLogger(), Options.Create(settings), null, null, externalMenus);
+        var vm = new MainWindowViewModel(new TestLogger(), Options.Create(settings), null, externalMenus);
 
         vm.NavigateCommand.Execute("plugin:medical-drug-import.home");
 

@@ -15,7 +15,7 @@
 ```
 
 ## 实际结果
-- 运行时配置写入：`C:\Users\User\AppData\Local\UniversalTrayTool\appsettings.runtime.json`
+- 运行时配置写入：`C:\Users\User\AppData\Local\DibClient\appsettings.runtime.json`
 - Supabase 验证接口：`GET /rest/v1/todos?select=id&limit=1`
 - 返回状态：`200`
 - 返回体：非空数组（至少包含一个 `id`）

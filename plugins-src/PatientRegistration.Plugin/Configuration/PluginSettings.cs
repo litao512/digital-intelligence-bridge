@@ -2,14 +2,14 @@ namespace PatientRegistration.Plugin.Configuration;
 
 public class PluginSettings
 {
-    public PostgresSettings Postgres { get; set; } = new();
+    public DevelopmentModeSettings DevelopmentMode { get; set; } = new();
 
     public RegistrationSettings Registration { get; set; } = new();
 }
 
-public class PostgresSettings
+public class DevelopmentModeSettings
 {
-    public string ConnectionString { get; set; } = string.Empty;
+    public bool Enabled { get; set; }
 }
 
 public class RegistrationSettings

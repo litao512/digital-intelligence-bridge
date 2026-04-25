@@ -1,0 +1,53 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:DigitalIntelligenceBridge.ViewModels"
+        mc:Ignorable="d"
+        x:Class="DigitalIntelligenceBridge.Views.SiteRegistrationDialog"
+        x:DataType="vm:SiteRegistrationDialogViewModel"
+        Width="520"
+        MinWidth="460"
+        Height="320"
+        MinHeight="300"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Title="重新注册站点">
+    <Design.DataContext>
+        <vm:SiteRegistrationDialogViewModel />
+    </Design.DataContext>
+
+    <Border Padding="20">
+        <StackPanel Spacing="14">
+            <StackPanel Spacing="4">
+                <TextBlock Text="重新注册站点" FontSize="22" FontWeight="Bold"/>
+                <TextBlock Text="修正站点资料后，后续注册与心跳将使用新信息。"
+                           FontSize="12"
+                           Opacity="0.7"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="12">
+                <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="使用单位"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SiteOrganizationInput}" Watermark="例如：第一人民医院"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="站点名称"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SiteNameInput}" Watermark="例如：门诊一楼登记台"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="站点备注"/>
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SiteRemarkInput}" Watermark="例如：收费处旁"/>
+            </Grid>
+
+            <Border Padding="10" CornerRadius="8" BorderThickness="1">
+                <TextBlock Text="{Binding StatusMessage}"
+                           FontSize="12"
+                           TextWrapping="Wrap"/>
+            </Border>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                <Button Content="取消" Classes="Secondary" Click="CancelButton_Click"/>
+                <Button Content="保存并重新注册" Classes="Primary" Click="SaveButton_Click"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

@@ -1,6 +1,8 @@
 using DigitalIntelligenceBridge.Plugin.Host;
+using DigitalIntelligenceBridge.Plugin.Abstractions;
 using MedicalDrugImport.Plugin.Configuration;
 using MedicalDrugImport.Plugin;
+using PatientRegistration.Plugin;
 using Xunit;
 
 namespace DigitalIntelligenceBridge.UnitTests;
@@ -25,13 +27,33 @@ public class PluginRuntimeDiscoveryTests
         var pluginRoot = GetRuntimePluginRoot();
         var catalog = new PluginCatalogService();
         var loader = new PluginLoaderService();
-        var discovered = Assert.Single(catalog.DiscoverManifests(pluginRoot));
+        var discovered = Assert.Single(catalog.DiscoverManifests(pluginRoot), item => item.Manifest.Id == "medical-drug-import");
 
         var loaded = loader.LoadPlugin(discovered);
 
         Assert.NotNull(loaded.Module);
         Assert.Empty(loaded.ErrorMessage);
         Assert.Equal(typeof(MedicalDrugImportPlugin).FullName, loaded.Module!.GetType().FullName);
+    }
+
+    [Fact]
+    public void LoadPlugin_ShouldLoadPatientRegistrationPlugin_FromRuntimeDirectory()
+    {
+        var pluginRoot = GetRuntimePluginRoot();
+        var catalog = new PluginCatalogService();
+        var loader = new PluginLoaderService();
+        var discovered = Assert.Single(catalog.DiscoverManifests(pluginRoot), item => item.Manifest.Id == "patient-registration");
+
+        var loaded = loader.LoadPlugin(discovered);
+
+        Assert.NotNull(loaded.Module);
+        Assert.Empty(loaded.ErrorMessage);
+        Assert.Equal(typeof(PatientRegistrationPlugin).FullName, loaded.Module!.GetType().FullName);
+
+        loaded.Module.Initialize(new StubPluginHostContext(discovered.PluginDirectory));
+        var content = loaded.Module.CreateContent("patient-registration.home");
+
+        Assert.NotNull(content);
     }
 
     [Fact]
@@ -89,10 +111,11 @@ public class PluginRuntimeDiscoveryTests
             var settings = PluginConfigurationLoader.Load(pluginDir);
 
             Assert.NotNull(settings);
-            Assert.NotEmpty(settings.Excel.RequiredSheets);
+            Assert.Empty(settings.Excel.RequiredSheets);
             Assert.Equal(1000, settings.Import.BatchSize);
             Assert.Equal(50, settings.Import.MaxSyncRowsPerRun);
             Assert.False(settings.Import.AllowUnsafeFullSync);
+            Assert.False(settings.DevelopmentMode.Enabled);
         }
         finally
         {
@@ -108,6 +131,25 @@ public class PluginRuntimeDiscoveryTests
     private static string GetRuntimePluginRoot()
     {
         return Path.Combine(GetRepositoryRoot(), "plugins");
+    }
+
+    private sealed class StubPluginHostContext(string pluginDirectory) : IPluginHostContext
+    {
+        public string HostVersion => "1.0.0";
+
+        public string PluginDirectory { get; } = pluginDirectory;
+
+        public void LogInformation(string message)
+        {
+        }
+
+        public IReadOnlyList<AuthorizedRuntimeResource> GetAuthorizedResources() => [];
+
+        public bool TryGetResource(string usageKey, out AuthorizedRuntimeResource? resource)
+        {
+            resource = null;
+            return false;
+        }
     }
 }
 

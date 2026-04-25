@@ -3,7 +3,6 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using DigitalIntelligenceBridge.Configuration;
-using DigitalIntelligenceBridge.Models;
 using DigitalIntelligenceBridge.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -14,68 +13,6 @@ namespace DigitalIntelligenceBridge.UnitTests;
 
 public class ApplicationServiceTests
 {
-    [Fact]
-    public void DrugImportModels_ShouldCaptureBatchRowAndPreviewState()
-    {
-        var batchId = Guid.NewGuid();
-        var batch = new DrugImportBatch
-        {
-            BatchId = batchId,
-            SourceFile = @"C:\imports\medical-drug.xlsx",
-            Stage = "Import",
-            Result = "Running",
-            RawCount = 10,
-            CleanCount = 8,
-            ErrorCount = 2,
-            LastError = "row 8 invalid"
-        };
-
-        var row = new DrugImportRow
-        {
-            BatchId = batchId,
-            SourceSheet = "总表（270419）",
-            RowNumber = 8,
-            BusinessKey = "XA01ABD075A002010100483",
-            RawData = new Dictionary<string, string?>
-            {
-                ["药品代码"] = "XA01ABD075A002010100483",
-                ["注册名称"] = "地喹氯铵含片"
-            },
-            NormalizedData = new Dictionary<string, string?>
-            {
-                ["drug_code"] = "XA01ABD075A002010100483",
-                ["drug_name_cn"] = "地喹氯铵含片"
-            },
-            ErrorCode = "REQUIRED_FIELD_MISSING",
-            ErrorMessage = "药品代码不能为空"
-        };
-
-        var preview = new DrugImportPreview
-        {
-            FilePath = batch.SourceFile,
-            IsValid = true,
-            Summary = "工作表完整",
-            SheetRowCounts = new Dictionary<string, int>
-            {
-                ["总表（270419）"] = 270419,
-                ["新增（559）"] = 559
-            },
-            Errors = new List<string>
-            {
-                "变更（449）存在 1 行空药品代码"
-            }
-        };
-
-        Assert.Equal(batchId, batch.BatchId);
-        Assert.Equal("Running", batch.Result);
-        Assert.Equal("总表（270419）", row.SourceSheet);
-        Assert.Equal("XA01ABD075A002010100483", row.BusinessKey);
-        Assert.Equal("地喹氯铵含片", row.NormalizedData["drug_name_cn"]);
-        Assert.True(preview.IsValid);
-        Assert.Equal(270419, preview.SheetRowCounts["总表（270419）"]);
-        Assert.Single(preview.Errors);
-    }
-
     [Fact]
     public async Task OnStartedAsync_ShouldSkipChecks_WhenSupabaseNotConfigured()
     {

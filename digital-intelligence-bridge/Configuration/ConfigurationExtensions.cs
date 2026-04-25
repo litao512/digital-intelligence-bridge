@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace DigitalIntelligenceBridge.Configuration;
@@ -13,6 +14,13 @@ namespace DigitalIntelligenceBridge.Configuration;
 /// </summary>
 public static class ConfigurationExtensions
 {
+    public const string DefaultConfigRootName = "DibClient";
+    private static readonly JsonSerializerOptions UserSettingsJsonOptions = new()
+    {
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
     /// <summary>
     /// 获取应用配置根目录（默认 LocalAppData，可通过环境变量 DIB_CONFIG_ROOT 覆盖）
     /// </summary>
@@ -26,7 +34,7 @@ public static class ConfigurationExtensions
         }
 
         var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var appFolder = Path.Combine(appDataPath, "UniversalTrayTool");
+        var appFolder = Path.Combine(appDataPath, DefaultConfigRootName);
         Directory.CreateDirectory(appFolder);
         return appFolder;
     }
@@ -58,6 +66,11 @@ public static class ConfigurationExtensions
         return Path.Combine(GetConfigRootDirectory(), "release-backups", "plugins");
     }
 
+    public static string GetAuthorizedResourcesCacheFilePath()
+    {
+        return Path.Combine(GetConfigRootDirectory(), "resource-cache", "authorized-resources.json");
+    }
+
     /// <summary>
     /// 将配置系统添加到服务容器
     /// </summary>
@@ -67,25 +80,13 @@ public static class ConfigurationExtensions
         var userConfigPath = GetConfigFilePath();
         var defaultConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
 
-        // 如果用户配置文件不存在，从程序目录复制默认配置
-        if (!File.Exists(userConfigPath))
-        {
-            if (File.Exists(defaultConfigPath))
-            {
-                File.Copy(defaultConfigPath, userConfigPath);
-            }
-        }
-        else
-        {
-            RepairReleaseCenterSettings(userConfigPath, defaultConfigPath);
-        }
+        EnsureUserConfigExists(userConfigPath, defaultConfigPath);
 
         var configuration = new ConfigurationBuilder()
             .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
             .AddJsonFile(userConfigPath, optional: true, reloadOnChange: true)
             .AddEnvironmentVariables()
-            .AddInMemoryCollection(GetLegacySqlServerEnvironmentOverrides())
             .Build();
 
         services.AddSingleton<IConfiguration>(configuration);
@@ -99,47 +100,61 @@ public static class ConfigurationExtensions
 
         return services;
     }
-
-    private static Dictionary<string, string?> GetLegacySqlServerEnvironmentOverrides()
-    {
-        var overrides = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-
-        MapLegacyEnv(overrides, "MSSQL_DB_SERVER", "MedicalDrugImport:SqlServer:Host");
-        MapLegacyEnv(overrides, "MSSQL_DB_PORT", "MedicalDrugImport:SqlServer:Port");
-        MapLegacyEnv(overrides, "MSSQL_DB_NAME", "MedicalDrugImport:SqlServer:Database");
-        MapLegacyEnv(overrides, "MSSQL_DB_USER", "MedicalDrugImport:SqlServer:Username");
-        MapLegacyEnv(overrides, "MSSQL_DB_PASSWORD", "MedicalDrugImport:SqlServer:Password");
-        MapLegacyEnv(overrides, "MSSQL_DB_ENCRYPT", "MedicalDrugImport:SqlServer:Encrypt");
-        MapLegacyEnv(
-            overrides,
-            "MSSQL_DB_TRUST_SERVER_CERTIFICATE",
-            "MedicalDrugImport:SqlServer:TrustServerCertificate");
-
-        return overrides;
-    }
-
-    private static void MapLegacyEnv(
-        IDictionary<string, string?> overrides,
-        string legacyName,
-        string configKey)
-    {
-        var value = Environment.GetEnvironmentVariable(legacyName);
-        if (!string.IsNullOrWhiteSpace(value))
-        {
-            overrides[configKey] = value;
-        }
-    }
-
     /// <summary>
     /// 保存当前配置到用户配置文件
     /// </summary>
     public static void SaveAppSettings(this IConfiguration configuration, AppSettings settings)
     {
         var configPath = GetConfigFilePath();
-        var json = System.Text.Json.JsonSerializer.Serialize(settings, new System.Text.Json.JsonSerializerOptions
+        var userSettings = CreateUserSettingsSnapshot(settings);
+        SaveUserSettings(configPath, userSettings);
+    }
+
+    public static void EnsureUserConfigExists(string userConfigPath, string defaultConfigPath)
+    {
+        if (File.Exists(userConfigPath))
         {
-            WriteIndented = true
-        });
+            NormalizeExistingUserConfig(userConfigPath);
+            return;
+        }
+
+        var defaultSettings = LoadDefaultSettings(defaultConfigPath);
+        var userSettings = CreateUserSettingsSnapshot(defaultSettings);
+        SaveUserSettings(userConfigPath, userSettings);
+    }
+
+    public static UserAppSettings CreateUserSettingsSnapshot(AppSettings settings)
+    {
+        return new UserAppSettings
+        {
+            Application = new UserApplicationConfig
+            {
+                MinimizeToTray = settings.Application.MinimizeToTray,
+                StartWithSystem = settings.Application.StartWithSystem
+            },
+            Tray = new UserTrayConfig
+            {
+                ShowNotifications = settings.Tray.ShowNotifications
+            },
+            ReleaseCenter = new UserReleaseCenterConfig
+            {
+                SiteId = settings.ReleaseCenter.SiteId,
+                SiteOrganization = settings.ReleaseCenter.SiteOrganization,
+                SiteName = settings.ReleaseCenter.SiteName,
+                SiteRemark = settings.ReleaseCenter.SiteRemark,
+                CacheDirectory = settings.ReleaseCenter.CacheDirectory,
+                ClientCacheDirectory = settings.ReleaseCenter.ClientCacheDirectory,
+                StagingDirectory = settings.ReleaseCenter.StagingDirectory,
+                RuntimePluginRoot = settings.ReleaseCenter.RuntimePluginRoot,
+                BackupDirectory = settings.ReleaseCenter.BackupDirectory
+            }
+        };
+    }
+
+    public static void SaveUserSettings(string configPath, UserAppSettings userSettings)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(configPath)!);
+        var json = JsonSerializer.Serialize(userSettings, UserSettingsJsonOptions);
         File.WriteAllText(configPath, json);
     }
 
@@ -186,7 +201,8 @@ public static class ConfigurationExtensions
             userConfigPath,
             JsonSerializer.Serialize(userSettings, new JsonSerializerOptions
             {
-                WriteIndented = true
+                WriteIndented = true,
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
             }));
     }
 
@@ -204,5 +220,35 @@ public static class ConfigurationExtensions
     public static T? GetValue<T>(this IConfiguration configuration, string key, T? defaultValue = default)
     {
         return configuration.GetValue(key, defaultValue);
+    }
+
+    private static AppSettings LoadDefaultSettings(string defaultConfigPath)
+    {
+        if (!File.Exists(defaultConfigPath))
+        {
+            return new AppSettings();
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(defaultConfigPath)) ?? new AppSettings();
+        }
+        catch
+        {
+            return new AppSettings();
+        }
+    }
+
+    private static void NormalizeExistingUserConfig(string userConfigPath)
+    {
+        try
+        {
+            var existingUserSettings = JsonSerializer.Deserialize<UserAppSettings>(File.ReadAllText(userConfigPath)) ?? new UserAppSettings();
+            SaveUserSettings(userConfigPath, existingUserSettings);
+        }
+        catch
+        {
+            // 保持原文件，避免在异常情况下覆盖潜在可恢复配置。
+        }
     }
 }

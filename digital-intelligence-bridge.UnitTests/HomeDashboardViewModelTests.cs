@@ -1,5 +1,6 @@
 using System.Text.Json;
 using DigitalIntelligenceBridge.Configuration;
+using DigitalIntelligenceBridge.Models;
 using DigitalIntelligenceBridge.Services;
 using DigitalIntelligenceBridge.ViewModels;
 using Microsoft.Extensions.Options;
@@ -13,13 +14,26 @@ public class HomeDashboardViewModelTests
     public async Task RefreshAsync_ShouldShowSiteProfileRequired_WhenSiteNameMissing()
     {
         using var sandbox = new TestConfigSandbox();
-        var vm = CreateVm(siteName: string.Empty, siteRemark: string.Empty);
+        var vm = CreateVm(siteOrganization: "第一人民医院", siteName: string.Empty, siteRemark: string.Empty);
 
         await vm.RefreshAsync();
 
         Assert.Equal("未配置站点名称", vm.SiteDisplayName);
         Assert.Equal("需要完善站点信息", vm.PendingActionTitle);
         Assert.Contains("设置", vm.PendingActionDetail);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_ShouldShowSiteProfileRequired_WhenSiteOrganizationMissing()
+    {
+        using var sandbox = new TestConfigSandbox();
+        var vm = CreateVm(siteOrganization: string.Empty, siteName: "门诊一楼登记台", siteRemark: string.Empty);
+
+        await vm.RefreshAsync();
+
+        Assert.Equal("未配置使用单位", vm.SiteDisplayName);
+        Assert.Equal("需要完善站点信息", vm.PendingActionTitle);
+        Assert.Contains("使用单位", vm.PendingActionDetail);
     }
 
     [Fact]
@@ -40,7 +54,7 @@ public class HomeDashboardViewModelTests
             stagingDirectory: stagingRoot);
         await vm.RefreshAsync();
 
-        Assert.Equal("门诊一楼登记台", vm.SiteDisplayName);
+        Assert.Equal("第一人民医院 / 门诊一楼登记台", vm.SiteDisplayName);
         Assert.Equal("1 个", vm.AuthorizedPluginCountText);
         var plugin = Assert.Single(vm.PluginItems);
         Assert.Equal("就诊登记", plugin.Name);
@@ -138,6 +152,7 @@ public class HomeDashboardViewModelTests
         IReleaseCenterService? releaseCenterService = null,
         StubApplicationService? appService = null,
         Action? openSettings = null,
+        string siteOrganization = "第一人民医院",
         string siteName = "门诊一楼登记台",
         string siteRemark = "收费处旁",
         string? runtimePluginRoot = null,
@@ -147,7 +162,7 @@ public class HomeDashboardViewModelTests
         {
             Application = new ApplicationConfig
             {
-                Name = "通用工具箱",
+                Name = "DIB客户端",
                 Version = "1.0.1"
             },
             Plugin = new PluginConfig
@@ -159,6 +174,7 @@ public class HomeDashboardViewModelTests
                 Enabled = true,
                 BaseUrl = "http://101.42.19.26:8000",
                 Channel = "stable",
+                SiteOrganization = siteOrganization,
                 SiteName = siteName,
                 SiteRemark = siteRemark,
                 RuntimePluginRoot = runtimePluginRoot ?? string.Empty,
@@ -195,6 +211,15 @@ public class HomeDashboardViewModelTests
                 "就诊登记 / patient-registration / 1.0.1"));
         }
 
+        public Task<ResourceDiscoverySnapshot> DiscoverResourcesAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(new ResourceDiscoverySnapshot());
+
+        public Task<AuthorizedResourceSnapshot> GetAuthorizedResourcesAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(new AuthorizedResourceSnapshot());
+
+        public Task<ResourceApplicationSubmitResult> ApplyResourceAsync(string resourceId, string pluginCode, string reason, CancellationToken cancellationToken = default)
+            => Task.FromResult(new ResourceApplicationSubmitResult(true, "ok", "apply-test", "Submitted"));
+
         public Task<ReleaseCenterClientDownloadResult> DownloadLatestClientPackageAsync(IProgress<ReleaseCenterDownloadProgress>? progress = null, CancellationToken cancellationToken = default)
             => Task.FromResult(new ReleaseCenterClientDownloadResult(true, "没有可下载的客户端更新包", string.Empty, string.Empty, "C:\\cache", string.Empty));
 
@@ -221,7 +246,7 @@ public class HomeDashboardViewModelTests
     {
         public bool RestartCalled { get; private set; }
         public bool IsInitialized => true;
-        public string GetApplicationName() => "通用工具箱";
+        public string GetApplicationName() => "DIB客户端";
         public string GetVersion() => "1.0.1";
         public Task InitializeAsync() => Task.CompletedTask;
         public Task OnShutdownAsync() => Task.CompletedTask;

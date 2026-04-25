@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text.Json;
 using DigitalIntelligenceBridge.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -66,18 +67,10 @@ public class ConfigurationExtensionsTests
             using var provider = services.BuildServiceProvider();
 
             var settings = provider.GetRequiredService<IOptions<AppSettings>>().Value;
-            Assert.Equal("https://user-config.test", settings.Supabase.Url);
-            Assert.Equal("user-anon", settings.Supabase.AnonKey);
+            Assert.Equal("http://localhost:54321", settings.Supabase.Url);
+            Assert.Equal(string.Empty, settings.Supabase.AnonKey);
             Assert.Equal("dib", settings.Supabase.Schema);
-            Assert.True(settings.MedicalDrugImport.Enabled);
-            Assert.Equal("etl", settings.MedicalDrugImport.PostgresSchema);
-            Assert.Equal("sqlserver.local", settings.MedicalDrugImport.SqlServer.Host);
-            Assert.Equal(1433, settings.MedicalDrugImport.SqlServer.Port);
-            Assert.Equal("MedicalCatalog", settings.MedicalDrugImport.SqlServer.Database);
-            Assert.Equal("sa", settings.MedicalDrugImport.SqlServer.Username);
-            Assert.Equal("secret", settings.MedicalDrugImport.SqlServer.Password);
-            Assert.True(settings.MedicalDrugImport.SqlServer.Encrypt);
-            Assert.True(settings.MedicalDrugImport.SqlServer.TrustServerCertificate);
+            Assert.Null(typeof(AppSettings).GetProperty("MedicalDrugImport"));
         }
         finally
         {
@@ -135,7 +128,7 @@ public class ConfigurationExtensionsTests
             Assert.True(File.Exists(userConfigPath));
 
             var settings = provider.GetRequiredService<IOptions<AppSettings>>().Value;
-            Assert.Equal("通用工具箱", settings.Application.Name);
+            Assert.Equal("DIB客户端", settings.Application.Name);
             Assert.Equal("logs", settings.Logging.LogPath);
         }
         finally
@@ -165,7 +158,7 @@ public class ConfigurationExtensionsTests
             userConfigPath,
             """
             {
-              "Application": { "Name": "通用工具箱", "Version": "1.0.0" },
+              "Application": { "Name": "DIB客户端", "Version": "1.0.0" },
               "Plugin": { "PluginDirectory": "plugins", "AutoLoad": true, "AllowUnsigned": false },
               "ReleaseCenter": {
                 "Enabled": false,
@@ -221,7 +214,7 @@ public class ConfigurationExtensionsTests
             };
 
             var ex = Assert.Throws<InvalidOperationException>(() =>
-                ConfigurationSafetyValidator.EnsureSafeUserConfiguration(settings, "C:\\Users\\Administrator\\AppData\\Local\\UniversalTrayTool\\appsettings.json"));
+                ConfigurationSafetyValidator.EnsureSafeUserConfiguration(settings, "C:\\Users\\Administrator\\AppData\\Local\\DibClient\\appsettings.json"));
 
             Assert.Contains("测试配置污染", ex.Message);
             Assert.Contains("TestApp", ex.Message);
@@ -235,7 +228,7 @@ public class ConfigurationExtensionsTests
     }
 
     [Fact]
-    public void AddAppConfiguration_ShouldMapLegacyMssqlEnvironmentVariables()
+    public void AddAppConfiguration_ShouldIgnoreLegacyMssqlEnvironmentVariables()
     {
         var originalServer = Environment.GetEnvironmentVariable("MSSQL_DB_SERVER");
         var originalPort = Environment.GetEnvironmentVariable("MSSQL_DB_PORT");
@@ -261,13 +254,8 @@ public class ConfigurationExtensionsTests
             using var provider = services.BuildServiceProvider();
 
             var settings = provider.GetRequiredService<IOptions<AppSettings>>().Value;
-            Assert.Equal("legacy-sql-host", settings.MedicalDrugImport.SqlServer.Host);
-            Assert.Equal(22433, settings.MedicalDrugImport.SqlServer.Port);
-            Assert.Equal("ChisDict", settings.MedicalDrugImport.SqlServer.Database);
-            Assert.Equal("pluginUser", settings.MedicalDrugImport.SqlServer.Username);
-            Assert.Equal("pluginPassword", settings.MedicalDrugImport.SqlServer.Password);
-            Assert.True(settings.MedicalDrugImport.SqlServer.Encrypt);
-            Assert.False(settings.MedicalDrugImport.SqlServer.TrustServerCertificate);
+            Assert.Null(typeof(AppSettings).GetProperty("MedicalDrugImport"));
+            Assert.NotNull(settings);
         }
         finally
         {
@@ -295,6 +283,57 @@ public class ConfigurationExtensionsTests
         Assert.Equal(Path.Combine(sandbox.RootDirectory, "logs"), logs);
         Assert.Equal(Path.Combine(sandbox.RootDirectory, "plugins"), plugins);
         Assert.Equal(Path.Combine(sandbox.RootDirectory, "release-backups", "plugins"), backups);
+    }
+
+    [Fact]
+    public void AddAppConfiguration_ShouldNotGenerateReleaseCenterAnonKey_InUserConfig()
+    {
+        using var sandbox = new TestConfigSandbox();
+        var userConfigPath = ConfigurationExtensions.GetConfigFilePath();
+        if (File.Exists(userConfigPath))
+        {
+            File.Delete(userConfigPath);
+        }
+
+        var services = new ServiceCollection();
+        services.AddAppConfiguration();
+        using var provider = services.BuildServiceProvider();
+
+        var json = File.ReadAllText(userConfigPath);
+        using var document = JsonDocument.Parse(json);
+        var releaseCenter = document.RootElement.GetProperty("ReleaseCenter");
+        Assert.False(releaseCenter.TryGetProperty("AnonKey", out var _));
+        Assert.False(document.RootElement.TryGetProperty("Plugin", out var _));
+        Assert.False(document.RootElement.TryGetProperty("Logging", out var _));
+    }
+
+    [Fact]
+    public void AddAppConfiguration_ShouldNormalizeExistingUserConfig_AndRemoveReleaseCenterAnonKey()
+    {
+        using var sandbox = new TestConfigSandbox();
+        var userConfigPath = ConfigurationExtensions.GetConfigFilePath();
+        File.WriteAllText(
+            userConfigPath,
+            """
+            {
+              "Application": { "MinimizeToTray": true, "StartWithSystem": false },
+              "Tray": { "ShowNotifications": true },
+              "ReleaseCenter": {
+                "AnonKey": "should-not-be-here",
+                "SiteId": "site-001"
+              }
+            }
+            """);
+
+        var services = new ServiceCollection();
+        services.AddAppConfiguration();
+        using var provider = services.BuildServiceProvider();
+
+        var json = File.ReadAllText(userConfigPath);
+        using var document = JsonDocument.Parse(json);
+        var releaseCenter = document.RootElement.GetProperty("ReleaseCenter");
+        Assert.False(releaseCenter.TryGetProperty("AnonKey", out var _));
+        Assert.Equal("site-001", releaseCenter.GetProperty("SiteId").GetString());
     }
 }
 

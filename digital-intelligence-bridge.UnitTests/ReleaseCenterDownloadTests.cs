@@ -49,6 +49,47 @@ public class ReleaseCenterDownloadTests
     }
 
     [Fact]
+    public async Task DownloadLatestClientPackageAsync_ShouldReturnCancelled_AndDeletePartialFile_WhenCancellationRequested()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"release-client-cache-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var packageBytes = Encoding.UTF8.GetBytes(new string('B', 256 * 1024));
+        var sha256 = Convert.ToHexString(SHA256.HashData(packageBytes)).ToLowerInvariant();
+        var cts = new CancellationTokenSource();
+        var observedDownloadProgress = false;
+
+        try
+        {
+            var progress = new Progress<ReleaseCenterDownloadProgress>(item =>
+            {
+                if (!observedDownloadProgress && item.Stage == "downloading" && item.BytesReceived > 0)
+                {
+                    observedDownloadProgress = true;
+                    cts.Cancel();
+                }
+            });
+
+            var service = CreateClientDownloadService(tempDir, packageBytes, sha256, simulateStreamingCancellation: true);
+
+            var result = await service.DownloadLatestClientPackageAsync(progress, cts.Token);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal("客户端下载已取消", result.Summary);
+            Assert.Contains("已取消", result.Detail);
+            Assert.Equal(tempDir, result.CacheDirectory);
+            Assert.Equal(string.Empty, result.PackagePath);
+            Assert.Empty(Directory.GetFiles(tempDir, "*.zip", SearchOption.AllDirectories));
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task DownloadAvailablePluginPackagesAsync_ShouldDownloadPluginPackageToCache_WhenManifestContainsPackageUrl()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"release-cache-{Guid.NewGuid():N}");
@@ -132,7 +173,7 @@ public class ReleaseCenterDownloadTests
         }
     }
 
-    private static ReleaseCenterService CreateClientDownloadService(string cacheDirectory, byte[] packageBytes, string sha256)
+    private static ReleaseCenterService CreateClientDownloadService(string cacheDirectory, byte[] packageBytes, string sha256, bool simulateStreamingCancellation = false)
     {
         var handler = new StubHttpMessageHandler(request =>
         {
@@ -160,10 +201,11 @@ public class ReleaseCenterDownloadTests
                 };
             }
 
-            return new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new ByteArrayContent(packageBytes)
-            };
+            HttpContent content = simulateStreamingCancellation
+                ? new SlowCancelableByteArrayContent(packageBytes)
+                : new ByteArrayContent(packageBytes);
+
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
         });
 
         return new ReleaseCenterService(
@@ -235,6 +277,7 @@ public class ReleaseCenterDownloadTests
                     Enabled = true,
                     BaseUrl = "http://release-center.local",
                     Channel = "stable",
+                    AnonKey = string.Empty,
                     CacheDirectory = cacheDirectory
                 }
             }));
@@ -258,6 +301,35 @@ public class ReleaseCenterDownloadTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             return Task.FromResult(responder(request));
+        }
+    }
+
+    private sealed class SlowCancelableByteArrayContent(byte[] content) : HttpContent
+    {
+        protected override bool TryComputeLength(out long length)
+        {
+            length = content.Length;
+            return true;
+        }
+
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context)
+        {
+            return stream.WriteAsync(content, 0, content.Length);
+        }
+
+        protected override Task<Stream> CreateContentReadStreamAsync()
+        {
+            return Task.FromResult<Stream>(new SlowCancelableReadStream(content));
+        }
+
+        private sealed class SlowCancelableReadStream(byte[] data) : MemoryStream(data, writable: false)
+        {
+            public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+            {
+                await Task.Delay(5, cancellationToken);
+                var count = Math.Min(4096, buffer.Length);
+                return await base.ReadAsync(buffer[..count], cancellationToken);
+            }
         }
     }
 }

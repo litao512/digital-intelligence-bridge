@@ -53,6 +53,61 @@ public class PluginCatalogServiceTests : IDisposable
     }
 
     [Fact]
+    public void DiscoverManifests_ShouldReadResourceRequirements_FromPluginJson()
+    {
+        CreatePluginDirectory(
+            "medical-drug-import",
+            new
+            {
+                id = "medical-drug-import",
+                name = "医保药品导入",
+                version = "0.1.0",
+                entryAssembly = "MedicalDrugImport.Plugin.dll",
+                entryType = "MedicalDrugImport.Plugin.MedicalDrugImportPlugin",
+                minHostVersion = "1.0.0",
+                resourceRequirements = new object[]
+                {
+                    new
+                    {
+                        resourceType = "PostgreSQL",
+                        usageKey = "business-db",
+                        required = true,
+                        description = "执行业务数据库读写"
+                    },
+                    new
+                    {
+                        resourceType = "SqlServer",
+                        usageKey = "sync-target",
+                        required = false,
+                        description = "执行同步落库"
+                    }
+                }
+            });
+
+        var service = new PluginCatalogService();
+
+        var manifests = service.DiscoverManifests(_rootDirectory);
+
+        var requirements = Assert.Single(manifests).Manifest.ResourceRequirements;
+        Assert.Collection(
+            requirements,
+            requirement =>
+            {
+                Assert.Equal("PostgreSQL", requirement.ResourceType);
+                Assert.Equal("business-db", requirement.UsageKey);
+                Assert.True(requirement.Required);
+                Assert.Equal("执行业务数据库读写", requirement.Description);
+            },
+            requirement =>
+            {
+                Assert.Equal("SqlServer", requirement.ResourceType);
+                Assert.Equal("sync-target", requirement.UsageKey);
+                Assert.False(requirement.Required);
+                Assert.Equal("执行同步落库", requirement.Description);
+            });
+    }
+
+    [Fact]
     public void DiscoverManifests_ShouldReturnEmpty_WhenPluginRootDoesNotExist()
     {
         var service = new PluginCatalogService();

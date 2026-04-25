@@ -1,4 +1,5 @@
 using DigitalIntelligenceBridge.Configuration;
+using DigitalIntelligenceBridge.Models;
 using DigitalIntelligenceBridge.Services;
 using DigitalIntelligenceBridge.ViewModels;
 using Microsoft.Extensions.Options;
@@ -20,11 +21,45 @@ public class SettingsViewModelPluginDownloadTests
         Assert.NotNull(vm.LastPluginDownloadAt);
     }
 
+    [Fact]
+    public async Task CancelPluginPackagesDownloadCommand_ShouldCancelRunningDownload()
+    {
+        var service = new BlockingReleaseCenterService();
+        var vm = CreateVm(service);
+
+        vm.DownloadPluginPackagesCommand.Execute();
+        await WaitForConditionAsync(() => vm.IsPluginDownloadRunning);
+
+        Assert.True(vm.CancelPluginPackagesDownloadCommand.CanExecute());
+
+        vm.CancelPluginPackagesDownloadCommand.Execute();
+        await WaitForDownloadAsync(vm);
+
+        Assert.Equal("插件包下载已取消", vm.PluginDownloadSummary);
+        Assert.Contains("已取消", vm.PluginDownloadDetail);
+        Assert.Empty(vm.RestartRequiredNotice);
+        Assert.False(vm.IsPluginDownloadRunning);
+        Assert.False(vm.CancelPluginPackagesDownloadCommand.CanExecute());
+    }
+
     private static async Task WaitForDownloadAsync(SettingsViewModel vm)
     {
         for (var i = 0; i < 50; i++)
         {
             if (!vm.IsPluginDownloadRunning)
+            {
+                return;
+            }
+
+            await Task.Delay(20);
+        }
+    }
+
+    private static async Task WaitForConditionAsync(Func<bool> condition)
+    {
+        for (var i = 0; i < 50; i++)
+        {
+            if (condition())
             {
                 return;
             }
@@ -56,8 +91,29 @@ public class SettingsViewModelPluginDownloadTests
     {
         public bool IsConfigured => true;
         public Task<ReleaseCenterCheckResult> CheckForUpdatesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterCheckResult(true, "ok", "client", "plugin", "detail", "site", "authorized", "authorized-detail"));
+        public Task<ResourceDiscoverySnapshot> DiscoverResourcesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ResourceDiscoverySnapshot());
+        public Task<AuthorizedResourceSnapshot> GetAuthorizedResourcesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new AuthorizedResourceSnapshot());
+        public Task<ResourceApplicationSubmitResult> ApplyResourceAsync(string resourceId, string pluginCode, string reason, CancellationToken cancellationToken = default) => Task.FromResult(new ResourceApplicationSubmitResult(true, "ok", "apply-test", "Submitted"));
         public Task<ReleaseCenterClientDownloadResult> DownloadLatestClientPackageAsync(IProgress<ReleaseCenterDownloadProgress>? progress = null, CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterClientDownloadResult(true, "没有可下载的客户端更新包", string.Empty, string.Empty, "C:\\cache", string.Empty));
         public Task<ReleaseCenterPluginDownloadResult> DownloadAvailablePluginPackagesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterPluginDownloadResult(true, "插件包已缓存 1 项", "detail", 1, "C:\\cache"));
+        public Task<ReleaseCenterPluginPrepareResult> PrepareCachedPluginPackagesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterPluginPrepareResult(true, "已生成 1 个预安装目录", "detail", 1, "C:\\staging"));
+        public Task<ReleaseCenterPluginActivateResult> ActivatePreparedPluginPackagesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterPluginActivateResult(true, "已激活 1 个插件目录", "detail", 1, "C:\\runtime"));
+        public Task<ReleaseCenterPluginRollbackResult> RestoreLatestPluginBackupAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterPluginRollbackResult(true, "已恢复最近一次插件备份", "detail", 1, "C:\\runtime"));
+    }
+
+    private sealed class BlockingReleaseCenterService : IReleaseCenterService
+    {
+        public bool IsConfigured => true;
+        public Task<ReleaseCenterCheckResult> CheckForUpdatesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterCheckResult(true, "ok", "client", "plugin", "detail", "site", "authorized", "authorized-detail"));
+        public Task<ResourceDiscoverySnapshot> DiscoverResourcesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ResourceDiscoverySnapshot());
+        public Task<AuthorizedResourceSnapshot> GetAuthorizedResourcesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new AuthorizedResourceSnapshot());
+        public Task<ResourceApplicationSubmitResult> ApplyResourceAsync(string resourceId, string pluginCode, string reason, CancellationToken cancellationToken = default) => Task.FromResult(new ResourceApplicationSubmitResult(true, "ok", "apply-test", "Submitted"));
+        public Task<ReleaseCenterClientDownloadResult> DownloadLatestClientPackageAsync(IProgress<ReleaseCenterDownloadProgress>? progress = null, CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterClientDownloadResult(true, "没有可下载的客户端更新包", string.Empty, string.Empty, "C:\\cache", string.Empty));
+        public async Task<ReleaseCenterPluginDownloadResult> DownloadAvailablePluginPackagesAsync(CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            return new ReleaseCenterPluginDownloadResult(true, "unexpected", string.Empty, 1, "C:\\cache");
+        }
         public Task<ReleaseCenterPluginPrepareResult> PrepareCachedPluginPackagesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterPluginPrepareResult(true, "已生成 1 个预安装目录", "detail", 1, "C:\\staging"));
         public Task<ReleaseCenterPluginActivateResult> ActivatePreparedPluginPackagesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterPluginActivateResult(true, "已激活 1 个插件目录", "detail", 1, "C:\\runtime"));
         public Task<ReleaseCenterPluginRollbackResult> RestoreLatestPluginBackupAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterPluginRollbackResult(true, "已恢复最近一次插件备份", "detail", 1, "C:\\runtime"));

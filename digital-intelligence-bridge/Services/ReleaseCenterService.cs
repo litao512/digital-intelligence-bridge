@@ -13,6 +13,10 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using DigitalIntelligenceBridge.Configuration;
+using DigitalIntelligenceBridge.Models;
+using DigitalIntelligenceBridge.Plugin.Abstractions;
+using DigitalIntelligenceBridge.Plugin.Host;
+using PluginRuntimeResource = DigitalIntelligenceBridge.Plugin.Abstractions.AuthorizedRuntimeResource;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -22,6 +26,9 @@ public interface IReleaseCenterService
 {
     bool IsConfigured { get; }
     Task<ReleaseCenterCheckResult> CheckForUpdatesAsync(CancellationToken cancellationToken = default);
+    Task<ResourceDiscoverySnapshot> DiscoverResourcesAsync(CancellationToken cancellationToken = default);
+    Task<AuthorizedResourceSnapshot> GetAuthorizedResourcesAsync(CancellationToken cancellationToken = default);
+    Task<ResourceApplicationSubmitResult> ApplyResourceAsync(string resourceId, string pluginCode, string reason, CancellationToken cancellationToken = default);
     Task<ReleaseCenterClientDownloadResult> DownloadLatestClientPackageAsync(IProgress<ReleaseCenterDownloadProgress>? progress = null, CancellationToken cancellationToken = default);
     Task<ReleaseCenterPluginDownloadResult> DownloadAvailablePluginPackagesAsync(CancellationToken cancellationToken = default);
     Task<ReleaseCenterPluginPrepareResult> PrepareCachedPluginPackagesAsync(CancellationToken cancellationToken = default);
@@ -44,6 +51,11 @@ public sealed record ReleaseCenterPluginDownloadResult(bool IsSuccess, string Su
 public sealed record ReleaseCenterPluginPrepareResult(bool IsSuccess, string Summary, string Detail, int PreparedCount, string StagingDirectory);
 public sealed record ReleaseCenterPluginActivateResult(bool IsSuccess, string Summary, string Detail, int ActivatedCount, string RuntimePluginRoot);
 public sealed record ReleaseCenterPluginRollbackResult(bool IsSuccess, string Summary, string Detail, int RestoredCount, string RuntimePluginRoot);
+public sealed record ResourceApplicationSubmitResult(
+    [property: JsonPropertyName("success")] bool IsSuccess,
+    [property: JsonPropertyName("message")] string Message,
+    [property: JsonPropertyName("applicationId")] string ApplicationId,
+    [property: JsonPropertyName("status")] string Status);
 
 public sealed class ReleaseCenterService : IReleaseCenterService
 {
@@ -53,8 +65,34 @@ public sealed class ReleaseCenterService : IReleaseCenterService
     private readonly ReleaseCenterConfig _config;
     private readonly PluginConfig _pluginConfig;
     private readonly string _currentAppVersion;
+    private readonly PluginCatalogService _pluginCatalogService;
+    private readonly IAuthorizedResourceCacheService? _authorizedResourceCacheService;
 
     public ReleaseCenterService(HttpClient httpClient, ILogger<ReleaseCenterService> logger, IOptions<AppSettings> settings)
+        : this(httpClient, logger, settings, new PluginCatalogService(), null)
+    {
+    }
+
+    public ReleaseCenterService(HttpClient httpClient, ILogger<ReleaseCenterService> logger, IOptions<AppSettings> settings, PluginCatalogService pluginCatalogService)
+        : this(httpClient, logger, settings, pluginCatalogService, null)
+    {
+    }
+
+    public ReleaseCenterService(
+        HttpClient httpClient,
+        ILogger<ReleaseCenterService> logger,
+        IOptions<AppSettings> settings,
+        IAuthorizedResourceCacheService? authorizedResourceCacheService)
+        : this(httpClient, logger, settings, new PluginCatalogService(), authorizedResourceCacheService)
+    {
+    }
+
+    public ReleaseCenterService(
+        HttpClient httpClient,
+        ILogger<ReleaseCenterService> logger,
+        IOptions<AppSettings> settings,
+        PluginCatalogService pluginCatalogService,
+        IAuthorizedResourceCacheService? authorizedResourceCacheService)
     {
         _httpClient = httpClient;
         _logger = logger;
@@ -62,9 +100,113 @@ public sealed class ReleaseCenterService : IReleaseCenterService
         _config = _appSettings.ReleaseCenter;
         _pluginConfig = _appSettings.Plugin;
         _currentAppVersion = _appSettings.Application.Version;
+        _pluginCatalogService = pluginCatalogService;
+        _authorizedResourceCacheService = authorizedResourceCacheService;
     }
 
     public bool IsConfigured => _config.Enabled && !string.IsNullOrWhiteSpace(_config.BaseUrl) && !string.IsNullOrWhiteSpace(_config.Channel);
+
+    public async Task<AuthorizedResourceSnapshot> GetAuthorizedResourcesAsync(CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured || string.IsNullOrWhiteSpace(_config.AnonKey))
+        {
+            return new AuthorizedResourceSnapshot();
+        }
+
+        var payload = EnsureSiteHeartbeatPayload();
+        var pluginRequirements = GetInstalledPluginRequirementGroups();
+
+        using var request = BuildRpcRequest(
+            "get_site_authorized_resources",
+            new
+            {
+                p_channel_code = payload.Channel,
+                p_site_id = payload.SiteId,
+                p_client_version = payload.ClientVersion,
+                p_plugins_json = BuildPluginRequirementsPayload(pluginRequirements)
+            });
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        var snapshot = await JsonSerializer.DeserializeAsync<AuthorizedResourceSnapshot>(stream, cancellationToken: cancellationToken).ConfigureAwait(false)
+               ?? new AuthorizedResourceSnapshot();
+        TrySaveAuthorizedResourcesToCache(snapshot, pluginRequirements);
+        return snapshot;
+    }
+
+    public async Task<ResourceDiscoverySnapshot> DiscoverResourcesAsync(CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured || string.IsNullOrWhiteSpace(_config.AnonKey))
+        {
+            return new ResourceDiscoverySnapshot();
+        }
+
+        var payload = EnsureSiteHeartbeatPayload();
+        var pluginRequirements = GetInstalledPluginRequirementGroups();
+
+        using var request = BuildRpcRequest(
+            "discover_site_resources",
+            new
+            {
+                p_channel_code = payload.Channel,
+                p_site_id = payload.SiteId,
+                p_client_version = payload.ClientVersion,
+                p_plugins_json = BuildPluginRequirementsPayload(pluginRequirements)
+            });
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        return await JsonSerializer.DeserializeAsync<ResourceDiscoverySnapshot>(stream, cancellationToken: cancellationToken).ConfigureAwait(false)
+               ?? new ResourceDiscoverySnapshot();
+    }
+
+    public async Task<ResourceApplicationSubmitResult> ApplyResourceAsync(string resourceId, string pluginCode, string reason, CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured || string.IsNullOrWhiteSpace(_config.AnonKey))
+        {
+            return new ResourceApplicationSubmitResult(false, "资源中心不可用", string.Empty, string.Empty);
+        }
+
+        var payload = EnsureSiteHeartbeatPayload();
+        var normalizedReason = BuildApplicationReason(payload.SiteName, reason);
+        using var request = BuildRpcRequest(
+            "apply_site_resource",
+            new
+            {
+                p_channel_code = payload.Channel,
+                p_site_id = payload.SiteId,
+                p_client_version = payload.ClientVersion,
+                p_resource_id = resourceId,
+                p_plugin_code = pluginCode,
+                p_reason = normalizedReason
+            });
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        return await JsonSerializer.DeserializeAsync<ResourceApplicationSubmitResult>(stream, cancellationToken: cancellationToken).ConfigureAwait(false)
+               ?? new ResourceApplicationSubmitResult(false, "申请结果为空", string.Empty, string.Empty);
+    }
+
+    private static string BuildApplicationReason(string siteRegistrationLabel, string reason)
+    {
+        var label = siteRegistrationLabel?.Trim() ?? string.Empty;
+        var requestReason = reason?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(label))
+        {
+            return requestReason;
+        }
+
+        if (string.IsNullOrWhiteSpace(requestReason))
+        {
+            return $"站点信息：{label}";
+        }
+
+        return $"站点信息：{label}；申请说明：{requestReason}";
+    }
 
     public async Task<ReleaseCenterCheckResult> CheckForUpdatesAsync(CancellationToken cancellationToken = default)
     {
@@ -114,6 +256,7 @@ public sealed class ReleaseCenterService : IReleaseCenterService
 
         var cacheDirectory = ResolveClientCacheDirectory();
         Directory.CreateDirectory(cacheDirectory);
+        string? targetPath = null;
 
         try
         {
@@ -129,7 +272,7 @@ public sealed class ReleaseCenterService : IReleaseCenterService
                 return new ReleaseCenterClientDownloadResult(true, "当前客户端已是最新版本", $"current={_currentAppVersion}", clientManifest.LatestVersion, cacheDirectory, string.Empty);
             }
 
-            var targetPath = Path.Combine(cacheDirectory, BuildClientDownloadFileName(clientManifest));
+            targetPath = Path.Combine(cacheDirectory, BuildClientDownloadFileName(clientManifest));
             using var response = await _httpClient.GetAsync(clientManifest.PackageUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
 
@@ -176,8 +319,14 @@ public sealed class ReleaseCenterService : IReleaseCenterService
             progress?.Report(new ReleaseCenterDownloadProgress("completed", "客户端下载完成", bytesReceived, totalBytes ?? bytesReceived, 0, TimeSpan.Zero));
             return new ReleaseCenterClientDownloadResult(true, $"客户端更新包已缓存：{clientManifest.LatestVersion}", targetPath, clientManifest.LatestVersion, cacheDirectory, targetPath);
         }
+        catch (OperationCanceledException)
+        {
+            TryDeleteFile(targetPath);
+            return new ReleaseCenterClientDownloadResult(false, "客户端下载已取消", "已取消客户端更新包下载。", string.Empty, cacheDirectory, string.Empty);
+        }
         catch (Exception ex)
         {
+            TryDeleteFile(targetPath);
             _logger.LogWarning(ex, "下载客户端更新包失败");
             progress?.Report(new ReleaseCenterDownloadProgress("failed", "客户端下载失败", 0, null, 0, null));
             return new ReleaseCenterClientDownloadResult(false, "客户端下载失败", ex.Message, string.Empty, cacheDirectory, string.Empty);
@@ -429,7 +578,7 @@ public sealed class ReleaseCenterService : IReleaseCenterService
 
         return new SiteHeartbeatPayload(
             _config.SiteId,
-            _config.SiteName,
+            SiteProfileService.BuildRegistrationLabel(_config.SiteOrganization, _config.SiteName),
             _config.Channel.Trim(),
             _currentAppVersion,
             Environment.MachineName,
@@ -505,20 +654,176 @@ public sealed class ReleaseCenterService : IReleaseCenterService
         }
     }
 
+    private IReadOnlyList<object> BuildPluginRequirementsPayload(IReadOnlyList<InstalledPluginRequirementGroup> pluginRequirements)
+    {
+        return pluginRequirements
+            .Select(plugin => new
+            {
+                pluginCode = plugin.PluginCode,
+                requirements = plugin.Requirements.Select(requirement => new
+                {
+                    resourceType = requirement.ResourceType,
+                    usageKey = requirement.UsageKey,
+                    required = requirement.Required,
+                    description = requirement.Description
+                }).ToArray()
+            })
+            .Cast<object>()
+            .ToArray();
+    }
+
+    private IReadOnlyList<InstalledPluginRequirementGroup> GetInstalledPluginRequirementGroups()
+    {
+        try
+        {
+            var runtimeRoot = ResolveRuntimePluginRoot();
+            if (!Directory.Exists(runtimeRoot))
+            {
+                return Array.Empty<InstalledPluginRequirementGroup>();
+            }
+
+            return _pluginCatalogService
+                .DiscoverManifests(runtimeRoot)
+                .Select(plugin => new InstalledPluginRequirementGroup(
+                    plugin.Manifest.Id,
+                    plugin.Manifest.ResourceRequirements
+                        .Select(requirement => new InstalledPluginRequirement(
+                            requirement.ResourceType,
+                            requirement.UsageKey,
+                            requirement.Required,
+                            requirement.Description))
+                        .ToArray()))
+                .ToArray();
+        }
+        catch
+        {
+            return Array.Empty<InstalledPluginRequirementGroup>();
+        }
+    }
+
+    private void TrySaveAuthorizedResourcesToCache(AuthorizedResourceSnapshot snapshot, IReadOnlyList<InstalledPluginRequirementGroup> installedRequirements)
+    {
+        if (_authorizedResourceCacheService is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var groupedResources = snapshot.Resources
+                .Where(resource => !string.IsNullOrWhiteSpace(resource.PluginCode))
+                .GroupBy(resource => resource.PluginCode!, StringComparer.Ordinal)
+                .Select(group => new AuthorizedPluginResourceSet
+                {
+                    PluginCode = group.Key,
+                    Resources = MapPluginResources(group.Key, group, installedRequirements)
+                })
+                .ToArray();
+
+            if (snapshot.Resources.Count > 0 && groupedResources.Length == 0)
+            {
+                _logger.LogWarning("授权资源同步结果包含 {Count} 条记录，但都缺少有效 PluginCode，已保留上一版缓存", snapshot.Resources.Count);
+                return;
+            }
+
+            var syncedAt = DateTimeOffset.UtcNow;
+
+            _authorizedResourceCacheService.SaveSnapshot(new AuthorizedResourceCacheSnapshot
+            {
+                SiteId = _config.SiteId,
+                SnapshotVersion = groupedResources.Length,
+                SyncedAt = syncedAt,
+                ExpiresAt = syncedAt.AddMinutes(30),
+                Resources = groupedResources
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "写入授权资源缓存失败，已降级为仅返回本次同步结果");
+        }
+    }
+
+    private static PluginRuntimeResource MapRuntimeResource(ResourceDescriptor resource, UsageKeySequenceResolver usageKeyResolver)
+    {
+        return new PluginRuntimeResource
+        {
+            ResourceId = resource.ResourceId,
+            ResourceCode = resource.ResourceCode,
+            ResourceName = resource.ResourceName,
+            ResourceType = resource.ResourceType,
+            UsageKey = usageKeyResolver.Resolve(resource.ResourceType, resource.ResourceCode),
+            BindingScope = resource.BindingScope,
+            Version = resource.ConfigVersion,
+            Capabilities = resource.Capabilities,
+            Configuration = CloneJsonElement(resource.ConfigPayload)
+        };
+    }
+
+    private static PluginRuntimeResource[] MapPluginResources(string pluginCode, IEnumerable<ResourceDescriptor> resources, IReadOnlyList<InstalledPluginRequirementGroup> installedRequirements)
+    {
+        var usageKeyResolver = CreateUsageKeyResolver(pluginCode, installedRequirements);
+        return resources
+            .OrderBy(resource => resource.ResourceType, StringComparer.Ordinal)
+            .ThenBy(resource => resource.ResourceId, StringComparer.Ordinal)
+            .ThenBy(resource => resource.ResourceCode, StringComparer.Ordinal)
+            .Select(resource => MapRuntimeResource(resource, usageKeyResolver))
+            .ToArray();
+    }
+
+    private static UsageKeySequenceResolver CreateUsageKeyResolver(string pluginCode, IReadOnlyList<InstalledPluginRequirementGroup> installedRequirements)
+    {
+        var pluginRequirements = installedRequirements.FirstOrDefault(item => string.Equals(item.PluginCode, pluginCode, StringComparison.Ordinal));
+        return new UsageKeySequenceResolver(pluginRequirements?.Requirements ?? Array.Empty<InstalledPluginRequirement>());
+    }
+
+    private static JsonElement CloneJsonElement(JsonElement element)
+    {
+        using var document = JsonDocument.Parse(element.GetRawText());
+        return document.RootElement.Clone();
+    }
+
+    private sealed record InstalledPluginRequirementGroup(string PluginCode, IReadOnlyList<InstalledPluginRequirement> Requirements);
+    private sealed record InstalledPluginRequirement(string ResourceType, string UsageKey, bool Required, string Description);
+
+    private sealed class UsageKeySequenceResolver
+    {
+        private readonly Dictionary<string, Queue<string>> _usageKeysByResourceType;
+
+        public UsageKeySequenceResolver(IEnumerable<InstalledPluginRequirement> requirements)
+        {
+            _usageKeysByResourceType = requirements
+                .GroupBy(requirement => requirement.ResourceType, StringComparer.Ordinal)
+                .ToDictionary(
+                    group => group.Key,
+                    group => new Queue<string>(group.Select(requirement => requirement.UsageKey).Where(usageKey => !string.IsNullOrWhiteSpace(usageKey))),
+                    StringComparer.Ordinal);
+        }
+
+        public string Resolve(string resourceType, string fallbackUsageKey)
+        {
+            if (_usageKeysByResourceType.TryGetValue(resourceType, out var usageKeys) && usageKeys.Count > 0)
+            {
+                var usageKey = usageKeys.Dequeue();
+                if (!string.IsNullOrWhiteSpace(usageKey))
+                {
+                    return usageKey;
+                }
+            }
+
+            return fallbackUsageKey;
+        }
+    }
+
     private void PersistReleaseCenterIdentity()
     {
         var configPath = DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.GetConfigFilePath();
-        Directory.CreateDirectory(Path.GetDirectoryName(configPath)!);
-        var json = JsonSerializer.Serialize(_appSettings, new JsonSerializerOptions
-        {
-            WriteIndented = true
-        });
-        File.WriteAllText(configPath, json);
+        var userSettings = ConfigurationExtensions.CreateUserSettingsSnapshot(_appSettings);
+        ConfigurationExtensions.SaveUserSettings(configPath, userSettings);
     }
 
-    private string ResolveCacheDirectory() => !string.IsNullOrWhiteSpace(_config.CacheDirectory) ? _config.CacheDirectory : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "UniversalTrayTool", "release-cache", "plugins", _config.Channel.Trim());
-    private string ResolveClientCacheDirectory() => !string.IsNullOrWhiteSpace(_config.ClientCacheDirectory) ? _config.ClientCacheDirectory : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "UniversalTrayTool", "release-cache", "clients", _config.Channel.Trim());
-    private string ResolveStagingDirectory() => !string.IsNullOrWhiteSpace(_config.StagingDirectory) ? _config.StagingDirectory : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "UniversalTrayTool", "release-staging", "plugins", _config.Channel.Trim());
+    private string ResolveCacheDirectory() => !string.IsNullOrWhiteSpace(_config.CacheDirectory) ? _config.CacheDirectory : Path.Combine(ConfigurationExtensions.GetConfigRootDirectory(), "release-cache", "plugins", _config.Channel.Trim());
+    private string ResolveClientCacheDirectory() => !string.IsNullOrWhiteSpace(_config.ClientCacheDirectory) ? _config.ClientCacheDirectory : Path.Combine(ConfigurationExtensions.GetConfigRootDirectory(), "release-cache", "clients", _config.Channel.Trim());
+    private string ResolveStagingDirectory() => !string.IsNullOrWhiteSpace(_config.StagingDirectory) ? _config.StagingDirectory : Path.Combine(ConfigurationExtensions.GetConfigRootDirectory(), "release-staging", "plugins", _config.Channel.Trim());
     private string ResolveRuntimePluginRoot() => !string.IsNullOrWhiteSpace(_config.RuntimePluginRoot) ? _config.RuntimePluginRoot : ConfigurationExtensions.GetRuntimePluginsDirectory(_pluginConfig.PluginDirectory);
     private string ResolveBackupDirectory() => !string.IsNullOrWhiteSpace(_config.BackupDirectory) ? _config.BackupDirectory : ConfigurationExtensions.GetReleaseBackupsDirectory();
     private string NormalizePackageUrl(string packageUrl)
@@ -543,6 +848,7 @@ public sealed class ReleaseCenterService : IReleaseCenterService
     private static void ValidateClientSha256(ClientManifestDto clientManifest, string computedHash) { if (string.IsNullOrWhiteSpace(clientManifest.Sha256)) return; if (!string.Equals(computedHash, clientManifest.Sha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("客户端更新包的 SHA256 校验失败。"); }
     private static string ReadPluginId(string pluginJsonPath) { using var stream = File.OpenRead(pluginJsonPath); using var document = JsonDocument.Parse(stream); if (!document.RootElement.TryGetProperty("id", out var idProperty) || string.IsNullOrWhiteSpace(idProperty.GetString())) throw new InvalidOperationException($"{pluginJsonPath} 缺少插件 id。"); return idProperty.GetString()!; }
     private static void CopyDirectory(string sourceDirectory, string targetDirectory) { Directory.CreateDirectory(targetDirectory); foreach (var file in Directory.GetFiles(sourceDirectory)) File.Copy(file, Path.Combine(targetDirectory, Path.GetFileName(file)), overwrite: true); foreach (var directory in Directory.GetDirectories(sourceDirectory)) CopyDirectory(directory, Path.Combine(targetDirectory, Path.GetFileName(directory))); }
+    private static void TryDeleteFile(string? path) { if (!string.IsNullOrWhiteSpace(path) && File.Exists(path)) { File.Delete(path); } }
     public static int CompareVersions(string left, string right) { var leftParts = ParseVersionParts(left); var rightParts = ParseVersionParts(right); var max = Math.Max(leftParts.Length, rightParts.Length); for (var i = 0; i < max; i++) { var lv = i < leftParts.Length ? leftParts[i] : 0; var rv = i < rightParts.Length ? rightParts[i] : 0; if (lv != rv) return lv.CompareTo(rv); } return 0; }
     private static int[] ParseVersionParts(string value) => value.Split('-', 2)[0].Split('.', StringSplitOptions.RemoveEmptyEntries).Select(part => int.TryParse(part, out var parsed) ? parsed : 0).ToArray();
 

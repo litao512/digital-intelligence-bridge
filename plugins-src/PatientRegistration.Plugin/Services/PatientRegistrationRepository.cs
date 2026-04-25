@@ -10,9 +10,9 @@ public class PatientRegistrationRepository : IPatientRegistrationRepository
 {
     private readonly string _connectionString;
 
-    public PatientRegistrationRepository(PluginSettings settings)
+    public PatientRegistrationRepository(string? connectionString)
     {
-        _connectionString = NormalizeConnectionString(settings.Postgres.ConnectionString) ?? string.Empty;
+        _connectionString = NormalizeConnectionString(connectionString) ?? string.Empty;
     }
 
     public async Task<PatientRegistrationSaveResult> SaveAsync(

@@ -135,7 +135,7 @@
                     <StackPanel Spacing="4">
                         <TextBlock Text="{Binding AppName}" FontSize="18" FontWeight="Bold"/>
                         <TextBlock Text="{Binding AppVersion}" FontSize="13" Opacity="0.7"/>
-                        <TextBlock Text="基于 Avalonia UI 和 Prism 框架开发的通用工具箱"
+                        <TextBlock Text="基于 Avalonia UI 和 Prism 框架开发的DIB客户端"
                                   FontSize="12" Opacity="0.6" TextWrapping="Wrap"/>
                     </StackPanel>
 
@@ -148,12 +148,16 @@
                                        FontSize="12"
                                        Foreground="{DynamicResource TextMutedBrush}"
                                        TextWrapping="Wrap"/>
-                            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
                                 <StackPanel Grid.Column="0" Spacing="6">
+                                    <TextBlock Text="使用单位" FontWeight="Medium"/>
+                                    <TextBox Text="{Binding SiteOrganizationInput}" Watermark="例如：第一人民医院"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="6">
                                     <TextBlock Text="站点名称" FontWeight="Medium"/>
                                     <TextBox Text="{Binding SiteNameInput}" Watermark="例如：门诊一楼登记台"/>
                                 </StackPanel>
-                                <StackPanel Grid.Column="1" Spacing="6">
+                                <StackPanel Grid.Column="2" Spacing="6">
                                     <TextBlock Text="站点备注（可选）" FontWeight="Medium"/>
                                     <TextBox Text="{Binding SiteRemarkInput}" Watermark="例如：收费处旁"/>
                                 </StackPanel>
@@ -162,10 +166,20 @@
                                 <Button Content="保存站点信息"
                                         Command="{Binding SaveSiteProfileCommand}"
                                         Classes="Secondary"/>
+                                <Button Content="导出站点身份"
+                                        Command="{Binding ExportSiteIdentityCommand}"
+                                        Classes="Secondary"/>
+                                <Button Content="导入站点身份"
+                                        Command="{Binding ImportSiteIdentityCommand}"
+                                        Classes="Secondary"/>
                                 <Button Content="{Binding InitializeSitePluginsButtonText}"
                                         Command="{Binding InitializeSitePluginsCommand}"
                                         Classes="Primary"/>
                             </StackPanel>
+                            <TextBlock Text="身份文件默认路径：LocalAppData/DibClient/site-identity.json"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       TextWrapping="Wrap"/>
                             <TextBlock Text="{Binding SiteProfileStatus}"
                                        FontSize="11"
                                        Foreground="{DynamicResource TextMutedBrush}"
@@ -187,8 +201,14 @@
                         <Button Content="{Binding DownloadClientPackageButtonText}"
                                Command="{Binding DownloadClientPackageCommand}"
                                Classes="Secondary"/>
+                        <Button Content="{Binding CancelClientPackageDownloadButtonText}"
+                               Command="{Binding CancelClientPackageDownloadCommand}"
+                               Classes="Secondary"/>
                         <Button Content="{Binding DownloadPluginPackagesButtonText}"
                                Command="{Binding DownloadPluginPackagesCommand}"
+                               Classes="Secondary"/>
+                        <Button Content="{Binding CancelPluginPackagesDownloadButtonText}"
+                               Command="{Binding CancelPluginPackagesDownloadCommand}"
                                Classes="Secondary"/>
                         <Button Content="{Binding PreparePluginPackagesButtonText}"
                                Command="{Binding PreparePluginPackagesCommand}"
@@ -290,7 +310,7 @@
                         <Button Content="导出报告"
                                Classes="Secondary"
                                Command="{Binding ExportSelfCheckReportCommand}"/>
-                        <TextBlock Text="报告保存到 LocalAppData/UniversalTrayTool/logs"
+                        <TextBlock Text="报告保存到 LocalAppData/DibClient/logs"
                                    FontSize="11"
                                    Foreground="{DynamicResource TextMutedBrush}"
                                    VerticalAlignment="Center"/>

@@ -10,7 +10,7 @@
         x:Name="Root"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="通用工具箱 - Universal Tray Tool"
+        Title="DIB客户端 - Universal Tray Tool"
         Width="1200" Height="700"
         MinWidth="980" MinHeight="620"
         WindowStartupLocation="CenterScreen"
@@ -95,7 +95,7 @@
                         Padding="{Binding SidebarHeaderPadding}">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                         <StackPanel Spacing="5">
-                            <TextBlock Text="通用工具箱"
+                            <TextBlock Text="DIB客户端"
                                       FontSize="18"
                                       FontWeight="Bold"
                                       Foreground="{DynamicResource TextMainBrush}"
@@ -223,16 +223,16 @@
                                 <views:HomeView DataContext="{Binding #Root.((vm:MainWindowViewModel)DataContext).HomeDashboard}" />
                             </Border>
 
+                            <!-- 资源中心视图 -->
+                            <Border IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=ResourceCenter}"
+                                    Classes="Card">
+                                <views:ResourceCenterView DataContext="{Binding #Root.((vm:MainWindowViewModel)DataContext).ResourceCenter}" />
+                            </Border>
+
                             <!-- 待办事项视图 -->
                             <Grid IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=Todo}">
                                 <views:TodoView DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" />
                             </Grid>
-
-                            <!-- 医保药品导入视图 -->
-                            <Border IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=DrugImport}"
-                                    Classes="Card">
-                                <views:DrugImportView DataContext="{Binding #Root.DataContext.DrugImportToolViewModel}" />
-                            </Border>
 
                             <!-- 外部插件宿主视图 -->
                             <Grid IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=PluginHost}">

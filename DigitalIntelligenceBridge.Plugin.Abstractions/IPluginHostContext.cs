@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace DigitalIntelligenceBridge.Plugin.Abstractions;
 
 public interface IPluginHostContext
@@ -7,4 +9,8 @@ public interface IPluginHostContext
     string PluginDirectory { get; }
 
     void LogInformation(string message);
+
+    IReadOnlyList<AuthorizedRuntimeResource> GetAuthorizedResources();
+
+    bool TryGetResource(string usageKey, out AuthorizedRuntimeResource? resource);
 }

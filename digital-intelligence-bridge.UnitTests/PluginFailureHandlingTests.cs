@@ -69,7 +69,7 @@ public class PluginFailureHandlingTests
             }
         ];
 
-        var vm = new MainWindowViewModel(new TestMainWindowLogger(), Options.Create(new Configuration.AppSettings()), null, null, menus, plugins);
+        var vm = new MainWindowViewModel(new TestMainWindowLogger(), Options.Create(new Configuration.AppSettings()), null, menus, plugins);
 
         vm.NavigateCommand.Execute("plugin:bad.home");
 

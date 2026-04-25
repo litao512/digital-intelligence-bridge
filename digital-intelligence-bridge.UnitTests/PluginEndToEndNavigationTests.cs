@@ -3,6 +3,7 @@ using DigitalIntelligenceBridge.Configuration;
 using DigitalIntelligenceBridge.Plugin.Abstractions;
 using DigitalIntelligenceBridge.Plugin.Host;
 using DigitalIntelligenceBridge.ViewModels;
+using System.IO;
 using Microsoft.Extensions.Options;
 using Xunit;
 
@@ -16,10 +17,10 @@ public class PluginEndToEndNavigationTests
         using var sandbox = new TestConfigSandbox();
         var appSettings = CreateAppSettings();
         var loadedPlugins = App.LoadRuntimePlugins(
-            GetRepositoryRoot(),
             Options.Create(appSettings),
             new PluginCatalogService(),
             new PluginLoaderService(),
+            new EmptyAuthorizedResourceCacheService(),
             new TestAppLogger());
 
         var plugin = Assert.Single(loadedPlugins, item => item.Manifest.Id == "medical-drug-import");
@@ -33,18 +34,19 @@ public class PluginEndToEndNavigationTests
         using var sandbox = new TestConfigSandbox();
         var appSettings = CreateAppSettings();
         var loadedPlugins = App.LoadRuntimePlugins(
-            GetRepositoryRoot(),
             Options.Create(appSettings),
             new PluginCatalogService(),
             new PluginLoaderService(),
+            new EmptyAuthorizedResourceCacheService(),
             new TestAppLogger());
         var menus = loadedPlugins
             .Where(plugin => plugin.Module is not null)
             .SelectMany(plugin => plugin.Module!.CreateMenuItems())
             .ToList();
-        var vm = new MainWindowViewModel(new TestMainWindowLogger(), Options.Create(appSettings), null, null, menus, loadedPlugins);
+        var vm = new MainWindowViewModel(new TestMainWindowLogger(), Options.Create(appSettings), null, menus, loadedPlugins);
 
-        var pluginMenu = Assert.Single(vm.MenuItems, item => item.IsExternalPlugin);
+        Assert.Contains(vm.MenuItems, item => item.TargetKey == "plugin:patient-registration.home");
+        var pluginMenu = Assert.Single(vm.MenuItems, item => item.TargetKey == "plugin:medical-drug-import.home");
 
         vm.NavigateCommand.Execute(pluginMenu.TargetKey);
 
@@ -66,7 +68,7 @@ public class PluginEndToEndNavigationTests
         [
             new PluginMenuItem { Id = "broken-plugin.home", Name = "坏插件", Icon = "x", Order = 200 }
         ];
-        var vm = new MainWindowViewModel(new TestMainWindowLogger(), Options.Create(new AppSettings()), null, null, menus, [throwingPlugin]);
+        var vm = new MainWindowViewModel(new TestMainWindowLogger(), Options.Create(new AppSettings()), null, menus, [throwingPlugin]);
 
         vm.NavigateCommand.Execute("plugin:broken-plugin.home");
 
@@ -79,11 +81,6 @@ public class PluginEndToEndNavigationTests
         Assert.Equal(TabItemType.Home, vm.SelectedTab!.TabType);
     }
 
-    private static string GetRepositoryRoot()
-    {
-        return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
-    }
-
     private static AppSettings CreateAppSettings()
     {
         return new AppSettings
@@ -93,6 +90,11 @@ public class PluginEndToEndNavigationTests
                 PluginDirectory = Path.Combine(GetRepositoryRoot(), "plugins")
             }
         };
+    }
+
+    private static string GetRepositoryRoot()
+    {
+        return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
     }
 
     private sealed class ThrowingPluginModule : IPluginModule
@@ -135,6 +137,11 @@ public class PluginEndToEndNavigationTests
         public void LogError(Exception exception, string message, params object[] args) { }
         public void LogInformation(string message, params object[] args) { }
         public void LogWarning(string message, params object[] args) { }
+    }
+
+    private sealed class EmptyAuthorizedResourceCacheService : IAuthorizedResourceCacheService
+    {
+        public IReadOnlyList<AuthorizedRuntimeResource> GetResourcesForPlugin(string pluginCode) => [];
     }
 }
 

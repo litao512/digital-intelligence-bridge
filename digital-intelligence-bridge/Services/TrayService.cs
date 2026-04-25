@@ -20,6 +20,7 @@ public class TrayService : ITrayService
     private TrayIcon? _trayIcon;
     private NativeMenu? _trayMenu;
     private readonly ILogger<TrayService> _logger;
+    private readonly ISiteRegistrationDialogService _siteRegistrationDialogService;
     private readonly Dictionary<string, NativeMenuItem> _menuItems = new();
     private bool _isExiting = false;
     private bool _autoHideEnabled = false;
@@ -27,9 +28,10 @@ public class TrayService : ITrayService
     public bool IsWindowVisible => _mainWindow?.IsVisible ?? false;
     public bool IsExiting => _isExiting;
 
-    public TrayService(ILogger<TrayService> logger)
+    public TrayService(ILogger<TrayService> logger, ISiteRegistrationDialogService siteRegistrationDialogService)
     {
         _logger = logger;
+        _siteRegistrationDialogService = siteRegistrationDialogService;
     }
 
     public void Initialize(Window mainWindow)
@@ -48,7 +50,7 @@ public class TrayService : ITrayService
         _trayIcon = new TrayIcon
         {
             Icon = trayIcon,
-            ToolTipText = "通用工具箱",
+            ToolTipText = "DIB客户端",
             Menu = _trayMenu
         };
 
@@ -76,6 +78,11 @@ public class TrayService : ITrayService
         showItem.Click += (s, e) => ShowWindow();
         _trayMenu?.Add(showItem);
         _menuItems["show"] = showItem;
+
+        var siteRegistrationItem = new NativeMenuItem("重新注册站点");
+        siteRegistrationItem.Click += (s, e) => OpenSiteRegistrationDialog();
+        _trayMenu?.Add(siteRegistrationItem);
+        _menuItems["site-registration"] = siteRegistrationItem;
 
         // 分隔线
         _trayMenu?.Add(new NativeMenuItemSeparator());
@@ -114,6 +121,12 @@ public class TrayService : ITrayService
     private void OnTrayIconClicked(object? sender, EventArgs e)
     {
         ToggleWindow();
+    }
+
+    private void OpenSiteRegistrationDialog()
+    {
+        ShowWindow();
+        _siteRegistrationDialogService.Show(_mainWindow);
     }
 
     private void OnWindowClosing(object? sender, WindowClosingEventArgs e)

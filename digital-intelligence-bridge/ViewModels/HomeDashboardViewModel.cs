@@ -34,14 +34,14 @@ public sealed class HomeDashboardViewModel : ViewModelBase
     private readonly IReleaseCenterService? _releaseCenterService;
     private readonly Action _openSettingsAction;
 
-    private string _siteDisplayName = "未配置站点名称";
-    private string _siteStatus = "请先在设置中填写站点名称。";
+    private string _siteDisplayName = "未配置使用单位";
+    private string _siteStatus = "请先在设置中填写使用单位和站点名称。";
     private string _siteGroupDisplayName = "待同步";
     private string _siteGroupStatus = "当前客户端未获取分组信息。";
     private string _authorizedPluginCountText = "0 个";
     private string _authorizedPluginSummaryText = "当前站点未授权任何插件";
     private string _pendingActionTitle = "需要完善站点信息";
-    private string _pendingActionDetail = "请先进入设置填写站点名称。";
+    private string _pendingActionDetail = "请先进入设置填写使用单位和站点名称。";
     private string _releaseCenterStatusText = "未检查";
     private string _lastUpdateCheckStatus = "尚未执行";
     private string _lastInitializationStatus = "尚未执行";
@@ -168,10 +168,10 @@ public sealed class HomeDashboardViewModel : ViewModelBase
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(_settings.ReleaseCenter.SiteName))
+        if (!SiteProfileService.HasRequiredProfile(_settings.ReleaseCenter))
         {
             PendingActionTitle = "需要完善站点信息";
-            PendingActionDetail = "请先进入设置填写站点名称。";
+            PendingActionDetail = "请先进入设置填写使用单位和站点名称。";
             return;
         }
 
@@ -237,10 +237,10 @@ public sealed class HomeDashboardViewModel : ViewModelBase
 
     private void RefreshLocalState(IReadOnlyCollection<AuthorizedPluginState> authorizedPlugins)
     {
-        SiteDisplayName = string.IsNullOrWhiteSpace(_settings.ReleaseCenter.SiteName)
-            ? "未配置站点名称"
-            : _settings.ReleaseCenter.SiteName.Trim();
-        SiteStatus = string.IsNullOrWhiteSpace(_settings.ReleaseCenter.SiteName)
+        SiteDisplayName = SiteProfileService.BuildDisplayName(
+            _settings.ReleaseCenter.SiteOrganization,
+            _settings.ReleaseCenter.SiteName);
+        SiteStatus = !SiteProfileService.HasRequiredProfile(_settings.ReleaseCenter)
             ? "请先进入设置完善站点信息。"
             : string.IsNullOrWhiteSpace(_settings.ReleaseCenter.SiteRemark)
                 ? "站点信息已登记。"
@@ -273,10 +273,10 @@ public sealed class HomeDashboardViewModel : ViewModelBase
         var hasPendingRestart = merged.Any(item => string.Equals(item.Status, "待重启生效", StringComparison.Ordinal));
         var hasAuthorizedNotInstalled = merged.Any(item => string.Equals(item.Status, "已授权未安装", StringComparison.Ordinal));
 
-        if (string.IsNullOrWhiteSpace(_settings.ReleaseCenter.SiteName))
+        if (!SiteProfileService.HasRequiredProfile(_settings.ReleaseCenter))
         {
             PendingActionTitle = "需要完善站点信息";
-            PendingActionDetail = "请先进入设置填写站点名称。";
+            PendingActionDetail = "请先进入设置填写使用单位和站点名称。";
         }
         else if (hasPendingRestart)
         {
@@ -456,7 +456,7 @@ public sealed class HomeDashboardViewModel : ViewModelBase
         public Task OnStartedAsync() => Task.CompletedTask;
         public Task OnShutdownAsync() => Task.CompletedTask;
         public string GetVersion() => "1.0.0";
-        public string GetApplicationName() => "通用工具箱";
+        public string GetApplicationName() => "DIB客户端";
         public void RestartApplication() { }
     }
 }

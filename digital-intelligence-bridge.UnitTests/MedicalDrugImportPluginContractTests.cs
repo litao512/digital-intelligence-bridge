@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Collections.Generic;
 using Avalonia.Controls;
 using DigitalIntelligenceBridge.Plugin.Abstractions;
 using MedicalDrugImport.Plugin;
@@ -57,6 +58,14 @@ public class MedicalDrugImportPluginContractTests
 
         public void LogInformation(string message)
         {
+        }
+
+        public IReadOnlyList<AuthorizedRuntimeResource> GetAuthorizedResources() => [];
+
+        public bool TryGetResource(string usageKey, out AuthorizedRuntimeResource? resource)
+        {
+            resource = null;
+            return false;
         }
     }
 }

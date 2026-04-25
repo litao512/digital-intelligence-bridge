@@ -15,10 +15,10 @@ public class SqlServerDrugSyncService : ISqlServerDrugSyncService
     private readonly bool _allowUnsafeFullSync;
     private readonly bool _enableWrites;
 
-    public SqlServerDrugSyncService(PluginSettings settings, IDrugCatalogSyncRepository repository)
+    public SqlServerDrugSyncService(PluginSettings settings, string? connectionString, IDrugCatalogSyncRepository repository)
     {
         _repository = repository;
-        ConnectionString = settings.SqlServer.ConnectionString;
+        ConnectionString = connectionString ?? string.Empty;
         _connectionString = ConnectionString;
         _enableWrites = settings.SqlServer.EnableWrites;
         _batchSize = Math.Max(1, settings.Import.BatchSize);

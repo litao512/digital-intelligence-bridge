@@ -18,7 +18,7 @@ public class PluginHostViewTests
             new PluginMenuItem { Id = "medical-drug-import.home", Name = "医保导入插件", Icon = "🧩", Order = 30 }
         ];
 
-        var vm = new MainWindowViewModel(new TestLogger(), Options.Create(settings), null, null, externalMenus);
+        var vm = new MainWindowViewModel(new TestLogger(), Options.Create(settings), null, externalMenus);
 
         vm.NavigateCommand.Execute("plugin:medical-drug-import.home");
 

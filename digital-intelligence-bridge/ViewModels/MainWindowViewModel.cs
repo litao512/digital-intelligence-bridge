@@ -23,9 +23,9 @@ namespace DigitalIntelligenceBridge.ViewModels;
 public enum MainViewType
 {
     Home,           // 首页
+    ResourceCenter, // 资源中心
     Todo,           // 待办事项
     PluginHost,     // 外部插件宿主
-    DrugImport,     // 医保药品导入
     PatientMgmt,    // 患者管理（占位）
     Schedule,       // 日程安排（占位）
     Settings        // 设置
@@ -59,9 +59,9 @@ public class MenuItem : BindableBase
 public enum TabItemType
 {
     Home,       // 首页
+    ResourceCenter, // 资源中心
     Todo,       // 待办事项
     PluginHost, // 外部插件宿主
-    DrugImport, // 医保药品导入
     Settings,   // 设置
     PatientMgmt,// 患者管理
     Schedule    // 日程安排
@@ -95,11 +95,11 @@ public class MainWindowViewModel : ViewModelBase
     private readonly ILoggerService<MainWindowViewModel> _logger;
     private readonly AppSettings _settings;
     private readonly ITodoRepository? _todoRepository;
-    private readonly DrugImportViewModel? _drugImportViewModel;
     private readonly IReadOnlyList<PluginMenuItem> _externalPluginMenus;
     private readonly Dictionary<string, LoadedPlugin> _loadedPluginsByMenuId;
     private readonly IApplicationService? _applicationService;
     private readonly IReleaseCenterService? _releaseCenterService;
+    public ResourceCenterViewModel ResourceCenter { get; }
 
     // 集合
     public ObservableCollection<TodoItem> TodoItems { get; } = new();
@@ -117,7 +117,7 @@ public class MainWindowViewModel : ViewModelBase
     private string _newTags = string.Empty;
     private DateTimeOffset? _selectedDueDate;
     private TodoItem? _selectedTodoItem;
-    private string _title = "通用工具箱";
+    private string _title = "DIB客户端";
 
     // 视图状态字段
     private MainViewType _currentView = MainViewType.Home;
@@ -223,7 +223,6 @@ public class MainWindowViewModel : ViewModelBase
     public Thickness NavButtonPadding => IsMenuCollapsed ? new Thickness(6, 10) : new Thickness(12, 10);
     public double MenuItemSpacing => IsMenuCollapsed ? 0 : 10;
 
-    public DrugImportViewModel? DrugImportToolViewModel => _drugImportViewModel;
     public HomeDashboardViewModel HomeDashboard { get; }
 
     /// <summary>
@@ -241,6 +240,10 @@ public class MainWindowViewModel : ViewModelBase
                 if (value.TabType == TabItemType.Home)
                 {
                     _ = HomeDashboard.RefreshAsync();
+                }
+                else if (value.TabType == TabItemType.ResourceCenter)
+                {
+                    _ = ResourceCenter.RefreshAsync();
                 }
             }
         }
@@ -400,7 +403,7 @@ public class MainWindowViewModel : ViewModelBase
     public DelegateCommand<TabItemModel?> CloseTabCommand { get; }
 
     public MainWindowViewModel(ILoggerService<MainWindowViewModel> logger)
-        : this(logger, null, null, null, null)
+        : this(logger, null)
     {
     }
 
@@ -408,16 +411,15 @@ public class MainWindowViewModel : ViewModelBase
         ILoggerService<MainWindowViewModel> logger,
         IOptions<AppSettings>? appSettings,
         ITodoRepository? todoRepository = null,
-        DrugImportViewModel? drugImportViewModel = null,
         IReadOnlyList<PluginMenuItem>? externalPluginMenus = null,
         IReadOnlyList<LoadedPlugin>? loadedPlugins = null,
         IApplicationService? applicationService = null,
-        IReleaseCenterService? releaseCenterService = null)
+        IReleaseCenterService? releaseCenterService = null,
+        IResourceApplicationDialogService? resourceApplicationDialogService = null)
     {
         _logger = logger;
         _settings = appSettings?.Value ?? new AppSettings();
         _todoRepository = todoRepository;
-        _drugImportViewModel = drugImportViewModel;
         _externalPluginMenus = externalPluginMenus ?? [];
         _loadedPluginsByMenuId = BuildLoadedPluginIndex(loadedPlugins);
         _applicationService = applicationService;
@@ -441,6 +443,10 @@ public class MainWindowViewModel : ViewModelBase
             Options.Create(_settings),
             _releaseCenterService,
             () => NavigateTo(MainViewType.Settings));
+        ResourceCenter = new ResourceCenterViewModel(
+            new ForwardingLoggerService<ResourceCenterViewModel>(_logger),
+            _releaseCenterService,
+            resourceApplicationDialogService);
 
         // 初始化筛选命令
         ClearFilterCommand = new DelegateCommand(ClearFilter);
@@ -570,6 +576,22 @@ public class MainWindowViewModel : ViewModelBase
                 }
                 break;
 
+            case MainViewType.ResourceCenter:
+                existingTab = OpenTabs.FirstOrDefault(t => t.TabType == TabItemType.ResourceCenter);
+                if (existingTab == null)
+                {
+                    existingTab = new TabItemModel
+                    {
+                        Id = $"resource_center_{Guid.NewGuid():N}",
+                        TargetKey = targetKey,
+                        Title = "资源中心",
+                        Subtitle = "查看资源发现、授权与待审批状态",
+                        TabType = TabItemType.ResourceCenter
+                    };
+                    OpenTabs.Add(existingTab);
+                }
+                break;
+
             case MainViewType.Todo:
                 existingTab = OpenTabs.FirstOrDefault(t => t.TabType == TabItemType.Todo);
                 if (existingTab == null)
@@ -581,22 +603,6 @@ public class MainWindowViewModel : ViewModelBase
                         Title = "待办事项",
                         Subtitle = "管理您的日常任务",
                         TabType = TabItemType.Todo
-                    };
-                    OpenTabs.Add(existingTab);
-                }
-                break;
-
-            case MainViewType.DrugImport:
-                existingTab = OpenTabs.FirstOrDefault(t => t.TabType == TabItemType.DrugImport);
-                if (existingTab == null)
-                {
-                    existingTab = new TabItemModel
-                    {
-                        Id = $"drug_import_{Guid.NewGuid():N}",
-                        TargetKey = targetKey,
-                        Title = "医保药品导入同步工具",
-                        Subtitle = "固定模板 Excel 导入与 SQL Server 同步",
-                        TabType = TabItemType.DrugImport
                     };
                     OpenTabs.Add(existingTab);
                 }
@@ -749,9 +755,9 @@ public class MainWindowViewModel : ViewModelBase
         CurrentView = tab.TabType switch
         {
             TabItemType.Home => MainViewType.Home,
+            TabItemType.ResourceCenter => MainViewType.ResourceCenter,
             TabItemType.Todo => MainViewType.Todo,
             TabItemType.PluginHost => MainViewType.PluginHost,
-            TabItemType.DrugImport => MainViewType.DrugImport,
             TabItemType.Settings => MainViewType.Settings,
             TabItemType.PatientMgmt => MainViewType.PatientMgmt,
             TabItemType.Schedule => MainViewType.Schedule,
@@ -795,6 +801,16 @@ public class MainWindowViewModel : ViewModelBase
             IsInstalled = true
         });
 
+        MenuItems.Add(new MenuItem
+        {
+            Id = "resource-center",
+            TargetKey = "resource-center",
+            Name = "资源中心",
+            Icon = "🗂",
+            ViewType = MainViewType.ResourceCenter,
+            IsInstalled = true
+        });
+
         foreach (var pluginMenu in _externalPluginMenus.OrderBy(item => item.Order))
         {
             MenuItems.Add(new MenuItem
@@ -818,9 +834,9 @@ public class MainWindowViewModel : ViewModelBase
         return viewType switch
         {
             MainViewType.Home => "🏠",
+            MainViewType.ResourceCenter => "🗂",
             MainViewType.Todo => "📋",
             MainViewType.PluginHost => "🧩",
-            MainViewType.DrugImport => "💊",
             MainViewType.PatientMgmt => "👤",
             MainViewType.Schedule => "📅",
             MainViewType.Settings => "⚙",
@@ -835,11 +851,11 @@ public class MainWindowViewModel : ViewModelBase
             case "home":
                 viewType = MainViewType.Home;
                 return true;
+            case "resource-center":
+                viewType = MainViewType.ResourceCenter;
+                return true;
             case "todo":
                 viewType = MainViewType.Todo;
-                return true;
-            case "drug-import":
-                viewType = MainViewType.DrugImport;
                 return true;
             case "settings":
                 viewType = MainViewType.Settings;
@@ -861,8 +877,8 @@ public class MainWindowViewModel : ViewModelBase
         return viewType switch
         {
             MainViewType.Home => "home",
+            MainViewType.ResourceCenter => "resource-center",
             MainViewType.Todo => "todo",
-            MainViewType.DrugImport => "drug-import",
             MainViewType.Settings => "settings",
             MainViewType.PatientMgmt => "patient",
             MainViewType.Schedule => "schedule",

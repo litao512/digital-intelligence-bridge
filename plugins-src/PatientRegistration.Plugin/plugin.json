@@ -4,5 +4,13 @@
   "version": "0.1.0",
   "entryAssembly": "PatientRegistration.Plugin.dll",
   "entryType": "PatientRegistration.Plugin.PatientRegistrationPlugin",
-  "minHostVersion": "1.0.0"
+  "minHostVersion": "1.0.0",
+  "resourceRequirements": [
+    {
+      "resourceType": "PostgreSQL",
+      "usageKey": "registration-db",
+      "required": true,
+      "description": "保存和查询就诊登记记录的业务数据库"
+    }
+  ]
 }

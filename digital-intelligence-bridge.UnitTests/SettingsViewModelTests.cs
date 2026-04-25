@@ -13,6 +13,7 @@ public class SettingsViewModelTests
     [Fact]
     public async Task Constructor_ShouldRunSelfCheck_WhenCreated()
     {
+        using var sandbox = new TestConfigSandbox();
         var vm = CreateVm();
         await WaitForSelfCheckAsync(vm);
 
@@ -25,6 +26,7 @@ public class SettingsViewModelTests
     [Fact]
     public async Task ExportSelfCheckReportCommand_ShouldAppendExportFlag_WhenExecuted()
     {
+        using var sandbox = new TestConfigSandbox();
         var vm = CreateVm();
         await WaitForSelfCheckAsync(vm);
 
@@ -36,6 +38,7 @@ public class SettingsViewModelTests
     [Fact]
     public void IsTrayIconAvailable_ShouldReturnTrue_WhenFileExistsUnderBaseDirectory()
     {
+        using var sandbox = new TestConfigSandbox();
         var relativePath = Path.Combine("test-icons", $"{Guid.NewGuid():N}.ico");
         var fullPath = Path.Combine(AppContext.BaseDirectory, relativePath);
         var directory = Path.GetDirectoryName(fullPath)!;
@@ -66,6 +69,7 @@ public class SettingsViewModelTests
     [Fact]
     public void IsTrayIconAvailable_ShouldReturnFalse_WhenFileAndAssetMissing()
     {
+        using var sandbox = new TestConfigSandbox();
         var relativePath = Path.Combine("missing-icons", $"{Guid.NewGuid():N}.ico");
 
         var result = InvokeIsTrayIconAvailable(relativePath, out var detail);

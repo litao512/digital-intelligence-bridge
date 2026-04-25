@@ -6,15 +6,24 @@ namespace DigitalIntelligenceBridge.UnitTests;
 public class MedicalDrugImportPluginConfigurationTests
 {
     [Fact]
-    public void Load_ShouldReadPluginSettingsJson_WhenFileExists()
+    public void PluginSettings_ShouldNotExposeSensitiveConnectionSections()
+    {
+        Assert.Null(typeof(PluginSettings).GetProperty("Postgres"));
+        Assert.Null(typeof(SqlServerSettings).GetProperty("ConnectionString"));
+    }
+
+    [Fact]
+    public void Load_ShouldReadNonSensitivePluginSettings_WhenFileExists()
     {
         var pluginDirectory = CreateTempPluginDirectory("""
         {
-          "Postgres": {
-            "ConnectionString": "Host=pg-host;Database=drugdb;"
+          "DevelopmentMode": {
+            "Enabled": true
+          },
+          "Excel": {
+            "RequiredSheets": [ "总表（270419）" ]
           },
           "SqlServer": {
-            "ConnectionString": "Server=sql-host;Database=ChisDict;",
             "EnableWrites": true
           },
           "Import": {
@@ -29,8 +38,8 @@ public class MedicalDrugImportPluginConfigurationTests
         {
             var settings = PluginConfigurationLoader.Load(pluginDirectory);
 
-            Assert.Equal("Host=pg-host;Database=drugdb;", settings.Postgres.ConnectionString);
-            Assert.Equal("Server=sql-host;Database=ChisDict;", settings.SqlServer.ConnectionString);
+            Assert.True(settings.DevelopmentMode.Enabled);
+            Assert.Single(settings.Excel.RequiredSheets);
             Assert.True(settings.SqlServer.EnableWrites);
             Assert.Equal(1200, settings.Import.BatchSize);
             Assert.Equal(80, settings.Import.MaxSyncRowsPerRun);
@@ -43,12 +52,12 @@ public class MedicalDrugImportPluginConfigurationTests
     }
 
     [Fact]
-    public void Load_ShouldAllowEnvironmentVariablesToOverridePluginSettings()
+    public void Load_ShouldIgnoreEnvironmentVariables_EvenWhenDevelopmentModeEnabled()
     {
         var pluginDirectory = CreateTempPluginDirectory("""
         {
-          "Postgres": {
-            "ConnectionString": "Host=pg-host;Database=drugdb;"
+          "DevelopmentMode": {
+            "Enabled": true
           },
           "Import": {
             "BatchSize": 1000,
@@ -58,33 +67,23 @@ public class MedicalDrugImportPluginConfigurationTests
         """);
 
         const string batchSizeEnv = "MEDICAL_DRUG_IMPORT__IMPORT__BATCHSIZE";
-        const string maxSyncRowsEnv = "MEDICAL_DRUG_IMPORT__IMPORT__MAXSYNCROWSPERRUN";
-        const string postgresEnv = "MEDICAL_DRUG_IMPORT__POSTGRES__CONNECTIONSTRING";
         const string enableWritesEnv = "MEDICAL_DRUG_IMPORT__SQLSERVER__ENABLEWRITES";
         var previousBatchSize = Environment.GetEnvironmentVariable(batchSizeEnv);
-        var previousMaxSyncRows = Environment.GetEnvironmentVariable(maxSyncRowsEnv);
-        var previousPostgres = Environment.GetEnvironmentVariable(postgresEnv);
         var previousEnableWrites = Environment.GetEnvironmentVariable(enableWritesEnv);
 
         try
         {
             Environment.SetEnvironmentVariable(batchSizeEnv, "2500");
-            Environment.SetEnvironmentVariable(maxSyncRowsEnv, "25");
-            Environment.SetEnvironmentVariable(postgresEnv, "Host=env-host;Database=envdb;");
             Environment.SetEnvironmentVariable(enableWritesEnv, "true");
 
             var settings = PluginConfigurationLoader.Load(pluginDirectory);
 
-            Assert.Equal(2500, settings.Import.BatchSize);
-            Assert.Equal(25, settings.Import.MaxSyncRowsPerRun);
-            Assert.Equal("Host=env-host;Database=envdb;", settings.Postgres.ConnectionString);
-            Assert.True(settings.SqlServer.EnableWrites);
+            Assert.Equal(1000, settings.Import.BatchSize);
+            Assert.False(settings.SqlServer.EnableWrites);
         }
         finally
         {
             Environment.SetEnvironmentVariable(batchSizeEnv, previousBatchSize);
-            Environment.SetEnvironmentVariable(maxSyncRowsEnv, previousMaxSyncRows);
-            Environment.SetEnvironmentVariable(postgresEnv, previousPostgres);
             Environment.SetEnvironmentVariable(enableWritesEnv, previousEnableWrites);
             Directory.Delete(pluginDirectory, true);
         }
@@ -102,7 +101,6 @@ public class MedicalDrugImportPluginConfigurationTests
 
             Assert.NotNull(settings);
             Assert.NotNull(settings.Excel);
-            Assert.NotNull(settings.Postgres);
             Assert.NotNull(settings.SqlServer);
             Assert.NotNull(settings.Import);
             Assert.False(settings.SqlServer.EnableWrites);
@@ -116,6 +114,42 @@ public class MedicalDrugImportPluginConfigurationTests
         }
     }
 
+    [Fact]
+    public void PluginSettingsTemplate_ShouldNotContainSensitiveConnectionSections()
+    {
+        var fullPath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..", "..", "..", "..",
+            "plugins-src",
+            "MedicalDrugImport.Plugin",
+            "plugin.settings.json"));
+
+        var json = File.ReadAllText(fullPath);
+
+        Assert.DoesNotContain("\"Postgres\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"ConnectionString\"", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DevelopmentTemplate_ShouldExist_AndUsePlaceholderValues()
+    {
+        var fullPath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..", "..", "..", "..",
+            "plugins-src",
+            "MedicalDrugImport.Plugin",
+            "plugin.development.json.example"));
+
+        Assert.True(File.Exists(fullPath));
+
+        var json = File.ReadAllText(fullPath);
+
+        Assert.Contains("\"BusinessDbConnectionString\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"SyncTargetConnectionString\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("Password=dev", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("User Id=sa", json, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string CreateTempPluginDirectory(string pluginSettingsJson)
     {
         var pluginDirectory = Path.Combine(Path.GetTempPath(), $"plugin-settings-{Guid.NewGuid():N}");
@@ -124,4 +158,3 @@ public class MedicalDrugImportPluginConfigurationTests
         return pluginDirectory;
     }
 }
-

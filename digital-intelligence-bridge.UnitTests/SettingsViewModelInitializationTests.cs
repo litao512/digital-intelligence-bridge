@@ -1,5 +1,6 @@
 using System.Text.Json;
 using DigitalIntelligenceBridge.Configuration;
+using DigitalIntelligenceBridge.Models;
 using DigitalIntelligenceBridge.Services;
 using DigitalIntelligenceBridge.ViewModels;
 using Microsoft.Extensions.Options;
@@ -10,24 +11,28 @@ namespace DigitalIntelligenceBridge.UnitTests;
 public class SettingsViewModelInitializationTests
 {
     [Fact]
-    public void SaveSiteProfileCommand_ShouldPersistSiteNameAndRemark()
+    public void SaveSiteProfileCommand_ShouldPersistSiteOrganizationNameAndRemark()
     {
         using var sandbox = new TestConfigSandbox();
 
         var vm = CreateVm();
+        vm.SiteOrganizationInput = "第一人民医院";
         vm.SiteNameInput = "门诊一楼登记台";
         vm.SiteRemarkInput = "收费处旁";
 
         vm.SaveSiteProfileCommand.Execute();
 
+        Assert.Equal("第一人民医院", vm.SiteOrganizationInput);
         Assert.Equal("门诊一楼登记台", vm.SiteNameInput);
         Assert.Equal("收费处旁", vm.SiteRemarkInput);
+        Assert.Contains("第一人民医院", vm.SiteProfileSummary);
         Assert.Contains("门诊一楼登记台", vm.SiteProfileSummary);
         Assert.Contains("已保存", vm.SiteProfileStatus);
 
         var persistedJson = File.ReadAllText(ConfigurationExtensions.GetConfigFilePath());
         using var document = JsonDocument.Parse(persistedJson);
         var releaseCenter = document.RootElement.GetProperty("ReleaseCenter");
+        Assert.Equal("第一人民医院", releaseCenter.GetProperty("SiteOrganization").GetString());
         Assert.Equal("门诊一楼登记台", releaseCenter.GetProperty("SiteName").GetString());
         Assert.Equal("收费处旁", releaseCenter.GetProperty("SiteRemark").GetString());
     }
@@ -38,6 +43,7 @@ public class SettingsViewModelInitializationTests
         var service = new SequenceReleaseCenterService();
         var vm = CreateVm(service);
         service.ResetCounters();
+        vm.SiteOrganizationInput = "第一人民医院";
         vm.SiteNameInput = string.Empty;
 
         Assert.False(vm.InitializeSitePluginsCommand.CanExecute());
@@ -52,6 +58,7 @@ public class SettingsViewModelInitializationTests
         var service = new SequenceReleaseCenterService();
         var vm = CreateVm(service);
         service.ResetCounters();
+        vm.SiteOrganizationInput = "第一人民医院";
         vm.SiteNameInput = "门诊一楼登记台";
 
         vm.InitializeSitePluginsCommand.Execute();
@@ -132,6 +139,15 @@ public class SettingsViewModelInitializationTests
                 "授权插件：1 个",
                 "就诊登记 / patient-registration / 1.0.1"));
         }
+
+        public Task<ResourceDiscoverySnapshot> DiscoverResourcesAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(new ResourceDiscoverySnapshot());
+
+        public Task<AuthorizedResourceSnapshot> GetAuthorizedResourcesAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(new AuthorizedResourceSnapshot());
+
+        public Task<ResourceApplicationSubmitResult> ApplyResourceAsync(string resourceId, string pluginCode, string reason, CancellationToken cancellationToken = default)
+            => Task.FromResult(new ResourceApplicationSubmitResult(true, "ok", "apply-test", "Submitted"));
 
         public Task<ReleaseCenterClientDownloadResult> DownloadLatestClientPackageAsync(IProgress<ReleaseCenterDownloadProgress>? progress = null, CancellationToken cancellationToken = default)
             => Task.FromResult(new ReleaseCenterClientDownloadResult(true, "没有可下载的客户端更新包", string.Empty, string.Empty, "C:\\cache", string.Empty));

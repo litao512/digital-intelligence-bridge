@@ -35,6 +35,19 @@ public class MainWindowViewModelTests
     }
 
     [Fact]
+    public void NavigateCommand_ShouldOpenResourceCenterTab_WhenNavigateToResourceCenter()
+    {
+        var vm = CreateVm();
+
+        vm.NavigateCommand.Execute(MainViewType.ResourceCenter);
+
+        Assert.Equal(MainViewType.ResourceCenter, vm.CurrentView);
+        Assert.NotNull(vm.SelectedTab);
+        Assert.Equal(TabItemType.ResourceCenter, vm.SelectedTab!.TabType);
+        Assert.Contains(vm.MenuItems, x => x.ViewType == MainViewType.ResourceCenter && x.IsSelected);
+    }
+
+    [Fact]
     public void NavigateCommand_ShouldReuseExistingTab_WhenNavigatingToSameView()
     {
         var vm = CreateVm();
@@ -127,13 +140,13 @@ public class MainWindowViewModelTests
     }
 
     [Fact]
-    public void Constructor_ShouldNotInjectTodoOrDrugImport_WhenUsingDefaultMenuFallback()
+    public void Constructor_ShouldNotInjectTodoOrLegacyDrugImport_WhenUsingDefaultMenuFallback()
     {
         var vm = CreateVm();
 
         Assert.Contains(vm.MenuItems, x => x.ViewType == MainViewType.Home);
         Assert.DoesNotContain(vm.MenuItems, x => x.ViewType == MainViewType.Todo);
-        Assert.DoesNotContain(vm.MenuItems, x => x.ViewType == MainViewType.DrugImport);
+        Assert.DoesNotContain("DrugImport", Enum.GetNames(typeof(MainViewType)));
     }
 
     [Fact]

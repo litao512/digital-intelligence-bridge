@@ -1,0 +1,4 @@
+{
+  "BusinessDbConnectionString": "<填写本地开发 PostgreSQL 连接串>",
+  "SyncTargetConnectionString": "<填写本地开发 SQL Server 连接串>"
+}

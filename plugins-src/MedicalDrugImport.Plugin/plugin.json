@@ -4,5 +4,19 @@
   "version": "0.1.0",
   "entryAssembly": "MedicalDrugImport.Plugin.dll",
   "entryType": "MedicalDrugImport.Plugin.MedicalDrugImportPlugin",
-  "minHostVersion": "1.0.0"
+  "minHostVersion": "1.0.0",
+  "resourceRequirements": [
+    {
+      "resourceType": "PostgreSQL",
+      "usageKey": "business-db",
+      "required": true,
+      "description": "执行药品导入和目录查询的业务数据库"
+    },
+    {
+      "resourceType": "SqlServer",
+      "usageKey": "sync-target",
+      "required": false,
+      "description": "将药品目录同步到目标 SQL Server"
+    }
+  ]
 }

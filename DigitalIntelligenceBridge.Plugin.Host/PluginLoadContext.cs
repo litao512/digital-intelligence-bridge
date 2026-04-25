@@ -16,10 +16,7 @@ public class PluginLoadContext : AssemblyLoadContext
 
     protected override Assembly? Load(AssemblyName assemblyName)
     {
-        if (string.Equals(
-                assemblyName.Name,
-                typeof(IPluginModule).Assembly.GetName().Name,
-                StringComparison.OrdinalIgnoreCase))
+        if (ShouldUseHostAssembly(assemblyName))
         {
             return null;
         }
@@ -31,5 +28,24 @@ public class PluginLoadContext : AssemblyLoadContext
         }
 
         return LoadFromAssemblyPath(assemblyPath);
+    }
+
+    private static bool ShouldUseHostAssembly(AssemblyName assemblyName)
+    {
+        if (string.IsNullOrWhiteSpace(assemblyName.Name))
+        {
+            return false;
+        }
+
+        if (string.Equals(
+                assemblyName.Name,
+                typeof(IPluginModule).Assembly.GetName().Name,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return string.Equals(assemblyName.Name, "Avalonia", StringComparison.OrdinalIgnoreCase)
+            || assemblyName.Name.StartsWith("Avalonia.", StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -14,6 +14,8 @@ public class PluginManifest
 
     public string MinHostVersion { get; set; } = string.Empty;
 
+    public IReadOnlyList<PluginResourceRequirement> ResourceRequirements { get; set; } = [];
+
     public bool IsCompatibleWith(string hostVersion)
     {
         if (!System.Version.TryParse(MinHostVersion, out var minimumVersion))
@@ -28,4 +30,15 @@ public class PluginManifest
 
         return currentVersion >= minimumVersion;
     }
+}
+
+public class PluginResourceRequirement
+{
+    public string ResourceType { get; set; } = string.Empty;
+
+    public string UsageKey { get; set; } = string.Empty;
+
+    public bool Required { get; set; }
+
+    public string Description { get; set; } = string.Empty;
 }

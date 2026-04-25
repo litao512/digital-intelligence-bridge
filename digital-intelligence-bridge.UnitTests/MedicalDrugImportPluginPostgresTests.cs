@@ -9,17 +9,9 @@ namespace DigitalIntelligenceBridge.UnitTests;
 public class MedicalDrugImportPluginPostgresTests
 {
     [Fact]
-    public void Repository_ShouldUseConnectionString_FromPluginSettings()
+    public void Repository_ShouldUseConnectionString_FromRuntimeResources()
     {
-        var settings = new PluginSettings
-        {
-            Postgres = new PostgresSettings
-            {
-                ConnectionString = "Host=pg-host;Database=drugdb;Username=plugin;"
-            }
-        };
-
-        var repository = new DrugImportRepository(settings);
+        var repository = new DrugImportRepository("Host=pg-host;Database=drugdb;Username=plugin;");
 
         Assert.Equal("Host=pg-host;Database=drugdb;Username=plugin;", repository.ConnectionString);
     }
@@ -32,7 +24,7 @@ public class MedicalDrugImportPluginPostgresTests
         try
         {
             var excelService = new DrugExcelImportService();
-            var repository = new RecordingDrugImportRepository(new PluginSettings());
+            var repository = new RecordingDrugImportRepository();
             var pipeline = new DrugImportPipelineService(excelService, repository);
 
             var batch = await pipeline.ImportAsync(filePath);
@@ -81,7 +73,7 @@ public class MedicalDrugImportPluginPostgresTests
     [Fact]
     public async Task MergeBatchAsync_ShouldBuildUpsertUsingDrugCode_WhenPluginRepositoryMergesBatch()
     {
-        var repository = new TestDrugImportRepository(new PluginSettings());
+        var repository = new TestDrugImportRepository();
         var batchId = Guid.NewGuid();
 
         await repository.MergeBatchAsync(batchId);
@@ -114,7 +106,7 @@ public class MedicalDrugImportPluginPostgresTests
 
     private sealed class RecordingDrugImportRepository : DrugImportRepository
     {
-        public RecordingDrugImportRepository(PluginSettings settings) : base(settings)
+        public RecordingDrugImportRepository() : base("Host=pg-host;Database=drugdb;Username=plugin;")
         {
         }
 
@@ -170,7 +162,7 @@ public class MedicalDrugImportPluginPostgresTests
 
     private sealed class TestDrugImportRepository : DrugImportRepository
     {
-        public TestDrugImportRepository(PluginSettings settings) : base(settings)
+        public TestDrugImportRepository() : base("Host=pg-host;Database=drugdb;Username=plugin;")
         {
         }
 

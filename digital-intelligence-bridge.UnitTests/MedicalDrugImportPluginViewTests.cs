@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using System.Collections.Generic;
 using MedicalDrugImport.Plugin;
 using MedicalDrugImport.Plugin.ViewModels;
 using MedicalDrugImport.Plugin.Views;
@@ -102,11 +103,57 @@ public class MedicalDrugImportPluginViewTests
         Assert.Contains("只读", viewModel.SyncGuardSummary, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void CreateContent_ShouldLogWarningStyleMessage_WhenDevelopmentModeEnabled()
+    {
+        var pluginDirectory = Path.Combine(Path.GetTempPath(), $"medical-drug-import-plugin-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(pluginDirectory);
+        File.WriteAllText(
+            Path.Combine(pluginDirectory, "plugin.settings.json"),
+            """
+            {
+              "DevelopmentMode": {
+                "Enabled": true
+              }
+            }
+            """);
+
+        try
+        {
+            var hostContext = new StubPluginHostContext(pluginDirectory);
+            var plugin = new MedicalDrugImportPlugin();
+            plugin.Initialize(hostContext);
+
+            _ = plugin.CreateContent("medical-drug-import.home");
+
+            Assert.Contains(hostContext.Logs, message => message.Contains("开发模式", StringComparison.Ordinal));
+        }
+        finally
+        {
+            Directory.Delete(pluginDirectory, true);
+        }
+    }
+
     private sealed class StubPluginHostContext : DigitalIntelligenceBridge.Plugin.Abstractions.IPluginHostContext
     {
+        public StubPluginHostContext(string pluginDirectory = "plugins/MedicalDrugImport")
+        {
+            PluginDirectory = pluginDirectory;
+        }
+
+        public List<string> Logs { get; } = [];
+
         public string HostVersion => "1.0.0";
-        public string PluginDirectory => "plugins/MedicalDrugImport";
-        public void LogInformation(string message) { }
+        public string PluginDirectory { get; }
+        public void LogInformation(string message) { Logs.Add(message); }
+
+        public IReadOnlyList<DigitalIntelligenceBridge.Plugin.Abstractions.AuthorizedRuntimeResource> GetAuthorizedResources() => [];
+
+        public bool TryGetResource(string usageKey, out DigitalIntelligenceBridge.Plugin.Abstractions.AuthorizedRuntimeResource? resource)
+        {
+            resource = null;
+            return false;
+        }
     }
 }
 

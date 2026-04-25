@@ -11,12 +11,11 @@ public class AppSettings
     public SupabaseConfig Supabase { get; set; } = new();
     public ReleaseCenterConfig ReleaseCenter { get; set; } = new();
     public LoggingConfig Logging { get; set; } = new();
-    public MedicalDrugImportConfig MedicalDrugImport { get; set; } = new();
 }
 
 public class ApplicationConfig
 {
-    public string Name { get; set; } = "通用工具箱";
+    public string Name { get; set; } = "DIB客户端";
     public string Version { get; set; } = "1.0.0";
     public bool MinimizeToTray { get; set; } = true;
     public bool StartWithSystem { get; set; } = false;
@@ -50,6 +49,7 @@ public class ReleaseCenterConfig
     public string Channel { get; set; } = "stable";
     public string AnonKey { get; set; } = string.Empty;
     public string SiteId { get; set; } = string.Empty;
+    public string SiteOrganization { get; set; } = string.Empty;
     public string SiteName { get; set; } = string.Empty;
     public string SiteRemark { get; set; } = string.Empty;
     public string CacheDirectory { get; set; } = string.Empty;
@@ -70,23 +70,4 @@ public class LogLevelConfig
     public string Default { get; set; } = "Information";
     public string Microsoft { get; set; } = "Warning";
 }
-
-public class MedicalDrugImportConfig
-{
-    public bool Enabled { get; set; } = false;
-    public string PostgresSchema { get; set; } = "etl";
-    public SqlServerConnectionConfig SqlServer { get; set; } = new();
-}
-
-public class SqlServerConnectionConfig
-{
-    public string Host { get; set; } = "localhost";
-    public int Port { get; set; } = 1433;
-    public string Database { get; set; } = string.Empty;
-    public string Username { get; set; } = string.Empty;
-    public string Password { get; set; } = string.Empty;
-    public bool Encrypt { get; set; } = true;
-    public bool TrustServerCertificate { get; set; } = true;
-}
-
 

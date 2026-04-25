@@ -18,7 +18,7 @@ public class MedicalDrugImportPlugin : IPluginModule
     public void Initialize(IPluginHostContext context)
     {
         _hostContext = context;
-        _hostContext.LogInformation("医保药品导入插件已初始化");
+        _hostContext.LogInformation("医保目录插件已初始化");
     }
 
     public PluginManifest GetManifest()
@@ -26,7 +26,7 @@ public class MedicalDrugImportPlugin : IPluginModule
         return new PluginManifest
         {
             Id = PluginId,
-            Name = "医保药品导入",
+            Name = "医保目录",
             Version = "0.1.0",
             EntryAssembly = "MedicalDrugImport.Plugin.dll",
             EntryType = typeof(MedicalDrugImportPlugin).FullName ?? string.Empty,
@@ -41,7 +41,7 @@ public class MedicalDrugImportPlugin : IPluginModule
             new PluginMenuItem
             {
                 Id = HomeMenuId,
-                Name = "医保药品导入",
+                Name = "医保目录",
                 Icon = "💊",
                 Order = 100
             }
@@ -61,10 +61,16 @@ public class MedicalDrugImportPlugin : IPluginModule
     {
         var pluginDirectory = _hostContext?.PluginDirectory ?? AppContext.BaseDirectory;
         var settings = PluginConfigurationLoader.Load(pluginDirectory);
+        if (settings.DevelopmentMode.Enabled)
+        {
+            _hostContext?.LogInformation("医保目录导入插件当前处于开发模式，本地敏感配置已启用，不适用于正式生产环境");
+        }
+
+        var runtimeResources = RuntimeResourceResolver.Resolve(pluginDirectory, settings, _hostContext);
         var excelService = new DrugExcelImportService();
-        var repository = new DrugImportRepository(settings);
+        var repository = new DrugImportRepository(runtimeResources.BusinessDbConnectionString);
         var pipeline = new DrugImportPipelineService(excelService, repository);
-        var syncService = new SqlServerDrugSyncService(settings, repository);
+        var syncService = new SqlServerDrugSyncService(settings, runtimeResources.SyncTargetConnectionString, repository);
         var viewModel = new DrugImportPluginViewModel(excelService, pipeline, syncService, settings);
 
         return new MedicalDrugImportHomeView(viewModel);

@@ -4,6 +4,7 @@ using DigitalIntelligenceBridge.Configuration;
 using DigitalIntelligenceBridge.Plugin.Host;
 using DigitalIntelligenceBridge.ViewModels;
 using DigitalIntelligenceBridge.Views;
+using PluginAuthorizedResourceCacheService = DigitalIntelligenceBridge.Plugin.Abstractions.IAuthorizedResourceCacheService;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Serilog;
@@ -18,6 +19,12 @@ public static class ServiceCollectionExtensions
         services.AddLogging(builder => { builder.AddSerilog(dispose: true); });
         services.AddSingleton(typeof(ILoggerService<>), typeof(LoggerService<>));
         services.AddSingleton<IApplicationService, ApplicationService>();
+        services.AddSingleton<ISiteRegistrationDialogService, SiteRegistrationDialogService>();
+        services.AddSingleton<IResourceApplicationDialogService, ResourceApplicationDialogService>();
+        var authorizedResourceCacheService = new AuthorizedResourceCacheService();
+        services.AddSingleton(authorizedResourceCacheService);
+        services.AddSingleton<IAuthorizedResourceCacheService>(authorizedResourceCacheService);
+        services.AddSingleton<PluginAuthorizedResourceCacheService>(authorizedResourceCacheService);
         services.AddSingleton<ITrayService, TrayService>();
         services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromMinutes(10) });
         services.AddSingleton<ISupabaseService, SupabaseService>();
@@ -25,12 +32,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITodoRepository, SupabaseTodoRepository>();
         services.AddSingleton<PluginCatalogService>();
         services.AddSingleton<PluginLoaderService>();
-        services.AddSingleton<IDrugExcelImportService, DrugExcelImportService>();
-        services.AddSingleton<DrugImportRepository>();
-        services.AddSingleton<IDrugImportRepository>(provider => provider.GetRequiredService<DrugImportRepository>());
-        services.AddSingleton<IDrugCatalogSyncRepository>(provider => provider.GetRequiredService<DrugImportRepository>());
-        services.AddSingleton<IDrugImportPipelineService, DrugImportPipelineService>();
-        services.AddSingleton<ISqlServerDrugSyncService, SqlServerDrugSyncService>();
         return services;
     }
 
@@ -38,7 +39,6 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<MainWindow>();
         services.AddSingleton<MainWindowViewModel>();
-        services.AddSingleton<DrugImportViewModel>();
         return services;
     }
 }

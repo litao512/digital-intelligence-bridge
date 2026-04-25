@@ -5,7 +5,6 @@ namespace PatientRegistration.Plugin.Configuration;
 public static class PluginConfigurationLoader
 {
     public const string SettingsFileName = "plugin.settings.json";
-    public const string EnvironmentPrefix = "PATIENT_REGISTRATION__";
 
     public static PluginSettings Load(string pluginDirectory)
     {
@@ -15,7 +14,6 @@ public static class PluginConfigurationLoader
         var configuration = new ConfigurationBuilder()
             .SetBasePath(basePath)
             .AddJsonFile(SettingsFileName, optional: true, reloadOnChange: false)
-            .AddEnvironmentVariables(EnvironmentPrefix)
             .Build();
 
         var settings = new PluginSettings();

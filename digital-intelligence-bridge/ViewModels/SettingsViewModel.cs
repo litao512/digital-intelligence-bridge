@@ -30,7 +30,7 @@ public class SettingsViewModel : ViewModelBase
     private bool _showTrayNotifications;
     private string _selectedTrayIcon = "默认图标";
     private int _autoSaveInterval = 5;
-    private string _appName = "通用工具箱";
+    private string _appName = "DIB客户端";
     private string _appVersion = "1.0.0";
     private string _selfCheckSummary = "尚未执行自检";
     private string _selfCheckNotice = string.Empty;
@@ -49,11 +49,13 @@ public class SettingsViewModel : ViewModelBase
     private string _clientPackageDownloadDetail = string.Empty;
     private DateTime? _lastClientPackageDownloadAt;
     private bool _isClientPackageDownloadRunning;
+    private CancellationTokenSource? _clientPackageDownloadCts;
     private string _clientUpgradeNotice = string.Empty;
     private string _pluginDownloadSummary = "插件包下载：尚未执行";
     private string _pluginDownloadDetail = string.Empty;
     private DateTime? _lastPluginDownloadAt;
     private bool _isPluginDownloadRunning;
+    private CancellationTokenSource? _pluginDownloadCts;
     private string _pluginPrepareSummary = "插件预安装：尚未执行";
     private string _pluginPrepareDetail = string.Empty;
     private DateTime? _lastPluginPrepareAt;
@@ -63,6 +65,7 @@ public class SettingsViewModel : ViewModelBase
     private DateTime? _lastPluginRollbackAt;
     private bool _isPluginRollbackRunning;
     private string _restartRequiredNotice = string.Empty;
+    private string _siteOrganizationInput = string.Empty;
     private string _siteNameInput = string.Empty;
     private string _siteRemarkInput = string.Empty;
     private string _siteProfileSummary = "站点信息：未填写";
@@ -106,6 +109,19 @@ public class SettingsViewModel : ViewModelBase
     public string PluginRollbackDetail { get => _pluginRollbackDetail; set => SetProperty(ref _pluginRollbackDetail, value); }
     public DateTime? LastPluginRollbackAt { get => _lastPluginRollbackAt; set => SetProperty(ref _lastPluginRollbackAt, value); }
     public string RestartRequiredNotice { get => _restartRequiredNotice; set => SetProperty(ref _restartRequiredNotice, value); }
+    public string SiteOrganizationInput
+    {
+        get => _siteOrganizationInput;
+        set
+        {
+            if (SetProperty(ref _siteOrganizationInput, value))
+            {
+                RaisePropertyChanged(nameof(CanInitializeSitePlugins));
+                SaveSiteProfileCommand?.RaiseCanExecuteChanged();
+                InitializeSitePluginsCommand?.RaiseCanExecuteChanged();
+            }
+        }
+    }
     public string SiteNameInput
     {
         get => _siteNameInput;
@@ -128,7 +144,7 @@ public class SettingsViewModel : ViewModelBase
     public string SiteProfileStatus { get => _siteProfileStatus; set => SetProperty(ref _siteProfileStatus, value); }
     public string SiteInitializationSummary { get => _siteInitializationSummary; set => SetProperty(ref _siteInitializationSummary, value); }
     public string SiteInitializationDetail { get => _siteInitializationDetail; set => SetProperty(ref _siteInitializationDetail, value); }
-    public bool CanInitializeSitePlugins => !string.IsNullOrWhiteSpace(SiteNameInput);
+    public bool CanInitializeSitePlugins => !string.IsNullOrWhiteSpace(SiteOrganizationInput) && !string.IsNullOrWhiteSpace(SiteNameInput);
 
     public bool IsSelfCheckRunning
     {
@@ -165,6 +181,7 @@ public class SettingsViewModel : ViewModelBase
             {
                 RaisePropertyChanged(nameof(DownloadClientPackageButtonText));
                 DownloadClientPackageCommand.RaiseCanExecuteChanged();
+                CancelClientPackageDownloadCommand.RaiseCanExecuteChanged();
             }
         }
     }
@@ -177,6 +194,7 @@ public class SettingsViewModel : ViewModelBase
             {
                 RaisePropertyChanged(nameof(DownloadPluginPackagesButtonText));
                 DownloadPluginPackagesCommand.RaiseCanExecuteChanged();
+                CancelPluginPackagesDownloadCommand.RaiseCanExecuteChanged();
             }
         }
     }
@@ -224,19 +242,25 @@ public class SettingsViewModel : ViewModelBase
     public string RunSelfCheckButtonText => IsSelfCheckRunning ? "执行中..." : "运行自检";
     public string CheckUpdateButtonText => IsUpdateCheckRunning ? "检查中..." : "检查更新";
     public string DownloadClientPackageButtonText => IsClientPackageDownloadRunning ? "下载中..." : "下载客户端更新包";
+    public string CancelClientPackageDownloadButtonText => IsClientPackageDownloadRunning ? "停止下载客户端包" : "停止下载";
     public string DownloadPluginPackagesButtonText => IsPluginDownloadRunning ? "下载中..." : "下载插件包";
+    public string CancelPluginPackagesDownloadButtonText => IsPluginDownloadRunning ? "停止下载插件包" : "停止下载";
     public string PreparePluginPackagesButtonText => IsPluginPrepareRunning ? "准备中..." : "生成预安装目录";
     public string RestoreLatestPluginBackupButtonText => IsPluginRollbackRunning ? "回滚中..." : "回滚最近备份";
     public string InitializeSitePluginsButtonText => IsSiteInitializationRunning ? "初始化中..." : "初始化本机插件";
 
     public DelegateCommand SaveSettingsCommand { get; }
     public DelegateCommand SaveSiteProfileCommand { get; }
+    public DelegateCommand ExportSiteIdentityCommand { get; }
+    public DelegateCommand ImportSiteIdentityCommand { get; }
     public DelegateCommand ExportDataCommand { get; }
     public DelegateCommand ImportDataCommand { get; }
     public DelegateCommand ClearAllDataCommand { get; }
     public DelegateCommand CheckUpdateCommand { get; }
     public DelegateCommand DownloadClientPackageCommand { get; }
+    public DelegateCommand CancelClientPackageDownloadCommand { get; }
     public DelegateCommand DownloadPluginPackagesCommand { get; }
+    public DelegateCommand CancelPluginPackagesDownloadCommand { get; }
     public DelegateCommand PreparePluginPackagesCommand { get; }
     public DelegateCommand RestoreLatestPluginBackupCommand { get; }
     public DelegateCommand InitializeSitePluginsCommand { get; }
@@ -255,13 +279,17 @@ public class SettingsViewModel : ViewModelBase
         _releaseCenterService = releaseCenterService;
         LoadSettings();
         SaveSettingsCommand = new DelegateCommand(SaveSettings);
-        SaveSiteProfileCommand = new DelegateCommand(SaveSiteProfile, () => !string.IsNullOrWhiteSpace(SiteNameInput));
+        SaveSiteProfileCommand = new DelegateCommand(SaveSiteProfile, () => !string.IsNullOrWhiteSpace(SiteOrganizationInput) && !string.IsNullOrWhiteSpace(SiteNameInput));
+        ExportSiteIdentityCommand = new DelegateCommand(ExportSiteIdentity);
+        ImportSiteIdentityCommand = new DelegateCommand(ImportSiteIdentity);
         ExportDataCommand = new DelegateCommand(ExportData);
         ImportDataCommand = new DelegateCommand(ImportData);
         ClearAllDataCommand = new DelegateCommand(ClearAllData);
         CheckUpdateCommand = new DelegateCommand(() => _ = CheckUpdateAsync(), () => !IsUpdateCheckRunning);
         DownloadClientPackageCommand = new DelegateCommand(() => _ = DownloadClientPackageAsync(), () => !IsClientPackageDownloadRunning);
+        CancelClientPackageDownloadCommand = new DelegateCommand(CancelClientPackageDownload, () => IsClientPackageDownloadRunning);
         DownloadPluginPackagesCommand = new DelegateCommand(() => _ = DownloadPluginPackagesAsync(), () => !IsPluginDownloadRunning);
+        CancelPluginPackagesDownloadCommand = new DelegateCommand(CancelPluginPackagesDownload, () => IsPluginDownloadRunning);
         PreparePluginPackagesCommand = new DelegateCommand(() => _ = PreparePluginPackagesAsync(), () => !IsPluginPrepareRunning);
         RestoreLatestPluginBackupCommand = new DelegateCommand(() => _ = RestoreLatestPluginBackupAsync(), () => !IsPluginRollbackRunning);
         InitializeSitePluginsCommand = new DelegateCommand(() => _ = InitializeSitePluginsAsync(), () => !IsSiteInitializationRunning && CanInitializeSitePlugins);
@@ -282,11 +310,13 @@ public class SettingsViewModel : ViewModelBase
         AutoSaveInterval = 5;
         AppName = _settings.Application.Name;
         AppVersion = _settings.Application.Version;
+        SiteOrganizationInput = _settings.ReleaseCenter.SiteOrganization;
         SiteNameInput = _settings.ReleaseCenter.SiteName;
         SiteRemarkInput = _settings.ReleaseCenter.SiteRemark;
-        SiteProfileSummary = string.IsNullOrWhiteSpace(SiteNameInput)
-            ? "站点信息：未填写"
-            : $"站点信息：{SiteNameInput}";
+        SiteProfileSummary = SiteProfileService.BuildSummary(
+            SiteOrganizationInput,
+            SiteNameInput,
+            SiteRemarkInput);
     }
 
     private void ApplyTheme(bool isDarkMode)
@@ -316,18 +346,121 @@ public class SettingsViewModel : ViewModelBase
 
     private void SaveSiteProfile()
     {
-        var siteName = SiteNameInput.Trim();
-        if (string.IsNullOrWhiteSpace(siteName))
+        try
         {
-            SiteProfileStatus = "请先填写站点名称。";
-            return;
+            var result = SiteProfileService.Save(
+                _settings,
+                SiteOrganizationInput,
+                SiteNameInput,
+                SiteRemarkInput);
+            SiteOrganizationInput = result.SiteOrganization;
+            SiteNameInput = result.SiteName;
+            SiteRemarkInput = result.SiteRemark;
+            SiteProfileSummary = result.Summary;
+            SiteProfileStatus = result.Status;
+        }
+        catch (Exception ex)
+        {
+            SiteProfileStatus = ex.Message;
+        }
+    }
+
+    private void ExportSiteIdentity()
+    {
+        try
+        {
+            EnsureSiteIdentityInitialized();
+            var filePath = SiteIdentityService.GetDefaultFilePath();
+            var snapshot = SiteIdentityService.Export(
+                _settings.ReleaseCenter.SiteId,
+                _settings.ReleaseCenter.SiteOrganization,
+                _settings.ReleaseCenter.SiteName,
+                _settings.ReleaseCenter.SiteRemark,
+                filePath);
+            SiteProfileStatus = $"站点身份已导出：{SiteProfileService.BuildRegistrationLabel(snapshot.SiteOrganization, snapshot.SiteName)} / {snapshot.SiteId}，路径：{filePath}";
+        }
+        catch (Exception ex)
+        {
+            SiteProfileStatus = $"站点身份导出失败：{ex.Message}";
+            _logger.LogError(ex, "导出站点身份失败");
+        }
+    }
+
+    private void ImportSiteIdentity()
+    {
+        try
+        {
+            var filePath = SiteIdentityService.GetDefaultFilePath();
+            var result = SiteIdentityService.Import(filePath);
+            if (!result.IsSuccess || result.Snapshot is null)
+            {
+                SiteProfileStatus = $"站点身份导入失败：{result.Detail}";
+                return;
+            }
+
+            _settings.ReleaseCenter.SiteId = result.Snapshot.SiteId.Trim();
+            _settings.ReleaseCenter.SiteOrganization = result.Snapshot.SiteOrganization?.Trim() ?? string.Empty;
+            _settings.ReleaseCenter.SiteName = result.Snapshot.SiteName.Trim();
+            _settings.ReleaseCenter.SiteRemark = result.Snapshot.SiteRemark?.Trim() ?? string.Empty;
+
+            SiteOrganizationInput = _settings.ReleaseCenter.SiteOrganization;
+            SiteNameInput = _settings.ReleaseCenter.SiteName;
+            SiteRemarkInput = _settings.ReleaseCenter.SiteRemark;
+            SiteProfileSummary = SiteProfileService.BuildSummary(
+                SiteOrganizationInput,
+                SiteNameInput,
+                SiteRemarkInput);
+            SiteProfileService.PersistAppSettings(_settings);
+
+            SiteProfileStatus = $"站点身份已导入并保存，路径：{filePath}";
+        }
+        catch (Exception ex)
+        {
+            SiteProfileStatus = $"站点身份导入失败：{ex.Message}";
+            _logger.LogError(ex, "导入站点身份失败");
+        }
+    }
+
+    private void EnsureSiteIdentityInitialized()
+    {
+        var changed = false;
+        var currentOrganization = SiteOrganizationInput.Trim();
+        var currentSiteName = SiteNameInput.Trim();
+        var currentSiteRemark = SiteRemarkInput.Trim();
+
+        if (string.IsNullOrWhiteSpace(_settings.ReleaseCenter.SiteId))
+        {
+            _settings.ReleaseCenter.SiteId = Guid.NewGuid().ToString().ToLowerInvariant();
+            changed = true;
         }
 
-        _settings.ReleaseCenter.SiteName = siteName;
-        _settings.ReleaseCenter.SiteRemark = SiteRemarkInput.Trim();
-        PersistAppSettings();
-        SiteProfileSummary = $"站点信息：{_settings.ReleaseCenter.SiteName}";
-        SiteProfileStatus = "站点信息已保存，后续站点注册与心跳将使用新的站点名称。";
+        if (string.IsNullOrWhiteSpace(currentSiteName))
+        {
+            currentSiteName = Environment.MachineName;
+        }
+
+        if (!string.Equals(_settings.ReleaseCenter.SiteOrganization, currentOrganization, StringComparison.Ordinal))
+        {
+            _settings.ReleaseCenter.SiteOrganization = currentOrganization;
+            changed = true;
+        }
+
+        if (!string.Equals(_settings.ReleaseCenter.SiteName, currentSiteName, StringComparison.Ordinal))
+        {
+            _settings.ReleaseCenter.SiteName = currentSiteName;
+            changed = true;
+        }
+
+        if (!string.Equals(_settings.ReleaseCenter.SiteRemark, currentSiteRemark, StringComparison.Ordinal))
+        {
+            _settings.ReleaseCenter.SiteRemark = currentSiteRemark;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            SiteProfileService.PersistAppSettings(_settings);
+        }
     }
 
     private void ExportData() => _logger.LogInformation("导出数据...");
@@ -386,6 +519,7 @@ public class SettingsViewModel : ViewModelBase
     {
         if (IsClientPackageDownloadRunning) return;
         IsClientPackageDownloadRunning = true;
+        _clientPackageDownloadCts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
         ClientPackageDownloadSummary = "正在下载客户端更新包...";
         ClientPackageDownloadDetail = string.Empty;
         try
@@ -397,7 +531,6 @@ public class SettingsViewModel : ViewModelBase
                 return;
             }
 
-            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
             var progressGate = new object();
             var isDownloadFinalized = false;
             var progress = new Progress<ReleaseCenterDownloadProgress>(item =>
@@ -419,7 +552,7 @@ public class SettingsViewModel : ViewModelBase
                     ClientPackageDownloadDetail = BuildClientDownloadDetail(item);
                 }
             });
-            var result = await _releaseCenterService.DownloadLatestClientPackageAsync(progress, cts.Token);
+            var result = await _releaseCenterService.DownloadLatestClientPackageAsync(progress, _clientPackageDownloadCts.Token);
             lock (progressGate)
             {
                 isDownloadFinalized = true;
@@ -441,6 +574,12 @@ public class SettingsViewModel : ViewModelBase
                 ClientUpgradeNotice = "客户端升级包已就绪，请退出 DIB 后执行升级。";
             }
         }
+        catch (OperationCanceledException)
+        {
+            ClientPackageDownloadSummary = "客户端下载已取消";
+            ClientPackageDownloadDetail = "已取消客户端更新包下载。";
+            ClientUpgradeNotice = string.Empty;
+        }
         catch (Exception ex)
         {
             ClientPackageDownloadSummary = "客户端下载失败";
@@ -449,6 +588,8 @@ public class SettingsViewModel : ViewModelBase
         }
         finally
         {
+            _clientPackageDownloadCts?.Dispose();
+            _clientPackageDownloadCts = null;
             IsClientPackageDownloadRunning = false;
         }
     }
@@ -456,6 +597,7 @@ public class SettingsViewModel : ViewModelBase
     {
         if (IsPluginDownloadRunning) return;
         IsPluginDownloadRunning = true;
+        _pluginDownloadCts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         PluginDownloadSummary = "正在下载插件包...";
         PluginDownloadDetail = string.Empty;
         try
@@ -467,8 +609,7 @@ public class SettingsViewModel : ViewModelBase
                 return;
             }
 
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            var result = await _releaseCenterService.DownloadAvailablePluginPackagesAsync(cts.Token);
+            var result = await _releaseCenterService.DownloadAvailablePluginPackagesAsync(_pluginDownloadCts.Token);
             PluginDownloadSummary = result.Summary;
             PluginDownloadDetail = string.IsNullOrWhiteSpace(result.Detail) ? result.CacheDirectory : result.Detail;
             LastPluginDownloadAt = DateTime.Now;
@@ -476,6 +617,12 @@ public class SettingsViewModel : ViewModelBase
             {
                 RestartRequiredNotice = "已有插件更新就绪，重启 DIB 后生效。";
             }
+        }
+        catch (OperationCanceledException)
+        {
+            PluginDownloadSummary = "插件包下载已取消";
+            PluginDownloadDetail = "已取消插件包下载。";
+            RestartRequiredNotice = string.Empty;
         }
         catch (Exception ex)
         {
@@ -485,8 +632,20 @@ public class SettingsViewModel : ViewModelBase
         }
         finally
         {
+            _pluginDownloadCts?.Dispose();
+            _pluginDownloadCts = null;
             IsPluginDownloadRunning = false;
         }
+    }
+
+    private void CancelClientPackageDownload()
+    {
+        _clientPackageDownloadCts?.Cancel();
+    }
+
+    private void CancelPluginPackagesDownload()
+    {
+        _pluginDownloadCts?.Cancel();
     }
 
     private async Task PreparePluginPackagesAsync()
@@ -567,10 +726,11 @@ public class SettingsViewModel : ViewModelBase
     {
         if (IsSiteInitializationRunning) return;
 
+        var siteOrganization = SiteOrganizationInput.Trim();
         var siteName = SiteNameInput.Trim();
-        if (string.IsNullOrWhiteSpace(siteName))
+        if (string.IsNullOrWhiteSpace(siteOrganization) || string.IsNullOrWhiteSpace(siteName))
         {
-            SiteInitializationSummary = "初始化本机插件：请先填写站点名称";
+            SiteInitializationSummary = "初始化本机插件：请先填写使用单位和站点名称";
             SiteInitializationDetail = "请先保存站点信息，再执行初始化。";
             return;
         }
@@ -677,13 +837,7 @@ public class SettingsViewModel : ViewModelBase
 
     private void PersistAppSettings()
     {
-        var configPath = ConfigurationExtensions.GetConfigFilePath();
-        Directory.CreateDirectory(Path.GetDirectoryName(configPath)!);
-        var json = JsonSerializer.Serialize(_settings, new JsonSerializerOptions
-        {
-            WriteIndented = true
-        });
-        File.WriteAllText(configPath, json);
+        SiteProfileService.PersistAppSettings(_settings);
     }
 
     private void RestartApplication()

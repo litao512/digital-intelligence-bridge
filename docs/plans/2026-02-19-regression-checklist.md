@@ -9,7 +9,7 @@
 |---|---|---|
 | Debug 构建 | `dotnet build digital-intelligence-bridge/digital-intelligence-bridge.csproj -c Debug` | 通过 |
 | xUnit 单元测试 | `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj -c Debug` | 通过（24/24） |
-| 运行时配置生成 | `./scripts/new-runtime-config.ps1 -SupabaseUrl ... -SupabaseAnonKey ... -Schema dib` | 通过（写入 `%LOCALAPPDATA%/UniversalTrayTool/appsettings.runtime.json`） |
+| 运行时配置生成 | `./scripts/new-runtime-config.ps1 -SupabaseUrl ... -SupabaseAnonKey ... -Schema dib` | 通过（写入 `%LOCALAPPDATA%/DibClient/appsettings.runtime.json`） |
 | Supabase 运行时连通性 | `./scripts/verify-supabase-runtime.ps1` | 通过（HTTP 200） |
 | 配置模板有效性 | `Get-Content digital-intelligence-bridge/appsettings.runtime.template.json -Raw \| Test-Json` | 通过 |
 | GitHub CI（主分支） | `CI` run `22184801875`（attempt 2/3/4） | 连续通过 |

@@ -37,12 +37,23 @@
 - 运行时 RPC：
   - `dib_release.register_site_heartbeat(...)`
   - `dib_release.get_site_plugin_manifest(...)`
+  - `dib_release.get_site_authorized_resources(...)`
+  - `dib_release.discover_site_resources(...)`
+  - `dib_release.apply_site_resource(...)`
+
+- 资源中心最小运行时表：
+  - `resource_plugins`
+  - `resources`
+  - `resource_secrets`
+  - `resource_bindings`
+  - `resource_applications`
 
 ## prod101 运维
 
 - 发布中心入口：`http://101.42.19.26:8000/release-center/`
 - 运维总手册：`docs/PROD101_RELEASE_CENTER_OPERATIONS_GUIDE.md`
 - SQL 执行清单：`docs/PROD101_SQL_RUNBOOK.md`
+- `registration-db` 资源更新：`docs/PROD101_REGISTRATION_DB_UPDATE_RUNBOOK.md`
 - 本地健康检查：`scripts/prod101-health-check.ps1`
 - 服务器常用操作：`scripts/prod101-supabase-ops.sh`
 
@@ -74,6 +85,7 @@
 - 自动补默认 `SiteName`
 - 检查更新时先上报站点心跳
 - 再按 `siteId + channel + clientVersion` 获取插件清单
+- 再按 `siteId + channel + installed plugins` 获取已授权资源与可申请资源
 
 当前发布中心已经能：
 

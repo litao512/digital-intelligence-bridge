@@ -98,7 +98,7 @@
 处理：
 
 1. 关闭 DIB
-2. 删除 `%LocalAppData%\UniversalTrayTool\appsettings.json`
+2. 删除 `%LocalAppData%\DibClient\appsettings.json`
 3. 重新启动客户端
 
 ### 9.2 初始化完成但插件未出现
@@ -118,7 +118,7 @@
 
 1. 浏览器能否访问发布中心
 2. 浏览器能否访问基础包和 manifest 下载地址
-3. `%LocalAppData%\UniversalTrayTool\release-cache\plugins\stable` 是否生成文件
+3. `%LocalAppData%\DibClient\release-cache\plugins\stable` 是否生成文件
 
 ## 10. 相关文档
 

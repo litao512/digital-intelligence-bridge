@@ -12,9 +12,9 @@ public class DrugImportRepository : IDrugImportRepository, IDrugCatalogSyncRepos
     private readonly string _connectionString;
     private const string ImportSchema = "etl";
 
-    public DrugImportRepository(PluginSettings settings)
+    public DrugImportRepository(string? connectionString)
     {
-        ConnectionString = NormalizeConnectionString(settings.Postgres.ConnectionString) ?? string.Empty;
+        ConnectionString = NormalizeConnectionString(connectionString) ?? string.Empty;
         _connectionString = ConnectionString;
     }
 

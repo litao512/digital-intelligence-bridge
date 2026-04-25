@@ -189,8 +189,7 @@ public async Task OnShutdownAsync()
     /// </summary>
     private void EnsureDirectories()
     {
-        var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var appFolder = Path.Combine(appDataPath, "UniversalTrayTool");
+        var appFolder = DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.GetConfigRootDirectory();
 
         // 创建应用主目录
         if (!Directory.Exists(appFolder))

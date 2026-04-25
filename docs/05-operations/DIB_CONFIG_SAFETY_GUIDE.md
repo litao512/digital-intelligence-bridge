@@ -4,7 +4,7 @@
 
 桌面客户端的正式运行配置默认位于：
 
-- `%LOCALAPPDATA%\\UniversalTrayTool\\appsettings.json`
+- `%LOCALAPPDATA%\\DibClient\\appsettings.json`
 
 此前联调和测试曾把以下测试值写入真实用户配置，导致正式运行反复误连测试环境：
 
@@ -18,7 +18,7 @@
 
 ### 正式运行
 
-- 配置根目录：`%LOCALAPPDATA%\\UniversalTrayTool`
+- 配置根目录：`%LOCALAPPDATA%\\DibClient`
 - 主配置：`appsettings.json`
 - 安装目录默认配置：安装目录下的 `appsettings.json`
 
@@ -46,7 +46,7 @@
 
 重点文件：
 
-- `%LOCALAPPDATA%\\UniversalTrayTool\\appsettings.json`
+- `%LOCALAPPDATA%\\DibClient\\appsettings.json`
 
 ## 恢复正式运行配置
 
@@ -54,7 +54,7 @@
 
 至少确认这些值为正式环境值：
 
-- `Application.Name = 通用工具箱`
+- `Application.Name = DIB客户端`
 - `Plugin.PluginDirectory = plugins`
 - `ReleaseCenter.BaseUrl = http://101.42.19.26:8000`
 - `ReleaseCenter.Channel = stable`
@@ -63,7 +63,7 @@
 
 删除：
 
-- `%LOCALAPPDATA%\\UniversalTrayTool\\appsettings.json`
+- `%LOCALAPPDATA%\\DibClient\\appsettings.json`
 
 然后重新启动 DIB，程序会从安装目录默认配置复制一份新的用户配置。
 
@@ -75,7 +75,7 @@
 - 用于分发默认配置
 - 应包含目标环境的 `ReleaseCenter` 默认值
 
-2. `%LOCALAPPDATA%\\UniversalTrayTool\\appsettings.json`
+2. `%LOCALAPPDATA%\\DibClient\\appsettings.json`
 - 用于保存本机用户状态
 - 例如 `SiteId`、`SiteName`、主题、托盘偏好
 
@@ -86,14 +86,14 @@
 从现在开始，所有会写配置文件的单元测试都必须：
 
 1. 使用临时配置根目录
-2. 不得写 `%LOCALAPPDATA%\\UniversalTrayTool`
+2. 不得写 `%LOCALAPPDATA%\\DibClient`
 3. 如需使用测试配置值，必须显式设置 `DIB_ALLOW_UNSAFE_CONFIG=1`
 
 ## 排障建议
 
 若怀疑再次误用了测试配置，按此顺序排查：
 
-1. 查看 `%LOCALAPPDATA%\\UniversalTrayTool\\appsettings.json`
+1. 查看 `%LOCALAPPDATA%\\DibClient\\appsettings.json`
 2. 搜索是否存在：
    - `TestApp`
    - `plugins-tests`

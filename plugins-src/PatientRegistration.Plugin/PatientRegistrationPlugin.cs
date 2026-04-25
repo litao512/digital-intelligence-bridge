@@ -60,7 +60,13 @@ public class PatientRegistrationPlugin : IPluginModule
     {
         var pluginDirectory = _hostContext?.PluginDirectory ?? AppContext.BaseDirectory;
         var settings = PluginConfigurationLoader.Load(pluginDirectory);
-        var repository = new PatientRegistrationRepository(settings);
+        if (settings.DevelopmentMode.Enabled)
+        {
+            _hostContext?.LogInformation("就诊登记插件当前处于开发模式，本地敏感配置已启用，不适用于正式生产环境");
+        }
+
+        var connectionString = RuntimeResourceResolver.ResolveRegistrationDbConnectionString(pluginDirectory, settings, _hostContext);
+        var repository = new PatientRegistrationRepository(connectionString);
         var printService = new QrPrintService(settings.Registration.PrintTemplate, pluginDirectory);
         var viewModel = new PatientRegistrationViewModel(repository, printService);
         return new PatientRegistrationHomeView(viewModel);

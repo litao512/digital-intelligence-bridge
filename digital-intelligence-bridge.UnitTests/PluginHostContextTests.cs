@@ -10,7 +10,7 @@ public class PluginHostContextTests
     public void PluginHostContext_ShouldExposeOnlyMinimalHostSurface()
     {
         var sink = new List<string>();
-        var context = new PluginHostContext("1.0.0", @"C:\plugins\medical-drug-import", sink.Add);
+        var context = new PluginHostContext("1.0.0", @"C:\plugins\medical-drug-import", "MedicalDrugImport", new EmptyAuthorizedResourceCacheService(), sink.Add);
 
         Assert.Equal("1.0.0", context.HostVersion);
         Assert.Equal(@"C:\plugins\medical-drug-import", context.PluginDirectory);
@@ -21,6 +21,11 @@ public class PluginHostContextTests
         Assert.Equal("plugin loaded", sink[0]);
         Assert.DoesNotContain(typeof(IPluginHostContext).GetMembers(), member => member.Name.Contains("Container", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(typeof(IPluginHostContext).GetMembers(), member => member.Name.Contains("MainWindow", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private sealed class EmptyAuthorizedResourceCacheService : IAuthorizedResourceCacheService
+    {
+        public IReadOnlyList<AuthorizedRuntimeResource> GetResourcesForPlugin(string pluginCode) => [];
     }
 }
 

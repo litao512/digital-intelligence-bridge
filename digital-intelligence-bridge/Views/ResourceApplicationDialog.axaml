@@ -1,0 +1,58 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:DigitalIntelligenceBridge.ViewModels"
+        mc:Ignorable="d"
+        x:Class="DigitalIntelligenceBridge.Views.ResourceApplicationDialog"
+        x:DataType="vm:ResourceApplicationDialogViewModel"
+        Width="560"
+        MinWidth="500"
+        Height="360"
+        MinHeight="340"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        Title="申请使用资源">
+    <Border Padding="20">
+        <StackPanel Spacing="14">
+            <StackPanel Spacing="4">
+                <TextBlock Text="申请使用资源" FontSize="22" FontWeight="Bold"/>
+                <TextBlock Text="提交后将进入审批流程，请填写真实用途。"
+                           FontSize="12"
+                           Opacity="0.7"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="12">
+                <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="资源名称"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ResourceName}" TextWrapping="Wrap"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="资源类型"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ResourceType}" TextWrapping="Wrap"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="目标插件"/>
+                <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PluginCode}" TextWrapping="Wrap"/>
+            </Grid>
+
+            <StackPanel Spacing="6">
+                <TextBlock Text="申请理由"/>
+                <TextBox Text="{Binding ReasonInput}"
+                         AcceptsReturn="True"
+                         Height="110"
+                         TextWrapping="Wrap"
+                         Watermark="请说明用途、使用场景和涉及插件"/>
+            </StackPanel>
+
+            <Border Padding="10" CornerRadius="8" BorderThickness="1">
+                <TextBlock Text="{Binding StatusMessage}"
+                           FontSize="12"
+                           TextWrapping="Wrap"/>
+            </Border>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                <Button Content="取消" Classes="Secondary" Click="CancelButton_Click"/>
+                <Button Content="提交申请" Classes="Primary" Click="ConfirmButton_Click"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

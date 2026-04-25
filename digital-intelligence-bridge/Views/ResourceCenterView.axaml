@@ -1,0 +1,128 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:DigitalIntelligenceBridge.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignWidth="980"
+             d:DesignHeight="680"
+             x:Class="DigitalIntelligenceBridge.Views.ResourceCenterView"
+             x:Name="Root"
+             x:DataType="vm:ResourceCenterViewModel">
+
+    <Design.DataContext>
+        <vm:ResourceCenterViewModel />
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,Auto,*"
+          RowSpacing="12"
+          Margin="14">
+        <Border Classes="Card"
+                Padding="18">
+            <Grid ColumnDefinitions="*,Auto"
+                  ColumnSpacing="12">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="资源中心"
+                               FontSize="24"
+                               FontWeight="Bold"/>
+                    <TextBlock Text="{Binding Summary}"
+                               Foreground="{DynamicResource TextMutedBrush}"/>
+                </StackPanel>
+
+                <Button Grid.Column="1"
+                        Content="刷新"
+                        Classes="Secondary"
+                        Command="{Binding RefreshCommand}" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1"
+              ColumnDefinitions="*,*,*"
+              ColumnSpacing="12">
+            <Border Grid.Column="0"
+                    Classes="Card"
+                    Padding="16">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="可申请资源"
+                               FontSize="18"
+                               FontWeight="SemiBold"/>
+                    <ItemsControl ItemsSource="{Binding AvailableResources}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="vm:ResourceCenterItem">
+                                <Border BorderBrush="{DynamicResource BorderBrush}"
+                                        BorderThickness="0,1,0,0"
+                                        Padding="0,10">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding Type}" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBlock Text="{Binding Target}" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBlock Text="{Binding Scope}" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBlock Text="{Binding ApplyStateText}" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <Button Content="申请使用"
+                                                Classes="Secondary"
+                                                HorizontalAlignment="Left"
+                                                IsEnabled="{Binding CanApply}"
+                                                Command="{Binding #Root.((vm:ResourceCenterViewModel)DataContext).ApplyResourceCommand}"
+                                                CommandParameter="{Binding}" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="1"
+                    Classes="Card"
+                    Padding="16">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="已授权资源"
+                               FontSize="18"
+                               FontWeight="SemiBold"/>
+                    <ItemsControl ItemsSource="{Binding AuthorizedResources}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="vm:ResourceCenterItem">
+                                <Border BorderBrush="{DynamicResource BorderBrush}"
+                                        BorderThickness="0,1,0,0"
+                                        Padding="0,10">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding Type}" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBlock Text="{Binding Target}" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBlock Text="{Binding Scope}" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBlock Text="{Binding ApplyStateText}" Foreground="{DynamicResource TextMutedBrush}"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2"
+                    Classes="Card"
+                    Padding="16">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="待审批申请"
+                               FontSize="18"
+                               FontWeight="SemiBold"/>
+                    <ItemsControl ItemsSource="{Binding PendingApplications}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="vm:ResourceCenterPendingItem">
+                                <Border BorderBrush="{DynamicResource BorderBrush}"
+                                        BorderThickness="0,1,0,0"
+                                        Padding="0,10">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="{Binding Type}" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding ResourceId}" Foreground="{DynamicResource TextMutedBrush}"/>
+                                        <TextBlock Text="{Binding Status}" Foreground="{DynamicResource TextMutedBrush}"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

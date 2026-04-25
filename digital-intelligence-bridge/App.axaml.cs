@@ -12,6 +12,7 @@ using DigitalIntelligenceBridge.Services;
 using DigitalIntelligenceBridge.Configuration;
 using System;
 using System.Collections.Generic;
+using PluginAuthorizedResourceCacheService = DigitalIntelligenceBridge.Plugin.Abstractions.IAuthorizedResourceCacheService;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -21,12 +22,14 @@ using Prism.Modularity;
 using Serilog;
 using System.IO;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace DigitalIntelligenceBridge;
 
 public partial class App : PrismApplication
 {
+    private static readonly TimeSpan AuthorizedResourcesWarmupTimeout = TimeSpan.FromSeconds(3);
     private Window? _mainWindow;
 
     public override void Initialize()
@@ -40,6 +43,7 @@ public partial class App : PrismApplication
         var appSettings = Container.Resolve<IOptions<AppSettings>>();
         var appLogger = Container.Resolve<ILoggerService<App>>();
         var releaseCenterService = Container.Resolve<IReleaseCenterService>();
+        var authorizedResourceCacheService = Container.Resolve<PluginAuthorizedResourceCacheService>();
         var activationResult = releaseCenterService.ActivatePreparedPluginPackagesAsync().GetAwaiter().GetResult();
         if (!activationResult.IsSuccess)
         {
@@ -49,11 +53,13 @@ public partial class App : PrismApplication
         {
             appLogger.LogInformation("启动时已激活 {Count} 个插件目录", activationResult.ActivatedCount);
         }
+
+        WarmAuthorizedResourcesCacheAsync(releaseCenterService, appLogger, AuthorizedResourcesWarmupTimeout).GetAwaiter().GetResult();
         var runtimePlugins = LoadRuntimePlugins(
-            DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.GetConfigRootDirectory(),
             appSettings,
             Container.Resolve<PluginCatalogService>(),
             Container.Resolve<PluginLoaderService>(),
+            authorizedResourceCacheService,
             Container.Resolve<ILoggerService<App>>());
         var externalMenus = runtimePlugins
             .Where(plugin => plugin.Module is not null)
@@ -66,12 +72,25 @@ public partial class App : PrismApplication
             Container.Resolve<ILoggerService<MainWindowViewModel>>(),
             appSettings,
             Container.Resolve<ITodoRepository>(),
-            Container.Resolve<DrugImportViewModel>(),
             externalMenus,
             runtimePlugins,
             Container.Resolve<IApplicationService>(),
-            releaseCenterService);
+            releaseCenterService,
+            Container.Resolve<IResourceApplicationDialogService>());
         return _mainWindow;
+    }
+
+    internal static async Task WarmAuthorizedResourcesCacheAsync(IReleaseCenterService releaseCenterService, ILoggerService<App> appLogger, TimeSpan timeout)
+    {
+        try
+        {
+            using var cancellationTokenSource = new CancellationTokenSource(timeout);
+            await releaseCenterService.GetAuthorizedResourcesAsync(cancellationTokenSource.Token).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            appLogger.LogWarning("启动时预热授权资源缓存失败: {Message}", ex.Message);
+        }
     }
 
     protected override void RegisterTypes(IContainerRegistry containerRegistry)
@@ -88,6 +107,12 @@ public partial class App : PrismApplication
         RegisterConfiguration(containerRegistry);
 
         // 注册应用程序服务
+        containerRegistry.RegisterSingleton<ISiteRegistrationDialogService, SiteRegistrationDialogService>();
+        containerRegistry.RegisterSingleton<IResourceApplicationDialogService, ResourceApplicationDialogService>();
+        var authorizedResourceCacheService = new AuthorizedResourceCacheService();
+        containerRegistry.RegisterInstance(authorizedResourceCacheService);
+        containerRegistry.RegisterInstance<IAuthorizedResourceCacheService>(authorizedResourceCacheService);
+        containerRegistry.RegisterInstance<PluginAuthorizedResourceCacheService>(authorizedResourceCacheService);
         containerRegistry.RegisterSingleton<ITrayService, TrayService>();
         containerRegistry.RegisterSingleton<IApplicationService, ApplicationService>();
         containerRegistry.RegisterInstance(new HttpClient
@@ -99,12 +124,6 @@ public partial class App : PrismApplication
         containerRegistry.RegisterSingleton<ITodoRepository, SupabaseTodoRepository>();
         containerRegistry.RegisterSingleton<PluginCatalogService>();
         containerRegistry.RegisterSingleton<PluginLoaderService>();
-        containerRegistry.RegisterSingleton<IDrugExcelImportService, DrugExcelImportService>();
-        containerRegistry.RegisterSingleton<IDrugImportRepository, DrugImportRepository>();
-        containerRegistry.RegisterSingleton<IDrugCatalogSyncRepository, DrugImportRepository>();
-        containerRegistry.RegisterSingleton<IDrugImportPipelineService, DrugImportPipelineService>();
-        containerRegistry.RegisterSingleton<ISqlServerDrugSyncService, SqlServerDrugSyncService>();
-        containerRegistry.RegisterSingleton<DrugImportViewModel>();
 
         // 注：WebView 服务已移除，将作为可选插件在后续版本提供
 
@@ -113,7 +132,6 @@ public partial class App : PrismApplication
         // 注册 Views 和 ViewModels
         containerRegistry.RegisterForNavigation<MainWindow, MainWindowViewModel>();
         containerRegistry.RegisterForNavigation<SettingsView, SettingsViewModel>();
-        containerRegistry.RegisterForNavigation<DrugImportView, DrugImportViewModel>();
     }
 
     private void RegisterConfiguration(IContainerRegistry containerRegistry)
@@ -122,18 +140,7 @@ public partial class App : PrismApplication
         var userConfigPath = DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.GetConfigFilePath();
         var defaultConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
 
-        // 如果用户配置文件不存在，从程序目录复制默认配置
-        if (!File.Exists(userConfigPath))
-        {
-            if (File.Exists(defaultConfigPath))
-            {
-                File.Copy(defaultConfigPath, userConfigPath);
-            }
-        }
-        else
-        {
-            DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.RepairReleaseCenterSettings(userConfigPath, defaultConfigPath);
-        }
+        DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.EnsureUserConfigExists(userConfigPath, defaultConfigPath);
 
         // 构建配置
         var configuration = new ConfigurationBuilder()
@@ -309,10 +316,10 @@ public partial class App : PrismApplication
     }
 
     public static IReadOnlyList<LoadedPlugin> LoadRuntimePlugins(
-        string appBaseDirectory,
         IOptions<AppSettings> appSettings,
         PluginCatalogService catalogService,
         PluginLoaderService loaderService,
+        PluginAuthorizedResourceCacheService authorizedResourceCacheService,
         ILoggerService<App> logger)
     {
         var pluginRoot = DigitalIntelligenceBridge.Configuration.ConfigurationExtensions.GetRuntimePluginsDirectory(appSettings.Value.Plugin.PluginDirectory);
@@ -335,6 +342,8 @@ public partial class App : PrismApplication
                 loadedPlugin.Module.Initialize(new PluginHostContext(
                     hostVersion,
                     loadedPlugin.PluginDirectory,
+                    loadedPlugin.Manifest.Id,
+                    authorizedResourceCacheService,
                     message => logger.LogInformation("[{PluginId}] {Message}", loadedPlugin.Manifest.Id, message)));
             }
             catch (Exception ex)

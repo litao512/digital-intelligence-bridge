@@ -17,20 +17,21 @@ public class MainWindowDrugImportNavigationTests
             new NullLoggerService<MainWindowViewModel>(),
             Options.Create(settings));
 
-        Assert.DoesNotContain(vm.MenuItems, item => item.Id == "drug-import" && item.ViewType == MainViewType.DrugImport);
+        Assert.DoesNotContain(vm.MenuItems, item => item.Id == "drug-import");
     }
 
     [Fact]
-    public void NavigateCommand_ShouldOpenDrugImportTab_WhenNavigatingToDrugImport()
+    public void NavigateCommand_ShouldIgnoreLegacyDrugImportTarget()
     {
         var vm = new MainWindowViewModel(new NullLoggerService<MainWindowViewModel>());
+        var initialTab = vm.SelectedTab;
 
-        vm.NavigateCommand.Execute(MainViewType.DrugImport);
+        vm.NavigateCommand.Execute("drug-import");
 
-        Assert.Equal(MainViewType.DrugImport, vm.CurrentView);
-        Assert.NotNull(vm.SelectedTab);
-        Assert.Equal(TabItemType.DrugImport, vm.SelectedTab!.TabType);
-        Assert.Equal("医保药品导入同步工具", vm.SelectedTab.Title);
+        Assert.Equal(MainViewType.Home, vm.CurrentView);
+        Assert.Same(initialTab, vm.SelectedTab);
+        Assert.DoesNotContain("DrugImport", Enum.GetNames(typeof(MainViewType)));
+        Assert.DoesNotContain("DrugImport", Enum.GetNames(typeof(TabItemType)));
     }
 
     private sealed class NullLoggerService<T> : ILoggerService<T>

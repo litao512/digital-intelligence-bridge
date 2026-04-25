@@ -1,4 +1,7 @@
 {
+  "DevelopmentMode": {
+    "Enabled": false
+  },
   "Excel": {
     "RequiredSheets": [
       "总表（270419）",
@@ -7,11 +10,7 @@
       "关联关系表"
     ]
   },
-  "Postgres": {
-    "ConnectionString": ""
-  },
   "SqlServer": {
-    "ConnectionString": "",
     "EnableWrites": false
   },
   "Import": {

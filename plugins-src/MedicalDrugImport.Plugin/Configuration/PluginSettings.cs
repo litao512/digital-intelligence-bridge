@@ -4,13 +4,18 @@ namespace MedicalDrugImport.Plugin.Configuration;
 
 public class PluginSettings
 {
-    public ExcelSettings Excel { get; set; } = new();
+    public DevelopmentModeSettings DevelopmentMode { get; set; } = new();
 
-    public PostgresSettings Postgres { get; set; } = new();
+    public ExcelSettings Excel { get; set; } = new();
 
     public SqlServerSettings SqlServer { get; set; } = new();
 
     public ImportSettings Import { get; set; } = new();
+}
+
+public class DevelopmentModeSettings
+{
+    public bool Enabled { get; set; }
 }
 
 public class ExcelSettings
@@ -24,15 +29,8 @@ public class ExcelSettings
     ];
 }
 
-public class PostgresSettings
-{
-    public string ConnectionString { get; set; } = string.Empty;
-}
-
 public class SqlServerSettings
 {
-    public string ConnectionString { get; set; } = string.Empty;
-
     public bool EnableWrites { get; set; }
 }
 

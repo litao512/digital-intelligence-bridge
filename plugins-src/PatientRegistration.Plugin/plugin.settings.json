@@ -1,6 +1,6 @@
 {
-  "Postgres": {
-    "ConnectionString": ""
+  "DevelopmentMode": {
+    "Enabled": false
   },
   "Registration": {
     "EnableDirectPrint": true,

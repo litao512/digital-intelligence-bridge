@@ -11,17 +11,14 @@ namespace DigitalIntelligenceBridge.UnitTests;
 public class MedicalDrugImportPluginSqlServerTests
 {
     [Fact]
-    public void SyncService_ShouldUseConnectionString_FromPluginSettings()
+    public void SyncService_ShouldUseConnectionString_FromRuntimeResources()
     {
         var settings = new PluginSettings
         {
-            SqlServer = new SqlServerSettings
-            {
-                ConnectionString = "Server=sql-host;Database=ChisDict;User Id=plugin;"
-            }
+            SqlServer = new SqlServerSettings()
         };
 
-        var service = new TestSqlServerDrugSyncService(settings, new StubDrugCatalogSyncRepository([]));
+        var service = new TestSqlServerDrugSyncService(settings, "Server=sql-host;Database=ChisDict;User Id=plugin;", new StubDrugCatalogSyncRepository([]));
 
         Assert.Equal("Server=sql-host;Database=ChisDict;User Id=plugin;", service.ConnectionString);
     }
@@ -48,10 +45,9 @@ public class MedicalDrugImportPluginSqlServerTests
         {
             SqlServer = new SqlServerSettings
             {
-                ConnectionString = "Server=sql-host;Database=ChisDict;User Id=plugin;",
                 EnableWrites = true
             }
-        }, repository);
+        }, "Server=sql-host;Database=ChisDict;User Id=plugin;", repository);
 
         var batch = await service.SyncBatchAsync(batchId);
 
@@ -157,7 +153,6 @@ public class MedicalDrugImportPluginSqlServerTests
         {
             SqlServer = new SqlServerSettings
             {
-                ConnectionString = "Server=sql-host;Database=ChisDict;User Id=plugin;",
                 EnableWrites = true
             },
             Import = new ImportSettings
@@ -165,7 +160,7 @@ public class MedicalDrugImportPluginSqlServerTests
                 BatchSize = 2
             }
         };
-        var service = new CountingSqlServerDrugSyncService(settings, new StubDrugCatalogSyncRepository(rows));
+        var service = new CountingSqlServerDrugSyncService(settings, "Server=sql-host;Database=ChisDict;User Id=plugin;", new StubDrugCatalogSyncRepository(rows));
 
         var batch = await service.SyncBatchAsync(Guid.NewGuid());
 
@@ -192,7 +187,6 @@ public class MedicalDrugImportPluginSqlServerTests
         {
             SqlServer = new SqlServerSettings
             {
-                ConnectionString = "Server=sql-host;Database=ChisDict;User Id=plugin;",
                 EnableWrites = true
             },
             Import = new ImportSettings
@@ -201,7 +195,7 @@ public class MedicalDrugImportPluginSqlServerTests
                 MaxSyncRowsPerRun = 3
             }
         };
-        var service = new CountingSqlServerDrugSyncService(settings, new StubDrugCatalogSyncRepository(rows));
+        var service = new CountingSqlServerDrugSyncService(settings, "Server=sql-host;Database=ChisDict;User Id=plugin;", new StubDrugCatalogSyncRepository(rows));
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SyncBatchAsync(Guid.NewGuid()));
 
@@ -215,12 +209,9 @@ public class MedicalDrugImportPluginSqlServerTests
     {
         var settings = new PluginSettings
         {
-            SqlServer = new SqlServerSettings
-            {
-                ConnectionString = "Server=sql-host;Database=ChisDict;User Id=plugin;"
-            }
+            SqlServer = new SqlServerSettings()
         };
-        var service = new CountingSqlServerDrugSyncService(settings, new StubDrugCatalogSyncRepository(
+        var service = new CountingSqlServerDrugSyncService(settings, "Server=sql-host;Database=ChisDict;User Id=plugin;", new StubDrugCatalogSyncRepository(
         [
             new DrugImportRow
             {
@@ -257,7 +248,6 @@ public class MedicalDrugImportPluginSqlServerTests
         {
             SqlServer = new SqlServerSettings
             {
-                ConnectionString = "Server=sql-host;Database=ChisDict;User Id=plugin;",
                 EnableWrites = true
             },
             Import = new ImportSettings
@@ -267,7 +257,7 @@ public class MedicalDrugImportPluginSqlServerTests
                 AllowUnsafeFullSync = true
             }
         };
-        var service = new CountingSqlServerDrugSyncService(settings, new StubDrugCatalogSyncRepository(rows));
+        var service = new CountingSqlServerDrugSyncService(settings, "Server=sql-host;Database=ChisDict;User Id=plugin;", new StubDrugCatalogSyncRepository(rows));
 
         var batch = await service.SyncBatchAsync(Guid.NewGuid());
 
@@ -294,7 +284,6 @@ public class MedicalDrugImportPluginSqlServerTests
         {
             SqlServer = new SqlServerSettings
             {
-                ConnectionString = "Server=sql-host;Database=ChisDict;User Id=plugin;",
                 EnableWrites = true
             },
             Import = new ImportSettings
@@ -303,7 +292,7 @@ public class MedicalDrugImportPluginSqlServerTests
                 MaxSyncRowsPerRun = 3
             }
         };
-        var service = new CountingSqlServerDrugSyncService(settings, new StubDrugCatalogSyncRepository(rows));
+        var service = new CountingSqlServerDrugSyncService(settings, "Server=sql-host;Database=ChisDict;User Id=plugin;", new StubDrugCatalogSyncRepository(rows));
 
         var preview = await service.PreviewBatchAsync(Guid.NewGuid());
 
@@ -322,16 +311,13 @@ public class MedicalDrugImportPluginSqlServerTests
         var repository = new CountingOnlyDrugCatalogSyncRepository(88);
         var settings = new PluginSettings
         {
-            SqlServer = new SqlServerSettings
-            {
-                ConnectionString = "Server=sql-host;Database=ChisDict;User Id=plugin;"
-            },
+            SqlServer = new SqlServerSettings(),
             Import = new ImportSettings
             {
                 MaxSyncRowsPerRun = 50
             }
         };
-        var service = new CountingSqlServerDrugSyncService(settings, repository);
+        var service = new CountingSqlServerDrugSyncService(settings, "Server=sql-host;Database=ChisDict;User Id=plugin;", repository);
 
         var preview = await service.PreviewBatchAsync(batchId);
 
@@ -346,12 +332,9 @@ public class MedicalDrugImportPluginSqlServerTests
     {
         var settings = new PluginSettings
         {
-            SqlServer = new SqlServerSettings
-            {
-                ConnectionString = "Server=sql-host;Database=ChisDict;User Id=plugin;"
-            }
+            SqlServer = new SqlServerSettings()
         };
-        var service = new CountingSqlServerDrugSyncService(settings, new StubDrugCatalogSyncRepository(
+        var service = new CountingSqlServerDrugSyncService(settings, "Server=sql-host;Database=ChisDict;User Id=plugin;", new StubDrugCatalogSyncRepository(
         [
             new DrugImportRow
             {
@@ -425,8 +408,8 @@ public class MedicalDrugImportPluginSqlServerTests
 
     private sealed class TestSqlServerDrugSyncService : SqlServerDrugSyncService
     {
-        public TestSqlServerDrugSyncService(PluginSettings settings, IDrugCatalogSyncRepository repository)
-            : base(settings, repository)
+        public TestSqlServerDrugSyncService(PluginSettings settings, string connectionString, IDrugCatalogSyncRepository repository)
+            : base(settings, connectionString, repository)
         {
         }
 
@@ -490,8 +473,8 @@ public class MedicalDrugImportPluginSqlServerTests
 
     private sealed class CountingSqlServerDrugSyncService : SqlServerDrugSyncService
     {
-        public CountingSqlServerDrugSyncService(PluginSettings settings, IDrugCatalogSyncRepository repository)
-            : base(settings, repository)
+        public CountingSqlServerDrugSyncService(PluginSettings settings, string connectionString, IDrugCatalogSyncRepository repository)
+            : base(settings, connectionString, repository)
         {
         }
 
