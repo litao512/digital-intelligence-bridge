@@ -101,3 +101,13 @@ export async function createClientVersion(payload: ClientVersionInsertPayload): 
 
   throwIfError(error, '新增客户端版本')
 }
+
+export async function deleteClientVersion(id: string): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .schema(RELEASE_SCHEMA)
+    .from('client_versions')
+    .delete()
+    .eq('id', id)
+
+  throwIfError(error, '删除客户端版本')
+}

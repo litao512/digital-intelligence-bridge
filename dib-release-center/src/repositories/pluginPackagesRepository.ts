@@ -54,3 +54,13 @@ export async function createPluginPackage(payload: PluginPackageInsertPayload): 
 
   throwIfError(error, '新增插件定义')
 }
+
+export async function deletePluginPackage(id: string): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .schema(RELEASE_SCHEMA)
+    .from('plugin_packages')
+    .delete()
+    .eq('id', id)
+
+  throwIfError(error, '删除插件定义')
+}

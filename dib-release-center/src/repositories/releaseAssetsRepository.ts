@@ -16,6 +16,35 @@ interface ReleaseAssetRow {
   updated_at: string
 }
 
+interface PluginVersionAssetReferenceRow {
+  id: string
+  plugin_code: string
+  version: string
+  channel_code: string
+}
+
+interface ClientVersionAssetReferenceRow {
+  id: string
+  version: string
+  channel_code: string
+  platform: string
+}
+
+export interface ReleaseAssetReferences {
+  pluginVersions: Array<{
+    id: string
+    pluginCode: string
+    version: string
+    channelCode: string
+  }>
+  clientVersions: Array<{
+    id: string
+    version: string
+    channelCode: string
+    platform: string
+  }>
+}
+
 function toReleaseAsset(row: ReleaseAssetRow): ReleaseAsset {
   return {
     id: row.id,
@@ -66,6 +95,55 @@ export async function upsertReleaseAsset(payload: ReleaseAssetInsertPayload): Pr
   throwIfError(error, '写入 manifest 资产')
 }
 
+export async function deleteReleaseAsset(id: string): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .schema(RELEASE_SCHEMA)
+    .from('release_assets')
+    .delete()
+    .eq('id', id)
+
+  throwIfError(error, '删除发布资产')
+}
+
+export async function findReleaseAssetReferences(id: string): Promise<ReleaseAssetReferences> {
+  const { data: pluginRows, error: pluginError } = await getSupabaseClient()
+    .schema(RELEASE_SCHEMA)
+    .from('plugin_versions')
+    .select('id, plugin_code, version, channel_code')
+    .eq('asset_id', id)
+
+  throwIfError(pluginError, '查询插件版本引用')
+
+  const { data: clientRows, error: clientError } = await getSupabaseClient()
+    .schema(RELEASE_SCHEMA)
+    .from('client_versions')
+    .select('id, version, channel_code, platform')
+    .eq('asset_id', id)
+
+  throwIfError(clientError, '查询客户端版本引用')
+
+  return {
+    pluginVersions: (pluginRows ?? []).map((row: unknown) => {
+      const reference = row as PluginVersionAssetReferenceRow
+      return {
+        id: reference.id,
+        pluginCode: reference.plugin_code,
+        version: reference.version,
+        channelCode: reference.channel_code,
+      }
+    }),
+    clientVersions: (clientRows ?? []).map((row: unknown) => {
+      const reference = row as ClientVersionAssetReferenceRow
+      return {
+        id: reference.id,
+        version: reference.version,
+        channelCode: reference.channel_code,
+        platform: reference.platform,
+      }
+    }),
+  }
+}
+
 export async function uploadManifestAsset(bucketName: string, storagePath: string, content: string): Promise<void> {
   const contentBytes = new TextEncoder().encode(content)
   const { error } = await getSupabaseClient()
@@ -78,6 +156,17 @@ export async function uploadManifestAsset(bucketName: string, storagePath: strin
 
   if (error) {
     throw new Error(`上传 manifest 文件失败：${error.message}`)
+  }
+}
+
+export async function deleteReleaseAssetObject(bucketName: string, storagePath: string): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .storage
+    .from(bucketName)
+    .remove([storagePath])
+
+  if (error) {
+    throw new Error(`删除 Storage 文件失败：${error.message}`)
   }
 }
 

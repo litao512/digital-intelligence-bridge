@@ -117,3 +117,13 @@ export async function createPluginVersion(payload: PluginVersionInsertPayload): 
 
   throwIfError(error, '新增插件版本')
 }
+
+export async function deletePluginVersion(id: string): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .schema(RELEASE_SCHEMA)
+    .from('plugin_versions')
+    .delete()
+    .eq('id', id)
+
+  throwIfError(error, '删除插件版本')
+}
