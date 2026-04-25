@@ -150,6 +150,26 @@
 
 这不是“可选优化”，而是当前宿主加载模型下的必要条件。
 
+## 独立插件发布入口
+
+插件随客户端整包发布时，由 `scripts/publish-release.ps1` 自动刷新仓库根 `plugins/` 中转目录，并把插件复制到客户端发布包内。
+
+插件需要独立发布到发布中心时，使用单插件发布脚本：
+
+```powershell
+& 'C:\Program Files\PowerShell\7\pwsh.exe' -File .\scripts\publish-plugin-release.ps1 -PluginId PatientRegistration -Version 0.1.0-dev.1 -Channel stable
+```
+
+该脚本会：
+
+1. 构建 `plugins-src/<PluginName>.Plugin/`。
+2. 刷新仓库根 `plugins/<PluginName>/` 中转目录。
+3. 生成 `artifacts/plugin-releases/<plugin-code>/<version>/publish/`。
+4. 生成 `<plugin-code>-<version>.zip`。
+5. 写入 `plugin-release-manifest.json`，记录发布中心 Storage 路径、`SHA256` 和文件大小。
+
+完整发布步骤见 `docs/05-operations/PLUGIN_RELEASE_PUBLISH_RUNBOOK.md`。
+
 ## 发布前检查清单
 
 发布一个插件包前，至少检查：

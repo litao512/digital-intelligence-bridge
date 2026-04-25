@@ -1,12 +1,12 @@
-# 插件发布闭环 Implementation Plan
+# 插件发布闭环实施计划
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **执行要求：** 使用 `superpowers:executing-plans`，按任务逐项执行并在批次之间回报。
 
-**Goal:** 建立以 `PatientRegistration` 为样例的 DIB 插件独立发布闭环。
+**目标：** 建立以 `PatientRegistration` 为样例的 DIB 插件独立发布闭环。
 
-**Architecture:** 新增单插件发布脚本，从 `plugins-src/<PluginId>.Plugin` 构建 Release 输出并生成独立插件 zip。发布流程文档与个人 skill 复用客户端发布的四段式校验思想，但插件侧产物写入 `plugin_versions` 并发布 `plugin-manifest.json`。
+**架构：** 新增单插件发布脚本，从 `plugins-src/<PluginId>.Plugin` 构建 Release 输出并生成独立插件 zip。发布流程文档与个人 skill 复用客户端发布的四段式校验思想，但插件侧产物写入 `plugin_versions` 并发布 `plugin-manifest.json`。
 
-**Tech Stack:** PowerShell 7、.NET 10、Avalonia 插件项目、Supabase Release Center、Markdown 运行手册、Codex skill。
+**技术栈：** PowerShell 7、.NET 10、Avalonia 插件项目、Supabase Release Center、Markdown 运行手册、Codex skill。
 
 ---
 
@@ -302,7 +302,7 @@ Run:
 Get-Content -LiteralPath 'C:\Users\Administrator\.codex\skills\plugin-release-publish\SKILL.md' -TotalCount 260
 ```
 
-Expected: front matter 存在，workflow 完整，没有整段英文说明进入中文主体。front matter 的 `description` 可以保留英文以匹配 skill 元数据风格。
+Expected: 元数据头存在，工作流完整，没有整段英文说明进入中文主体。元数据头的 `description` 可以保留英文以匹配 skill 元数据风格。
 
 ### Task 5: 完整验证插件发布本地产物
 
