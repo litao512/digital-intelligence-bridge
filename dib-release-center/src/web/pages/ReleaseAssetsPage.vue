@@ -72,6 +72,7 @@
             <th>类型</th>
             <th>Bucket/Path</th>
             <th>大小</th>
+            <th>操作</th>
           </tr>
         </thead>
         <tbody>
@@ -86,6 +87,14 @@
               <div class="subline">{{ item.storagePath }}</div>
             </td>
             <td>{{ item.sizeBytes }}</td>
+            <td class="action-cell">
+              <button type="button" class="danger-button inline-button" @click="removeAsset(item, false)">
+                删除记录
+              </button>
+              <button type="button" class="danger-button inline-button" @click="removeAsset(item, true)">
+                删除记录和文件
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -107,6 +116,7 @@ defineProps<{
 const emit = defineEmits<{
   submit: [draft: ReleaseAssetDraftInput]
   upload: [draft: ReleaseAssetUploadInput]
+  delete: [payload: { asset: ReleaseAsset; removeObject: boolean }]
 }>()
 
 const draft = reactive<ReleaseAssetDraftInput>({
@@ -165,4 +175,28 @@ function submitUpload(): void {
     file: selectedFile.value,
   })
 }
+
+function removeAsset(asset: ReleaseAsset, removeObject: boolean): void {
+  const target = `${asset.fileName}\n${asset.bucketName}/${asset.storagePath}\nSHA256: ${asset.sha256}`
+  const action = removeObject ? '删除资产记录和 Storage 文件' : '只删除资产记录'
+
+  if (!window.confirm(`确认${action}？\n\n${target}\n\n删除后不会自动发布 manifest。`)) {
+    return
+  }
+
+  emit('delete', { asset, removeObject })
+}
 </script>
+
+<style scoped>
+.action-cell {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.danger-button {
+  background: #fff1f0;
+  color: #bf3d36;
+}
+</style>

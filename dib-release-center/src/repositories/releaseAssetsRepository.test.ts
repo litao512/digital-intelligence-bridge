@@ -95,7 +95,6 @@ describe('releaseAssetsRepository', () => {
             id: 'client-version-1',
             version: '1.0.0',
             channel_code: 'stable',
-            platform: 'win-x64',
           },
         ],
         error: null,
@@ -119,7 +118,6 @@ describe('releaseAssetsRepository', () => {
         id: 'client-version-1',
         version: '1.0.0',
         channelCode: 'stable',
-        platform: 'win-x64',
       },
     ])
   })

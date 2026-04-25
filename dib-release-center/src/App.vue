@@ -114,18 +114,22 @@
         :packages="pluginPackages"
         @submit="handleCreatePluginVersion"
         @create-package="handleCreatePluginPackage"
+        @delete-version="handleDeletePluginVersion"
+        @delete-package="handleDeletePluginPackage"
       />
       <ClientReleasesPage
         v-else-if="activeTab === 'clients'"
         :versions="clientVersions"
         :channels="channels"
         @submit="handleCreateClientVersion"
+        @delete-version="handleDeleteClientVersion"
       />
       <ReleaseAssetsPage
         v-else
         :assets="releaseAssets"
         @submit="handleCreateReleaseAsset"
         @upload="handleUploadReleaseAsset"
+        @delete="handleDeleteReleaseAsset"
       />
       </section>
 
@@ -191,15 +195,18 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Session } from '@supabase/supabase-js'
 import type { ClientVersion, PluginPackage, PluginVersion, ReleaseAsset, ReleaseChannel } from '@/contracts/release-types'
 import type { SiteAnalyticsSummary, SiteGroup, SiteGroupPluginPolicy, SitePluginOverride, SiteSummary } from '@/contracts/site-types'
-import { createClientVersion, listClientVersions } from '@/repositories/clientVersionsRepository'
+import { createClientVersion, deleteClientVersion, listClientVersions } from '@/repositories/clientVersionsRepository'
 import { deleteGroupPluginPolicy, listGroupPluginPolicies, upsertGroupPluginPolicy } from '@/repositories/groupPluginPoliciesRepository'
 import { listSiteGroups } from '@/repositories/siteGroupsRepository'
 import { deleteSitePluginOverride, listSitePluginOverrides, upsertSitePluginOverride } from '@/repositories/sitePluginOverridesRepository'
 import { listSites, updateSiteGroup } from '@/repositories/sitesRepository'
-import { createPluginPackage, listPluginPackages } from '@/repositories/pluginPackagesRepository'
-import { createPluginVersion, listPluginVersions } from '@/repositories/pluginVersionsRepository'
+import { createPluginPackage, deletePluginPackage, listPluginPackages } from '@/repositories/pluginPackagesRepository'
+import { createPluginVersion, deletePluginVersion, listPluginVersions } from '@/repositories/pluginVersionsRepository'
 import {
   createReleaseAsset,
+  deleteReleaseAsset,
+  deleteReleaseAssetObject,
+  findReleaseAssetReferences,
   listReleaseAssets,
   upsertReleaseAsset,
   uploadManifestAsset,
@@ -632,6 +639,34 @@ async function handleCreatePluginVersion(draft: PluginVersionDraftInput): Promis
   }
 }
 
+async function handleDeletePluginVersion(version: PluginVersion): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await deletePluginVersion(version.id)
+    statusMessage.value = `插件版本 ${version.pluginCode} ${version.version} 已删除。请按需要重新发布 manifest。`
+    await loadData()
+    activeTab.value = 'plugins'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '删除插件版本失败。'
+  }
+}
+
+async function handleDeletePluginPackage(pluginPackage: PluginPackage): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await deletePluginPackage(pluginPackage.id)
+    statusMessage.value = `插件定义 ${pluginPackage.pluginCode} 已删除。请按需要重新发布 manifest。`
+    await loadData()
+    activeTab.value = 'plugins'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '删除插件定义失败。'
+  }
+}
+
 async function handleCreateClientVersion(draft: ClientVersionDraftInput): Promise<void> {
   statusMessage.value = ''
   loadError.value = ''
@@ -646,6 +681,20 @@ async function handleCreateClientVersion(draft: ClientVersionDraftInput): Promis
   }
 }
 
+async function handleDeleteClientVersion(version: ClientVersion): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await deleteClientVersion(version.id)
+    statusMessage.value = `客户端版本 ${version.version} 已删除。请按需要重新发布 manifest。`
+    await loadData()
+    activeTab.value = 'clients'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '删除客户端版本失败。'
+  }
+}
+
 async function handleCreateReleaseAsset(draft: ReleaseAssetDraftInput): Promise<void> {
   statusMessage.value = ''
   loadError.value = ''
@@ -657,6 +706,43 @@ async function handleCreateReleaseAsset(draft: ReleaseAssetDraftInput): Promise<
     activeTab.value = 'assets'
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '新增发布资产失败。'
+  }
+}
+
+async function handleDeleteReleaseAsset(payload: { asset: ReleaseAsset; removeObject: boolean }): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    const references = await findReleaseAssetReferences(payload.asset.id)
+    if (references.pluginVersions.length > 0 || references.clientVersions.length > 0) {
+      const pluginSummary = references.pluginVersions
+        .map((item) => `${item.pluginCode} ${item.version} / ${item.channelCode}`)
+        .join('；')
+      const clientSummary = references.clientVersions
+        .map((item) => `${item.version} / ${item.channelCode}`)
+        .join('；')
+      loadError.value = [
+        '该发布资产仍被版本记录引用，请先删除引用它的版本。',
+        pluginSummary ? `插件版本：${pluginSummary}` : '',
+        clientSummary ? `客户端版本：${clientSummary}` : '',
+      ].filter(Boolean).join(' ')
+      activeTab.value = 'assets'
+      return
+    }
+
+    if (payload.removeObject) {
+      await deleteReleaseAssetObject(payload.asset.bucketName, payload.asset.storagePath)
+    }
+
+    await deleteReleaseAsset(payload.asset.id)
+    statusMessage.value = payload.removeObject
+      ? `发布资产 ${payload.asset.fileName} 的记录和 Storage 文件已删除。`
+      : `发布资产 ${payload.asset.fileName} 的记录已删除，Storage 文件已保留。`
+    await loadData()
+    activeTab.value = 'assets'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '删除发布资产失败。'
   }
 }
 

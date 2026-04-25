@@ -64,6 +64,7 @@
             <th>最低升级版本</th>
             <th>发布</th>
             <th>强制</th>
+            <th>操作</th>
           </tr>
         </thead>
         <tbody>
@@ -73,6 +74,9 @@
             <td>{{ item.minUpgradeVersion }}</td>
             <td>{{ item.isPublished ? '已发布' : '草稿' }}</td>
             <td>{{ item.isMandatory ? '是' : '否' }}</td>
+            <td class="action-cell">
+              <button type="button" class="danger-button inline-button" @click="removeVersion(item)">删除版本</button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -94,6 +98,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   submit: [draft: ClientVersionDraftInput]
+  deleteVersion: [version: ClientVersion]
 }>()
 
 const draft = reactive<ClientVersionDraftInput>({
@@ -119,4 +124,25 @@ watch(
 function submitDraft(): void {
   emit('submit', { ...draft })
 }
+
+function removeVersion(version: ClientVersion): void {
+  if (!window.confirm(`确认删除客户端版本？\n\n版本：${version.version}\n渠道：${version.channelCode}\n状态：${version.isPublished ? '已发布' : '草稿'}\n\n删除后不会自动发布 manifest。`)) {
+    return
+  }
+
+  emit('deleteVersion', version)
+}
 </script>
+
+<style scoped>
+.action-cell {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.danger-button {
+  background: #fff1f0;
+  color: #bf3d36;
+}
+</style>

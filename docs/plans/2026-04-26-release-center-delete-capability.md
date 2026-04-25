@@ -141,7 +141,7 @@ export async function deletePluginVersion(id: string): Promise<void> {
 ```typescript
 export interface ReleaseAssetReferences {
   pluginVersions: Array<{ id: string; version: string; channel: string }>;
-  clientVersions: Array<{ id: string; version: string; channel: string; platform: string }>;
+  clientVersions: Array<{ id: string; version: string; channel: string }>;
 }
 ```
 
@@ -292,7 +292,7 @@ deleteClientVersion,
 
 实现 `deleteVersion(version)`：
 
-1. 确认版本号、渠道、平台和发布状态。
+1. 确认版本号、渠道和发布状态。
 2. 调用 `deleteClientVersion(version.id)`。
 3. 刷新客户端版本列表。
 4. 刷新客户端 manifest 预览。

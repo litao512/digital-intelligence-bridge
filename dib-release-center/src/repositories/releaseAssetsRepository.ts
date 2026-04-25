@@ -27,7 +27,6 @@ interface ClientVersionAssetReferenceRow {
   id: string
   version: string
   channel_code: string
-  platform: string
 }
 
 export interface ReleaseAssetReferences {
@@ -41,7 +40,6 @@ export interface ReleaseAssetReferences {
     id: string
     version: string
     channelCode: string
-    platform: string
   }>
 }
 
@@ -117,7 +115,7 @@ export async function findReleaseAssetReferences(id: string): Promise<ReleaseAss
   const { data: clientRows, error: clientError } = await getSupabaseClient()
     .schema(RELEASE_SCHEMA)
     .from('client_versions')
-    .select('id, version, channel_code, platform')
+    .select('id, version, channel_code')
     .eq('asset_id', id)
 
   throwIfError(clientError, '查询客户端版本引用')
@@ -138,7 +136,6 @@ export async function findReleaseAssetReferences(id: string): Promise<ReleaseAss
         id: reference.id,
         version: reference.version,
         channelCode: reference.channel_code,
-        platform: reference.platform,
       }
     }),
   }

@@ -42,6 +42,34 @@
       <p class="form-tip">先创建插件定义，再选择对应资产和版本信息发布插件版本。</p>
     </form>
 
+    <div v-if="packages.length" class="table-wrap package-table">
+      <table>
+        <thead>
+          <tr>
+            <th>插件定义</th>
+            <th>入口类型</th>
+            <th>启用</th>
+            <th>说明</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="item in packages" :key="item.id">
+            <td>
+              <strong>{{ item.pluginName }}</strong>
+              <div class="subline">{{ item.pluginCode }}</div>
+            </td>
+            <td>{{ item.entryType }}</td>
+            <td>{{ item.isActive ? '是' : '否' }}</td>
+            <td>{{ item.description || '未填写' }}</td>
+            <td class="action-cell">
+              <button type="button" class="danger-button inline-button" @click="removePackage(item)">删除定义</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
     <form class="release-form" @submit.prevent="submitDraft">
       <div class="field-grid field-grid-wide">
         <label>
@@ -117,6 +145,7 @@
             <th>DIB 范围</th>
             <th>发布</th>
             <th>强制</th>
+            <th>操作</th>
           </tr>
         </thead>
         <tbody>
@@ -130,6 +159,9 @@
             <td>{{ item.dibMinVersion }} - {{ item.dibMaxVersion }}</td>
             <td>{{ item.isPublished ? '已发布' : '草稿' }}</td>
             <td>{{ item.isMandatory ? '是' : '否' }}</td>
+            <td class="action-cell">
+              <button type="button" class="danger-button inline-button" @click="removeVersion(item)">删除版本</button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -153,6 +185,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   submit: [draft: PluginVersionDraftInput]
   createPackage: [draft: PluginPackageDraftInput]
+  deleteVersion: [version: PluginVersion]
+  deletePackage: [pluginPackage: PluginPackage]
 }>()
 
 const packageDraft = reactive<PluginPackageDraftInput>({
@@ -204,4 +238,37 @@ function submitPackageDraft(): void {
 function submitDraft(): void {
   emit('submit', { ...draft })
 }
+
+function removeVersion(version: PluginVersion): void {
+  if (!window.confirm(`确认删除插件版本？\n\n${version.pluginName} / ${version.pluginCode}\n版本：${version.version}\n渠道：${version.channelCode}\n状态：${version.isPublished ? '已发布' : '草稿'}\n\n删除后不会自动发布 manifest。`)) {
+    return
+  }
+
+  emit('deleteVersion', version)
+}
+
+function removePackage(pluginPackage: PluginPackage): void {
+  if (!window.confirm(`确认删除插件定义？\n\n${pluginPackage.pluginName} / ${pluginPackage.pluginCode}\n\n该操作会级联删除该插件定义下的插件版本和相关授权绑定，但不会自动删除已上传资产文件，也不会自动发布 manifest。`)) {
+    return
+  }
+
+  emit('deletePackage', pluginPackage)
+}
 </script>
+
+<style scoped>
+.package-table {
+  margin-bottom: 20px;
+}
+
+.action-cell {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.danger-button {
+  background: #fff1f0;
+  color: #bf3d36;
+}
+</style>
