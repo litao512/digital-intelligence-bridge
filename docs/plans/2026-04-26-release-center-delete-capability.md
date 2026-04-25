@@ -399,3 +399,67 @@ Run:
 git add docs\plans\2026-04-26-release-center-delete-capability.md
 git commit -m "docs: 记录发布中心删除能力验证"
 ```
+
+## 执行记录
+
+执行时间：2026-04-26。
+
+### 代码验证
+
+已完成发布中心删除能力代码实现，并完成以下验证：
+
+- `npm test -- --run`：`12` 个测试文件通过，`46` 个测试通过。
+- `npm run build`：`vue-tsc --noEmit && vite build` 通过。
+- `scripts/check-doc-lang.ps1`：文档语言检查通过。
+
+### prod101 页面部署
+
+已将 `dib-release-center/dist` 构建产物部署到：
+
+```text
+/data/dib-release-center/dist/release-center/
+```
+
+线上入口已引用新静态资源：
+
+```text
+/release-center/assets/index-oDPi0e15.js
+/release-center/assets/index-DPkx7Sm6.css
+```
+
+### prod101 清理与发布
+
+由于当前浏览器没有发布中心管理员登录态，本次清理采用 prod101 上的受约束数据库事务和 Supabase Storage API 执行，操作范围限定为明确测试资源和本次病人登记插件版本。
+
+已删除：
+
+- 空插件定义：`bedside-rounding`。
+- 未被版本引用的测试资产：`plugins/patient-registration/stable/1.0.1/upload-test-package.zip`。
+
+已保留：
+
+- 插件定义：`patient-registration`。
+- 既有 `patient-registration` 版本记录，用于升级链路回归参考。
+
+已上传并登记新插件版本：
+
+```text
+pluginCode: patient-registration
+version: 1.0.3-dev.1
+channel: stable
+storagePath: plugins/patient-registration/stable/1.0.3-dev.1/patient-registration-1.0.3-dev.1.zip
+sha256: ef164b9d0619097fb8071b455c5f0dc4b77ea615535a2e9bd51d3a8175fb7e0c
+sizeBytes: 59335620
+```
+
+已重新发布：
+
+```text
+manifests/stable/plugin-manifest.json
+```
+
+公开 manifest 当前只包含 `patient-registration 1.0.3-dev.1`，新插件 zip 公开 URL 返回 `200`。
+
+### 未完成项
+
+尚未通过发布中心页面登录态实测删除按钮点击流程。原因是当前 MCP 浏览器没有管理员登录态；页面代码已通过测试和构建验证，真实数据清理已通过后端受约束操作完成。
