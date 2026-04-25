@@ -1,0 +1,8 @@
+<Project>
+  <!--
+    Avalonia.BuildServices 11.3.x 的遥测任务会尝试写入当前用户 LocalAppData。
+    在受限环境里该路径可能无写权限，导致构建在 CoreCompile 前失败。
+    这里仅覆盖 AvaloniaStats 目标，禁用构建期 telemetry，不影响正常编译输出。
+  -->
+  <Target Name="AvaloniaStats" />
+</Project>

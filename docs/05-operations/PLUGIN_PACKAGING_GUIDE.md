@@ -7,7 +7,7 @@
 适用范围：
 
 - 所有通过 DIB 宿主加载的外部插件
-- 所有发布中心下载、预安装、激活到 `%LOCALAPPDATA%\\UniversalTrayTool\\plugins` 的插件包
+- 所有发布中心下载、预安装、激活到 `%LOCALAPPDATA%\\DibClient\\plugins` 的插件包
 
 ## 核心原则
 
@@ -49,11 +49,29 @@
 
 运行时插件统一放：
 
-- `%LOCALAPPDATA%\\UniversalTrayTool\\plugins\\<plugin-id>`
+- `%LOCALAPPDATA%\\DibClient\\plugins\\<plugin-id>`
 
 不要把“主程序目录里刚好有某个 DLL”当成插件可运行的前提。
 
 ## 当前目录模型
+
+### 源码、中转、运行与发布目录边界
+
+当前插件目录分为四层，不能混用：
+
+1. 插件源码目录：`plugins-src/<PluginName>.Plugin/`
+2. 本地产包中转目录：仓库根 `plugins/<PluginName>/`
+3. 客户端正式运行目录：`%LOCALAPPDATA%\\DibClient\\plugins\\<PluginName>`
+4. 发布包内插件目录：`artifacts/releases/<version>/publish/plugins/<PluginName>`
+
+职责边界如下：
+
+- `plugins-src/` 是插件代码和模板配置的维护入口，必须提交到 Git。
+- 仓库根 `plugins/` 由发布脚本或本地重建脚本生成，已被 `.gitignore` 忽略，不提交到 Git。
+- `%LOCALAPPDATA%\\DibClient\\plugins` 是客户端实际加载、发布中心激活和回滚使用的运行时目录。
+- `publish/plugins/` 是最终 zip 包内的随包插件目录，必须完整包含插件运行依赖。
+
+发布脚本必须从 `plugins-src/` 重新构建插件，再刷新仓库根 `plugins/` 中转目录，最后复制到 `publish/plugins/`。不要手工把旧的 `plugins/` 内容当作源码真相，也不要把 `plugins/` 或 `artifacts/` 加入提交。
 
 ### 主程序安装目录
 
@@ -71,19 +89,26 @@
 
 路径：
 
-- `%LOCALAPPDATA%\\UniversalTrayTool\\plugins\\<plugin-id>`
+- `%LOCALAPPDATA%\\DibClient\\plugins\\<plugin-id>`
 
 职责：
 
 - 存放插件主程序集
 - 存放插件运行依赖
 - 存放 `plugin.json`、`plugin.settings.json`
+- 开发联调时可额外放置 `plugin.development.json`
+
+补充说明：
+
+- 仓库根目录 `plugins\\<plugin-id>` 不是正式运行目录
+- 手工回归时，如需验证最新插件，必须把构建产物同步到 `%LOCALAPPDATA%\\DibClient\\plugins\\<plugin-id>`
+- 若设置了 `DIB_CONFIG_ROOT`，则应同步到 `<DIB_CONFIG_ROOT>\\plugins\\<plugin-id>`
 
 ### 发布中心相关目录
 
-- 下载缓存：`%LOCALAPPDATA%\\UniversalTrayTool\\release-cache\\plugins\\<channel>`
-- 预安装目录：`%LOCALAPPDATA%\\UniversalTrayTool\\release-staging\\plugins\\<channel>`
-- 正式插件目录：`%LOCALAPPDATA%\\UniversalTrayTool\\plugins`
+- 下载缓存：`%LOCALAPPDATA%\\DibClient\\release-cache\\plugins\\<channel>`
+- 预安装目录：`%LOCALAPPDATA%\\DibClient\\release-staging\\plugins\\<channel>`
+- 正式插件目录：`%LOCALAPPDATA%\\DibClient\\plugins`
 
 发布中心只负责“下载 -> 预安装 -> 激活”，不负责修复插件缺依赖。
 
@@ -101,6 +126,12 @@
 如果插件引用了第三方包，例如 `QRCoder`，则插件目录内必须存在：
 
 - `QRCoder.dll`
+
+补充说明：
+
+- `plugin.settings.json` 只放非敏感本地配置
+- `plugin.development.json` 仅用于开发模式下的本地敏感资源配置
+- 正式发布包不建议包含真实的 `plugin.development.json`
 
 ## 推荐构建方式
 
@@ -128,6 +159,7 @@
 3. 关键第三方依赖 DLL 已复制
 4. 若有原生依赖，`runtimes/` 目录完整
 5. 将输出目录整体打包，而不是只拷主 DLL
+6. 手工部署后，检查 `%LOCALAPPDATA%\\DibClient\\logs\\app-*.log`，确认宿主记录了插件初始化成功或失败原因
 
 ## 测试建议
 
@@ -168,3 +200,7 @@
 > 插件目录必须是完整、独立、可运行的最小部署单元。
 
 任何依赖主程序目录、依赖其他插件目录、依赖 NuGet 缓存“碰巧可用”的做法，都视为不合格打包方案。
+
+同时应遵守另一条运维规则：
+
+> 判断插件是否真正生效，以运行时插件目录和 `%LOCALAPPDATA%\\DibClient\\logs\\app-*.log` 为准，而不是以仓库目录或编译输出目录为准。

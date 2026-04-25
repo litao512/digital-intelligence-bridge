@@ -23,8 +23,9 @@
   - 所有插件源码根目录
   - 每个插件一个独立项目
 - `plugins/`
-  - 所有插件运行时目录根目录
-  - 宿主启动时从这里发现插件
+  - 本地产包中转目录
+  - 由发布脚本从 `plugins-src/` 构建输出同步生成
+  - 已被 `.gitignore` 忽略，不作为源码提交内容
 
 ## 3. 插件目录约定
 
@@ -42,9 +43,9 @@ plugins-src/<PluginName>.Plugin/
 - `plugins-src/PatientManagement.Plugin/`
 - `plugins-src/ScheduleAssistant.Plugin/`
 
-### 3.2 运行时目录
+### 3.2 本地产包中转目录
 
-每个插件运行时目录都放在：
+每个插件的本地产包中转目录都放在：
 
 ```text
 plugins/<PluginName>/
@@ -56,11 +57,17 @@ plugins/<PluginName>/
 - `plugins/PatientManagement/`
 - `plugins/ScheduleAssistant/`
 
+补充说明：
+
+- 仓库根 `plugins/` 仅用于本地产包和发布脚本中转，不提交到 Git
+- 正式运行目录位于 `%LOCALAPPDATA%\\DibClient\\plugins\\<PluginName>`
+- 如果设置了 `DIB_CONFIG_ROOT`，正式运行目录位于 `<DIB_CONFIG_ROOT>\\plugins\\<PluginName>`
+
 ### 3.3 规则
 
 - 一个插件只对应一个源码项目
-- 一个插件只对应一个运行时目录
-- 不允许多个插件共用同一个运行时目录
+- 一个插件只对应一个本地中转目录和一个正式运行目录
+- 不允许多个插件共用同一个中转目录或正式运行目录
 - 不建议把插件源码直接放进宿主主项目目录
 
 ## 4. 命名约定
@@ -132,6 +139,7 @@ plugins-src/
     MedicalDrugImportPlugin.cs
     plugin.json
     plugin.settings.json
+    plugin.development.json
     MedicalDrugImport.Plugin.csproj
 ```
 
@@ -152,17 +160,20 @@ plugins-src/
 - `plugin.json`
   - 插件清单
 - `plugin.settings.json`
-  - 插件业务配置
+  - 插件非敏感本地配置
+- `plugin.development.json`
+  - 仅开发模式使用的本地敏感资源配置
 
-## 6. 运行时目录结构建议
+## 6. 本地中转目录结构建议
 
-运行时目录建议采用下面结构：
+本地中转目录和正式运行目录建议采用下面结构：
 
 ```text
 plugins/
   MedicalDrugImport/
     plugin.json
     plugin.settings.json
+    plugin.development.json
     MedicalDrugImport.Plugin.dll
     MedicalDrugImport.Plugin.deps.json
     其他依赖.dll
@@ -173,10 +184,17 @@ plugins/
 - `plugin.json`
   - 运行时必须存在
 - `plugin.settings.json`
-  - 建议存在
-  - 插件业务配置从这里读取
+  - 可选
+  - 仅用于非敏感本地配置
+- `plugin.development.json`
+  - 可选
+  - 仅在显式开发模式下用于本地敏感资源配置
 - `*.dll`
   - 插件入口程序集及其依赖
+
+正式生产资源不从 `plugin.settings.json` 或 `plugin.development.json` 读取，而是由宿主按 `resourceRequirements` 从资源中心下发。
+
+仓库根 `plugins/` 被视为生成目录，不应手工加入 Git 提交。
 
 ## 7. plugin.json 约定
 
@@ -189,7 +207,15 @@ plugins/
   "version": "0.1.0",
   "entryAssembly": "MedicalDrugImport.Plugin.dll",
   "entryType": "MedicalDrugImport.Plugin.MedicalDrugImportPlugin",
-  "minHostVersion": "1.0.0"
+  "minHostVersion": "1.0.0",
+  "resourceRequirements": [
+    {
+      "resourceType": "PostgreSQL",
+      "usageKey": "business-db",
+      "required": true,
+      "description": "读取和写入业务数据库"
+    }
+  ]
 }
 ```
 
@@ -207,6 +233,51 @@ plugins/
   - 入口类全名
 - `minHostVersion`
   - 最低宿主版本
+- `resourceRequirements`
+  - 插件声明的运行时资源需求列表
+
+### 7.1 `resourceRequirements` 约定
+
+建议 `resourceRequirements` 采用以下结构：
+
+```json
+[
+  {
+    "resourceType": "PostgreSQL",
+    "usageKey": "business-db",
+    "required": true,
+    "description": "读取和写入业务数据库"
+  },
+  {
+    "resourceType": "SqlServer",
+    "usageKey": "sync-target",
+    "required": false,
+    "description": "将同步结果写入目标 SQL Server"
+  }
+]
+```
+
+字段说明：
+
+- `resourceType`
+  - 资源类型
+  - 第一阶段建议使用：`PostgreSQL`、`SqlServer`、`Supabase`、`HttpService`
+- `usageKey`
+  - 插件内部使用该资源的逻辑别名
+  - 要求在同一插件内稳定且唯一
+- `required`
+  - 是否为必需资源
+  - `true` 表示缺失时插件应阻止核心流程
+  - `false` 表示缺失时插件可降级运行
+- `description`
+  - 资源用途说明，便于托盘和后台审批识别
+
+### 7.2 设计原则
+
+- 插件只声明“需要什么资源”，不在 `plugin.json` 中内联连接串、密码、Token 等敏感信息。
+- `resourceRequirements` 是宿主发现、申请、授权匹配的输入，不替代本地开发配置文件。
+- `resourceRequirements` 是插件正式资源来源建模的唯一入口；正式资源由宿主按授权下发。
+- `usageKey` 一旦发布，应尽量保持稳定，避免宿主绑定规则和后台授权映射失效。
 
 ## 8. 插件配置约定
 
@@ -214,15 +285,82 @@ plugins/
 
 建议采用：
 
-1. `plugin.settings.json`
-2. 环境变量覆盖
-3. 插件默认值兜底
+1. 宿主授权资源
+2. 显式开发模式下的 `plugin.development.json`
+3. 插件非敏感默认值
 
-建议使用插件前缀环境变量，避免多个插件互相污染，例如：
+补充约定：
 
-- `MEDICAL_DRUG_IMPORT__POSTGRES__CONNECTIONSTRING`
-- `MEDICAL_DRUG_IMPORT__SQLSERVER__CONNECTIONSTRING`
-- `MEDICAL_DRUG_IMPORT__IMPORT__BATCHSIZE`
+- `plugin.settings.json` 仅用于非敏感本地配置。
+- `plugin.development.json` 仅用于显式开发模式下的本地敏感资源配置。
+- 正式生产资源不得通过 `plugin.settings.json` 或 `plugin.development.json` 持有或回退。
+- 一旦宿主提供资源运行时注入，插件必须优先读取宿主下发资源。
+- 不允许把后台审批后的敏感资源配置长期回写到 `plugin.json`。
+- 插件不再通过环境变量持有业务资源配置。
+
+### 8.1 `plugin.development.json` 约定
+
+该文件仅用于开发联调，不作为正式发布内容。
+
+建议：
+
+- 文件名固定为 `plugin.development.json`
+- 仅在 `DevelopmentMode.Enabled = true` 时读取
+- 仅保存本地开发需要的敏感资源
+- 不提交真实凭据
+
+示例：
+
+```json
+{
+  "BusinessDbConnectionString": "<填写本地开发 PostgreSQL 连接串>",
+  "SyncTargetConnectionString": "<填写本地开发 SQL Server 连接串>"
+}
+```
+
+### 8.2 如何启用开发模式
+
+建议按下面顺序操作：
+
+1. 在插件目录的 `plugin.settings.json` 中显式开启：
+
+```json
+{
+  "DevelopmentMode": {
+    "Enabled": true
+  }
+}
+```
+
+2. 在同一目录创建 `plugin.development.json`
+
+位置示例：
+
+- `plugins-src/MedicalDrugImport.Plugin/plugin.development.json`
+- `plugins-src/PatientRegistration.Plugin/plugin.development.json`
+- 运行时调试时也可以放在实际插件目录下，例如 `%LOCALAPPDATA%\\DibClient\\plugins\\MedicalDrugImport\\plugin.development.json`
+
+3. 按插件填写对应键
+
+`MedicalDrugImport`：
+
+- `BusinessDbConnectionString`
+  - 药品导入业务库的 PostgreSQL 连接串
+- `SyncTargetConnectionString`
+  - 目标 SQL Server 的连接串
+
+`PatientRegistration`：
+
+- `RegistrationDbConnectionString`
+  - 就诊登记业务库的 PostgreSQL 连接串
+
+4. 正式发布前关闭开发模式，并移除 `plugin.development.json`
+
+建议：
+
+- 将 `DevelopmentMode.Enabled` 改回 `false`
+- 不把 `plugin.development.json` 打进正式包
+- 不把真实开发凭据提交到仓库
 
 ## 9. 依赖边界约定
 
@@ -248,12 +386,14 @@ plugins/
 如果后续新增第二个插件，应按以下位置放置：
 
 - 源码：`plugins-src/<SecondPluginName>.Plugin/`
-- 运行时：`plugins/<SecondPluginName>/`
+- 本地中转：`plugins/<SecondPluginName>/`
+- 正式运行：`%LOCALAPPDATA%\\DibClient\\plugins\\<SecondPluginName>`
 
 如果后续新增第三个插件，应按以下位置放置：
 
 - 源码：`plugins-src/<ThirdPluginName>.Plugin/`
-- 运行时：`plugins/<ThirdPluginName>/`
+- 本地中转：`plugins/<ThirdPluginName>/`
+- 正式运行：`%LOCALAPPDATA%\\DibClient\\plugins\\<ThirdPluginName>`
 
 示例：
 
@@ -264,11 +404,12 @@ plugins/
 
 ## 11. 推荐实践
 
-- 新增插件时，先建源码项目，再补运行时发布目录
+- 新增插件时，先建源码项目，再通过发布脚本生成本地中转目录
 - 插件业务逻辑尽量放插件内部，不继续扩散进宿主
 - 宿主只做通用插件能力，不做单个插件的业务定制
 - 每个插件都应有独立测试
 - 每个插件都应有自己的 `plugin.settings.json`
+- 需要本地联调敏感资源时，再单独创建 `plugin.development.json`
 
 ## 12. 不推荐实践
 
@@ -284,6 +425,7 @@ plugins/
 
 - 宿主主程序：`digital-intelligence-bridge/`
 - 插件源码根：`plugins-src/`
-- 插件运行时根：`plugins/`
+- 本地产包中转根：`plugins/`
+- 正式运行根：`%LOCALAPPDATA%\\DibClient\\plugins`
 
 后续第二、第三个插件都应沿用这一规则，不再混放进宿主目录。

@@ -8,7 +8,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
-    $ConfigPath = Join-Path $env:LOCALAPPDATA "UniversalTrayTool\appsettings.json"
+    $ConfigPath = Join-Path $env:LOCALAPPDATA "DibClient\appsettings.json"
 }
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {

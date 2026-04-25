@@ -16,6 +16,12 @@
 - `dotnet watch --project digital-intelligence-bridge/digital-intelligence-bridge.csproj run --hot-reload`：热重载开发循环。
 - `dotnet build digital-intelligence-bridge/digital-intelligence-bridge.csproj -c Release`：发布配置构建校验。
 
+### Avalonia 构建约束
+- 本仓库禁止并行执行 Avalonia 相关的 `dotnet build` 和 `dotnet test`；不要同时在多个终端或并行任务中跑这些命令。
+- 本地验证默认采用串行执行，优先使用 `-m:1`。
+- 推荐顺序：先 `dotnet build digital-intelligence-bridge/digital-intelligence-bridge.csproj --no-restore -m:1 -c Debug -v minimal`，再 `dotnet build digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj --no-restore -m:1 -v minimal`，最后 `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj --no-build -v minimal`。
+- 若出现“生成失败，但 0 个错误/0 个警告”，先按 `docs/05-operations/AVALONIA_BUILD_TROUBLESHOOTING.md` 排查，不要先假设是业务代码错误。
+
 ## 代码风格与命名约定
 - 使用 4 空格缩进，保持可空引用类型启用（`<Nullable>enable</Nullable>`）。
 - C# 约定：文件作用域命名空间、类型/成员使用 `PascalCase`、私有字段使用 `_camelCase`。
@@ -47,3 +53,9 @@
 ## 安全与配置提示
 - 不要在 `appsettings.json` 中提交密钥或凭据，优先使用环境变量或环境专属配置。
 - 不要提交构建产物和日志（如 `bin/`、`obj/`、`webview_debug.log`、运行时 `logs/`）。
+
+## 客户端发布约定
+- 当任务涉及“DIB 客户端发布上线”“客户端包发布”“客户端版本登记”“客户端 manifest 发布”时，优先使用个人 skill `client-release-publish`。
+- 当前客户端正式本地产包入口是 `scripts/publish-release.ps1`，标准产物目录是 `artifacts/releases/<version>/`。
+- 当前客户端发布中心操作入口是 `dib-release-center/`，正式操作说明见 `docs/05-operations/CLIENT_RELEASE_PUBLISH_RUNBOOK.md`。
+- 历史 `.tmp/release` 仅作为旧流程遗留目录参考，不再作为当前正式发布目录。
