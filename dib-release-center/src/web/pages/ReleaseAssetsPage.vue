@@ -88,6 +88,10 @@
             </td>
             <td>{{ item.sizeBytes }}</td>
             <td class="action-cell">
+              <label class="ghost-button inline-button file-action">
+                <span>覆盖文件</span>
+                <input type="file" @change="replaceAsset(item, $event)">
+              </label>
               <button type="button" class="danger-button inline-button" @click="removeAsset(item, false)">
                 删除记录
               </button>
@@ -116,6 +120,7 @@ defineProps<{
 const emit = defineEmits<{
   submit: [draft: ReleaseAssetDraftInput]
   upload: [draft: ReleaseAssetUploadInput]
+  replace: [payload: { asset: ReleaseAsset; file: File }]
   delete: [payload: { asset: ReleaseAsset; removeObject: boolean }]
 }>()
 
@@ -186,6 +191,23 @@ function removeAsset(asset: ReleaseAsset, removeObject: boolean): void {
 
   emit('delete', { asset, removeObject })
 }
+
+function replaceAsset(asset: ReleaseAsset, event: Event): void {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0] ?? null
+  input.value = ''
+
+  if (!file) {
+    return
+  }
+
+  const target = `${asset.fileName}\n${asset.bucketName}/${asset.storagePath}\n当前 SHA256: ${asset.sha256}`
+  if (!window.confirm(`确认覆盖该发布资产文件？\n\n${target}\n\n覆盖会更新 Storage 文件和资产元数据，但不会自动发布 manifest。`)) {
+    return
+  }
+
+  emit('replace', { asset, file })
+}
 </script>
 
 <style scoped>
@@ -198,5 +220,17 @@ function removeAsset(asset: ReleaseAsset, removeObject: boolean): void {
 .danger-button {
   background: #fff1f0;
   color: #bf3d36;
+}
+
+.file-action {
+  position: relative;
+  overflow: hidden;
+}
+
+.file-action input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 </style>

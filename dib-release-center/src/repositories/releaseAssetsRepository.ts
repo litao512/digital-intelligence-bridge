@@ -43,6 +43,13 @@ export interface ReleaseAssetReferences {
   }>
 }
 
+export interface ReleaseAssetMetadataUpdatePayload {
+  file_name: string
+  sha256: string
+  size_bytes: number
+  mime_type: string
+}
+
 function toReleaseAsset(row: ReleaseAssetRow): ReleaseAsset {
   return {
     id: row.id,
@@ -101,6 +108,16 @@ export async function deleteReleaseAsset(id: string): Promise<void> {
     .eq('id', id)
 
   throwIfError(error, '删除发布资产')
+}
+
+export async function updateReleaseAssetMetadata(id: string, payload: ReleaseAssetMetadataUpdatePayload): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .schema(RELEASE_SCHEMA)
+    .from('release_assets')
+    .update(payload)
+    .eq('id', id)
+
+  throwIfError(error, '更新发布资产元数据')
 }
 
 export async function findReleaseAssetReferences(id: string): Promise<ReleaseAssetReferences> {
@@ -164,6 +181,21 @@ export async function deleteReleaseAssetObject(bucketName: string, storagePath: 
 
   if (error) {
     throw new Error(`删除 Storage 文件失败：${error.message}`)
+  }
+}
+
+export async function replaceReleaseAssetFile(bucketName: string, storagePath: string, file: File): Promise<void> {
+  const contentType = file.type.trim() || 'application/octet-stream'
+  const { error } = await getSupabaseClient()
+    .storage
+    .from(bucketName)
+    .upload(storagePath, file, {
+      upsert: true,
+      contentType,
+    })
+
+  if (error) {
+    throw new Error(`覆盖发布资产文件失败：${error.message}`)
   }
 }
 

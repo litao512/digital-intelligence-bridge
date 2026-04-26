@@ -5,6 +5,7 @@ const removeMock = vi.fn()
 const eqMock = vi.fn()
 const deleteMock = vi.fn()
 const selectMock = vi.fn()
+const updateMock = vi.fn()
 const fromMock = vi.fn()
 const schemaMock = vi.fn()
 const storageFromMock = vi.fn()
@@ -23,6 +24,8 @@ import {
   deleteReleaseAsset,
   deleteReleaseAssetObject,
   findReleaseAssetReferences,
+  replaceReleaseAssetFile,
+  updateReleaseAssetMetadata,
   uploadManifestAsset,
 } from '@/repositories/releaseAssetsRepository'
 
@@ -39,10 +42,13 @@ describe('releaseAssetsRepository', () => {
     deleteMock.mockReturnValue({ eq: eqMock })
     selectMock.mockReset()
     selectMock.mockReturnValue({ eq: eqMock })
+    updateMock.mockReset()
+    updateMock.mockReturnValue({ eq: eqMock })
     fromMock.mockReset()
     fromMock.mockReturnValue({
       delete: deleteMock,
       select: selectMock,
+      update: updateMock,
     })
     schemaMock.mockReset()
     schemaMock.mockReturnValue({ from: fromMock })
@@ -127,5 +133,36 @@ describe('releaseAssetsRepository', () => {
 
     expect(storageFromMock).toHaveBeenCalledWith('dib-releases')
     expect(removeMock).toHaveBeenCalledWith(['plugins/patient-registration/stable/1.0.0/pkg.zip'])
+  })
+
+  it('replaceReleaseAssetFile should upload with upsert enabled', async () => {
+    const file = new File(['new package'], 'package.zip', { type: 'application/zip' })
+
+    await replaceReleaseAssetFile('dib-releases', 'plugins/pkg.zip', file)
+
+    expect(storageFromMock).toHaveBeenCalledWith('dib-releases')
+    expect(uploadMock).toHaveBeenCalledWith(
+      'plugins/pkg.zip',
+      file,
+      expect.objectContaining({
+        upsert: true,
+        contentType: 'application/zip',
+      }),
+    )
+  })
+
+  it('updateReleaseAssetMetadata should update metadata by asset id', async () => {
+    const payload = {
+      file_name: 'package.zip',
+      sha256: 'a'.repeat(64),
+      size_bytes: 123,
+      mime_type: 'application/zip',
+    }
+
+    await updateReleaseAssetMetadata('asset-1', payload)
+
+    expect(fromMock).toHaveBeenCalledWith('release_assets')
+    expect(updateMock).toHaveBeenCalledWith(payload)
+    expect(eqMock).toHaveBeenCalledWith('id', 'asset-1')
   })
 })

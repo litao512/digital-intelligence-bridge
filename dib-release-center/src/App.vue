@@ -129,6 +129,7 @@
         :assets="releaseAssets"
         @submit="handleCreateReleaseAsset"
         @upload="handleUploadReleaseAsset"
+        @replace="handleReplaceReleaseAsset"
         @delete="handleDeleteReleaseAsset"
       />
       </section>
@@ -208,6 +209,8 @@ import {
   deleteReleaseAssetObject,
   findReleaseAssetReferences,
   listReleaseAssets,
+  replaceReleaseAssetFile,
+  updateReleaseAssetMetadata,
   upsertReleaseAsset,
   uploadManifestAsset,
   uploadReleaseAssetFile,
@@ -759,6 +762,34 @@ async function handleUploadReleaseAsset(draft: ReleaseAssetUploadInput): Promise
     activeTab.value = 'assets'
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '上传发布资产失败。'
+  }
+}
+
+async function handleReplaceReleaseAsset(payload: { asset: ReleaseAsset; file: File }): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    const plan = await buildReleaseAssetUploadPlan({
+      bucketName: payload.asset.bucketName,
+      storagePath: payload.asset.storagePath,
+      assetKind: payload.asset.assetKind,
+      file: payload.file,
+    })
+
+    await replaceReleaseAssetFile(payload.asset.bucketName, payload.asset.storagePath, plan.file)
+    await updateReleaseAssetMetadata(payload.asset.id, {
+      file_name: plan.payload.file_name,
+      sha256: plan.payload.sha256,
+      size_bytes: plan.payload.size_bytes,
+      mime_type: plan.payload.mime_type,
+    })
+
+    statusMessage.value = `发布资产 ${payload.asset.fileName} 已覆盖并更新元数据。请重新发布对应渠道 manifest。`
+    await loadData()
+    activeTab.value = 'assets'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '覆盖发布资产失败。'
   }
 }
 
