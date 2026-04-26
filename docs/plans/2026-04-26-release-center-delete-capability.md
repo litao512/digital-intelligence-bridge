@@ -505,3 +505,25 @@ manifests/stable/plugin-manifest.json
 - 旧客户端 zip 公开访问均返回 `400`。
 - `client-manifest.json` 公开访问返回 `200`，内容指向 `1.0.3`。
 - 发布中心页面刷新后，客户端版本页显示 `1` 条记录，发布资产页不再显示旧客户端 zip。
+
+### 未使用资产清理检查
+
+继续检查发布中心未使用资产。判定规则：
+
+- `client_package` 和 `plugin_package` 必须被对应版本记录引用，否则视为未使用资产。
+- `manifest` 不被版本记录引用，但它是客户端公开读取入口，因此不按未使用资产删除。
+
+数据库复核结果：
+
+- `release_assets` 中未被 `client_versions` 或 `plugin_versions` 引用的非 manifest 资产数量为 `0`。
+- 当前 `client_package` 只剩 `dib-win-x64-portable-1.0.3.zip`，并被客户端版本 `1.0.3` 引用。
+- 当前 `plugin_package` 只剩 `patient-registration-1.0.3-dev.1.zip`，并被插件版本 `1.0.3-dev.1` 引用。
+- 当前 manifest 资产为 `client-manifest.json` 和 `plugin-manifest.json`，均保留。
+
+Storage 递归复核结果：
+
+- `clients/stable/1.0.3/` 下只剩 `dib-win-x64-portable-1.0.3.zip`。
+- `plugins/patient-registration/stable/1.0.3-dev.1/` 下只剩 `patient-registration-1.0.3-dev.1.zip`。
+- `manifests/stable/` 下只剩 `client-manifest.json` 和 `plugin-manifest.json`。
+
+因此本次没有额外需要删除的未使用资产。
