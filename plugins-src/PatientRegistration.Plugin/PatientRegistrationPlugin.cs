@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Avalonia.Controls;
 using DigitalIntelligenceBridge.Plugin.Abstractions;
 using PatientRegistration.Plugin.Configuration;
@@ -21,6 +22,57 @@ public class PatientRegistrationPlugin : IPluginModule
     }
 
     public PluginManifest GetManifest()
+    {
+        return TryReadPackagedManifest() ?? CreateFallbackManifest();
+    }
+
+    private static PluginManifest? TryReadPackagedManifest()
+    {
+        var assemblyDirectory = Path.GetDirectoryName(typeof(PatientRegistrationPlugin).Assembly.Location);
+        if (string.IsNullOrWhiteSpace(assemblyDirectory))
+        {
+            return null;
+        }
+
+        var manifestPath = Path.Combine(assemblyDirectory, "plugin.json");
+        if (!File.Exists(manifestPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var json = File.ReadAllText(manifestPath);
+            var manifest = JsonSerializer.Deserialize<PluginManifest>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (manifest is null ||
+                string.IsNullOrWhiteSpace(manifest.Id) ||
+                string.IsNullOrWhiteSpace(manifest.Version) ||
+                string.IsNullOrWhiteSpace(manifest.EntryAssembly) ||
+                string.IsNullOrWhiteSpace(manifest.EntryType))
+            {
+                return null;
+            }
+
+            return manifest;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    private static PluginManifest CreateFallbackManifest()
     {
         return new PluginManifest
         {
