@@ -485,3 +485,23 @@ manifests/stable/plugin-manifest.json
 - 旧插件 zip 公开访问均返回 `400`。
 - `plugin-manifest.json` 已重新发布，只包含 `patient-registration 1.0.3-dev.1`。
 - 发布中心页面刷新后，插件版本页显示 `1` 条记录，发布资产页不再显示旧插件 zip。
+
+### 客户端版本清理记录
+
+用户确认系统仍未上线后，继续清理客户端测试资源。
+
+清理目标限定为客户端版本和客户端包资产：
+
+- 保留客户端版本：`1.0.3`。
+- 保留客户端包资产：`dib-win-x64-portable-1.0.3.zip`。
+- 删除旧客户端版本：`1.0.2`、`1.0.1`、`1.0.0`、`0.0.0-rehearsal`、`0.0.0-rehearsal-20260425`。
+- 删除旧客户端包资产及其 Storage 文件。
+- 重新发布 `client-manifest.json`，使 `latestVersion` 继续指向 `1.0.3`。
+
+最终复核结果：
+
+- 数据库中客户端版本只剩 `1.0.3`。
+- 数据库中 `client_package` 资产只剩 `dib-win-x64-portable-1.0.3.zip`。
+- 旧客户端 zip 公开访问均返回 `400`。
+- `client-manifest.json` 公开访问返回 `200`，内容指向 `1.0.3`。
+- 发布中心页面刷新后，客户端版本页显示 `1` 条记录，发布资产页不再显示旧客户端 zip。
