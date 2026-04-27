@@ -10,6 +10,33 @@
              x:DataType="vm:PluginHostViewModel">
 
     <Border Classes="Card" Padding="18">
-        <ContentControl Content="{Binding Content}" />
+        <Grid RowDefinitions="Auto,*" RowSpacing="14">
+            <Border Padding="0,0,0,12"
+                    BorderThickness="0,0,0,1"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    IsVisible="{Binding HasPluginMetadata}">
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                    <TextBlock Grid.Row="0"
+                               Grid.Column="0"
+                               Text="{Binding PluginName}"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBlock Grid.Row="0"
+                               Grid.Column="1"
+                               Text="{Binding PluginVersionText}"
+                               FontSize="12"
+                               Foreground="{DynamicResource TextMutedBrush}"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Grid.Row="1"
+                               Grid.ColumnSpan="2"
+                               Text="{Binding PluginId}"
+                               FontSize="11"
+                               Foreground="{DynamicResource TextMutedBrush}"/>
+                </Grid>
+            </Border>
+
+            <ContentControl Grid.Row="1" Content="{Binding Content}" />
+        </Grid>
     </Border>
 </UserControl>

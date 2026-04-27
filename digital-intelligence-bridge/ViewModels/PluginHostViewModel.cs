@@ -1,3 +1,4 @@
+using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
@@ -10,15 +11,33 @@ namespace DigitalIntelligenceBridge.ViewModels;
 /// </summary>
 public class PluginHostViewModel : ViewModelBase
 {
-    public PluginHostViewModel(Control content, string? errorMessage = null)
+    public PluginHostViewModel(
+        Control content,
+        string? errorMessage = null,
+        string? pluginName = null,
+        string? pluginId = null,
+        string? pluginVersion = null)
     {
         Content = content;
         ErrorMessage = errorMessage ?? string.Empty;
+        PluginName = pluginName ?? string.Empty;
+        PluginId = pluginId ?? string.Empty;
+        PluginVersion = pluginVersion ?? string.Empty;
     }
 
     public Control Content { get; }
 
     public string ErrorMessage { get; }
+
+    public string PluginName { get; }
+
+    public string PluginId { get; }
+
+    public string PluginVersion { get; }
+
+    public string PluginVersionText => FormatVersionText(PluginVersion);
+
+    public bool HasPluginMetadata => !string.IsNullOrWhiteSpace(PluginName) || !string.IsNullOrWhiteSpace(PluginId);
 
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
 
@@ -69,5 +88,16 @@ public class PluginHostViewModel : ViewModelBase
                 Child = panel
             },
             errorMessage);
+    }
+
+    private static string FormatVersionText(string version)
+    {
+        var normalized = version.Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return string.Empty;
+        }
+
+        return normalized.StartsWith("v", StringComparison.OrdinalIgnoreCase) ? normalized : $"v{normalized}";
     }
 }

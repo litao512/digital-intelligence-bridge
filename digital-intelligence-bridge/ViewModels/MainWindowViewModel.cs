@@ -193,6 +193,8 @@ public class MainWindowViewModel : ViewModelBase
         set => SetProperty(ref _pageSubtitle, value);
     }
 
+    public string AppVersionText => FormatVersionText((_applicationService ?? new NullApplicationService(_settings)).GetVersion());
+
     public bool IsMenuCollapsed
     {
         get => _isMenuCollapsed;
@@ -711,7 +713,11 @@ public class MainWindowViewModel : ViewModelBase
 
         try
         {
-            return new PluginHostViewModel(loadedPlugin.Module.CreateContent(menuId));
+            return new PluginHostViewModel(
+                loadedPlugin.Module.CreateContent(menuId),
+                pluginName: loadedPlugin.Manifest.Name,
+                pluginId: loadedPlugin.Manifest.Id,
+                pluginVersion: loadedPlugin.Manifest.Version);
         }
         catch (Exception ex)
         {
@@ -907,6 +913,12 @@ public class MainWindowViewModel : ViewModelBase
         }
 
         return result;
+    }
+
+    private static string FormatVersionText(string? version)
+    {
+        var normalized = string.IsNullOrWhiteSpace(version) ? "1.0.0" : version.Trim();
+        return normalized.StartsWith("v", StringComparison.OrdinalIgnoreCase) ? normalized : $"v{normalized}";
     }
 
     private void InitializeSampleData()

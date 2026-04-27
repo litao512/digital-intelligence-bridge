@@ -21,6 +21,18 @@ public class MainWindowViewModelTests
     }
 
     [Fact]
+    public void AppVersionText_ShouldUseApplicationServiceVersion_WhenProvided()
+    {
+        var settings = new Configuration.AppSettings();
+        var vm = new MainWindowViewModel(
+            new NullLoggerService<MainWindowViewModel>(),
+            Microsoft.Extensions.Options.Options.Create(settings),
+            applicationService: new StubApplicationService("1.0.3"));
+
+        Assert.Equal("v1.0.3", vm.AppVersionText);
+    }
+
+    [Fact]
     public void NavigateCommand_ShouldOpenTodoTab_WhenNavigateToTodo()
     {
         var vm = CreateVm();
@@ -176,6 +188,17 @@ public class MainWindowViewModelTests
         public void LogError(Exception exception, string message, params object[] args) { }
         public void LogInformation(string message, params object[] args) { }
         public void LogWarning(string message, params object[] args) { }
+    }
+
+    private sealed class StubApplicationService(string version) : IApplicationService
+    {
+        public bool IsInitialized => true;
+        public Task InitializeAsync() => Task.CompletedTask;
+        public Task OnStartedAsync() => Task.CompletedTask;
+        public Task OnShutdownAsync() => Task.CompletedTask;
+        public string GetVersion() => version;
+        public string GetApplicationName() => "DIB客户端";
+        public void RestartApplication() { }
     }
 }
 

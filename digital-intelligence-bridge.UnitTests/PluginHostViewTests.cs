@@ -40,6 +40,21 @@ public class PluginHostViewTests
     }
 
     [Fact]
+    public void PluginHostViewModel_ShouldExposePluginVersionText_WhenMetadataProvided()
+    {
+        var viewModel = new PluginHostViewModel(
+            new TextBlock { Text = "插件内容" },
+            pluginName: "就诊登记",
+            pluginId: "patient-registration",
+            pluginVersion: "1.0.3-dev.2");
+
+        Assert.Equal("就诊登记", viewModel.PluginName);
+        Assert.Equal("patient-registration", viewModel.PluginId);
+        Assert.Equal("1.0.3-dev.2", viewModel.PluginVersion);
+        Assert.Equal("v1.0.3-dev.2", viewModel.PluginVersionText);
+    }
+
+    [Fact]
     public void PluginHostViewModel_ShouldProvideErrorPlaceholder_WhenContentCreationFails()
     {
         var viewModel = PluginHostViewModel.CreateError("插件页面创建失败");
@@ -53,21 +68,29 @@ public class PluginHostViewTests
     [Fact]
     public void MainWindowAxaml_ShouldRenderPluginHostView_WhenPluginHostTabSelected()
     {
-        var filePath = Path.Combine(
-            AppContext.BaseDirectory,
-            "..",
-            "..",
-            "..",
-            "..",
-            "digital-intelligence-bridge",
-            "Views",
-            "MainWindow.axaml");
-        var fullPath = Path.GetFullPath(filePath);
+        var fullPath = FindRepositoryFile("digital-intelligence-bridge", "Views", "MainWindow.axaml");
 
         var xaml = File.ReadAllText(fullPath);
 
         Assert.Contains("ConverterParameter=PluginHost", xaml);
         Assert.Contains("<views:PluginHostView", xaml);
+    }
+
+    private static string FindRepositoryFile(params string[] relativePathParts)
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current is not null)
+        {
+            var candidate = Path.Combine(new[] { current.FullName }.Concat(relativePathParts).ToArray());
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            current = current.Parent;
+        }
+
+        throw new FileNotFoundException($"未找到仓库文件：{Path.Combine(relativePathParts)}");
     }
 
     private sealed class TestLogger : Services.ILoggerService<MainWindowViewModel>
