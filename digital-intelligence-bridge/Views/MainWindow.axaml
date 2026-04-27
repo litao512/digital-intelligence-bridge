@@ -122,34 +122,41 @@
                              HorizontalScrollBarVisibility="Disabled"
                              Padding="{Binding SidebarScrollPadding}">
                     <StackPanel Spacing="5">
-                        <!-- 核心功能分组 -->
-                        <TextBlock Text="核心功能"
-                                  FontSize="11"
-                                  FontWeight="Bold"
-                                  Foreground="{DynamicResource TextMutedBrush}"
-                                  Margin="10,10,10,5"
-                                  IsVisible="{Binding IsMenuExpanded}"/>
-
-                        <ItemsControl ItemsSource="{Binding MenuItems}"
-                                     x:Name="MenuItemsList">
+                        <ItemsControl ItemsSource="{Binding MenuSections}"
+                                      x:Name="MenuItemsList">
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="vm:MenuItem">
-                                    <Button Classes="NavButton"
-                                           Classes.active="{Binding IsSelected}"
-                                           HorizontalAlignment="Stretch"
-                                           HorizontalContentAlignment="Left"
-                                           Padding="{Binding #Root.((vm:MainWindowViewModel)DataContext).NavButtonPadding}"
-                                           Opacity="{Binding IsInstalled, Converter={StaticResource BoolToOpacityConverter}}"
-                                           Command="{Binding #Root.((vm:MainWindowViewModel)DataContext).NavigateCommand}"
-                                           CommandParameter="{Binding TargetKey}">
-                                        <StackPanel Orientation="Horizontal"
-                                                    Spacing="{Binding #Root.((vm:MainWindowViewModel)DataContext).MenuItemSpacing}"
-                                                    HorizontalAlignment="Left">
-                                            <TextBlock Text="{Binding Icon}"/>
-                                            <TextBlock Text="{Binding Name}"
-                                                       IsVisible="{Binding #Root.((vm:MainWindowViewModel)DataContext).IsMenuExpanded}"/>
-                                        </StackPanel>
-                                    </Button>
+                                <DataTemplate DataType="vm:MenuSection">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="{Binding Title}"
+                                                   FontSize="11"
+                                                   FontWeight="Bold"
+                                                   Foreground="{DynamicResource TextMutedBrush}"
+                                                   Margin="10,10,10,5"
+                                                   IsVisible="{Binding #Root.((vm:MainWindowViewModel)DataContext).IsMenuExpanded}"/>
+
+                                        <ItemsControl ItemsSource="{Binding Items}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="vm:MenuItem">
+                                                    <Button Classes="NavButton"
+                                                           Classes.active="{Binding IsSelected}"
+                                                           HorizontalAlignment="Stretch"
+                                                           HorizontalContentAlignment="Left"
+                                                           Padding="{Binding #Root.((vm:MainWindowViewModel)DataContext).NavButtonPadding}"
+                                                           Opacity="{Binding IsInstalled, Converter={StaticResource BoolToOpacityConverter}}"
+                                                           Command="{Binding #Root.((vm:MainWindowViewModel)DataContext).NavigateCommand}"
+                                                           CommandParameter="{Binding TargetKey}">
+                                                        <StackPanel Orientation="Horizontal"
+                                                                    Spacing="{Binding #Root.((vm:MainWindowViewModel)DataContext).MenuItemSpacing}"
+                                                                    HorizontalAlignment="Left">
+                                                            <TextBlock Text="{Binding Icon}"/>
+                                                            <TextBlock Text="{Binding Name}"
+                                                                       IsVisible="{Binding #Root.((vm:MainWindowViewModel)DataContext).IsMenuExpanded}"/>
+                                                        </StackPanel>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
@@ -227,6 +234,12 @@
                             <Border IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=ResourceCenter}"
                                     Classes="Card">
                                 <views:ResourceCenterView DataContext="{Binding #Root.((vm:MainWindowViewModel)DataContext).ResourceCenter}" />
+                            </Border>
+
+                            <!-- 插件中心视图 -->
+                            <Border IsVisible="{Binding TabType, Converter={StaticResource TabTypeToVisibilityConverter}, ConverterParameter=PluginCenter}"
+                                    Classes="Card">
+                                <views:PluginCenterView DataContext="{Binding #Root.((vm:MainWindowViewModel)DataContext).PluginCenter}" />
                             </Border>
 
                             <!-- 待办事项视图 -->

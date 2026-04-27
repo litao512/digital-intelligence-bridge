@@ -25,11 +25,19 @@ public enum MainViewType
 {
     Home,           // 首页
     ResourceCenter, // 资源中心
+    PluginCenter,   // 插件中心
     Todo,           // 待办事项
     PluginHost,     // 外部插件宿主
     PatientMgmt,    // 患者管理（占位）
     Schedule,       // 日程安排（占位）
     Settings        // 设置
+}
+
+public enum MenuSectionKind
+{
+    Workspace,
+    Plugin,
+    System
 }
 
 /// <summary>
@@ -42,8 +50,10 @@ public class MenuItem : BindableBase
     public string Id { get; set; } = string.Empty;
     public string TargetKey { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    public string Title => Name;
     public string Icon { get; set; } = string.Empty;
     public MainViewType ViewType { get; set; }
+    public MenuSectionKind SectionKind { get; set; } = MenuSectionKind.Workspace;
     public bool IsInstalled { get; set; } = true;
     public bool IsPlaceholder { get; set; } = false;
     public bool IsExternalPlugin { get; set; }
@@ -54,6 +64,15 @@ public class MenuItem : BindableBase
     }
 }
 
+public class MenuSection
+{
+    public string Title { get; set; } = string.Empty;
+
+    public MenuSectionKind Kind { get; set; }
+
+    public ObservableCollection<MenuItem> Items { get; } = new();
+}
+
 /// <summary>
 /// 标签页类型
 /// </summary>
@@ -61,6 +80,7 @@ public enum TabItemType
 {
     Home,       // 首页
     ResourceCenter, // 资源中心
+    PluginCenter, // 插件中心
     Todo,       // 待办事项
     PluginHost, // 外部插件宿主
     Settings,   // 设置
@@ -108,6 +128,7 @@ public class MainWindowViewModel : ViewModelBase
     public ObservableCollection<TodoItem> FilteredTodoItems { get; } = new();
     public ObservableCollection<string> Categories { get; } = new();
     public ObservableCollection<MenuItem> MenuItems { get; } = new();
+    public ObservableCollection<MenuSection> MenuSections { get; } = new();
     public ObservableCollection<TabItemModel> OpenTabs { get; } = new();
 
     // 属性字段
@@ -151,6 +172,7 @@ public class MainWindowViewModel : ViewModelBase
             {
                 RaisePropertyChanged(nameof(IsHomeViewVisible));
                 RaisePropertyChanged(nameof(IsTodoViewVisible));
+                RaisePropertyChanged(nameof(IsPluginCenterViewVisible));
                 RaisePropertyChanged(nameof(IsSettingsViewVisible));
                 RaisePropertyChanged(nameof(IsPatientViewVisible));
                 RaisePropertyChanged(nameof(IsScheduleViewVisible));
@@ -167,6 +189,8 @@ public class MainWindowViewModel : ViewModelBase
     /// 待办视图是否可见
     /// </summary>
     public bool IsTodoViewVisible => CurrentView == MainViewType.Todo;
+
+    public bool IsPluginCenterViewVisible => CurrentView == MainViewType.PluginCenter;
 
     /// <summary>
     /// 设置视图是否可见
@@ -229,6 +253,8 @@ public class MainWindowViewModel : ViewModelBase
 
     public HomeDashboardViewModel HomeDashboard { get; }
 
+    public PluginCenterViewModel PluginCenter { get; }
+
     /// <summary>
     /// 当前选中的标签页
     /// </summary>
@@ -248,6 +274,10 @@ public class MainWindowViewModel : ViewModelBase
                 else if (value.TabType == TabItemType.ResourceCenter)
                 {
                     _ = ResourceCenter.RefreshAsync();
+                }
+                else if (value.TabType == TabItemType.PluginCenter)
+                {
+                    _ = PluginCenter.RefreshAsync();
                 }
             }
         }
@@ -454,6 +484,11 @@ public class MainWindowViewModel : ViewModelBase
             new ForwardingLoggerService<ResourceCenterViewModel>(_logger),
             _releaseCenterService,
             resourceApplicationDialogService);
+        PluginCenter = new PluginCenterViewModel(
+            new ForwardingLoggerService<PluginCenterViewModel>(_logger),
+            Options.Create(_settings),
+            _pluginUpdateOrchestrator ?? CreateDefaultPluginUpdateOrchestrator(),
+            _applicationService ?? new NullApplicationService(_settings));
 
         // 初始化筛选命令
         ClearFilterCommand = new DelegateCommand(ClearFilter);
@@ -627,6 +662,22 @@ public class MainWindowViewModel : ViewModelBase
                 }
                 break;
 
+            case MainViewType.PluginCenter:
+                existingTab = OpenTabs.FirstOrDefault(t => t.TabType == TabItemType.PluginCenter);
+                if (existingTab == null)
+                {
+                    existingTab = new TabItemModel
+                    {
+                        Id = $"plugin_center_{Guid.NewGuid():N}",
+                        TargetKey = targetKey,
+                        Title = "插件中心",
+                        Subtitle = "管理插件版本、更新和待重启状态",
+                        TabType = TabItemType.PluginCenter
+                    };
+                    OpenTabs.Add(existingTab);
+                }
+                break;
+
             case MainViewType.Todo:
                 existingTab = OpenTabs.FirstOrDefault(t => t.TabType == TabItemType.Todo);
                 if (existingTab == null)
@@ -795,6 +846,7 @@ public class MainWindowViewModel : ViewModelBase
         {
             TabItemType.Home => MainViewType.Home,
             TabItemType.ResourceCenter => MainViewType.ResourceCenter,
+            TabItemType.PluginCenter => MainViewType.PluginCenter,
             TabItemType.Todo => MainViewType.Todo,
             TabItemType.PluginHost => MainViewType.PluginHost,
             TabItemType.Settings => MainViewType.Settings,
@@ -837,6 +889,7 @@ public class MainWindowViewModel : ViewModelBase
             Name = "首页",
             Icon = "🏠",
             ViewType = MainViewType.Home,
+            SectionKind = MenuSectionKind.Workspace,
             IsInstalled = true
         });
 
@@ -847,6 +900,18 @@ public class MainWindowViewModel : ViewModelBase
             Name = "资源中心",
             Icon = "🗂",
             ViewType = MainViewType.ResourceCenter,
+            SectionKind = MenuSectionKind.Workspace,
+            IsInstalled = true
+        });
+
+        MenuItems.Add(new MenuItem
+        {
+            Id = "plugin-center",
+            TargetKey = "plugin-center",
+            Name = "插件中心",
+            Icon = "🧩",
+            ViewType = MainViewType.PluginCenter,
+            SectionKind = MenuSectionKind.Workspace,
             IsInstalled = true
         });
 
@@ -859,13 +924,45 @@ public class MainWindowViewModel : ViewModelBase
                 Name = string.IsNullOrWhiteSpace(pluginMenu.Name) ? pluginMenu.Id : pluginMenu.Name,
                 Icon = string.IsNullOrWhiteSpace(pluginMenu.Icon) ? GetDefaultIcon(MainViewType.PluginHost) : pluginMenu.Icon,
                 ViewType = MainViewType.PluginHost,
+                SectionKind = MenuSectionKind.Plugin,
                 IsInstalled = true,
                 IsPlaceholder = false,
                 IsExternalPlugin = true
             });
         }
 
+        RebuildMenuSections();
         _logger.LogInformation("菜单项初始化完成，共 {Count} 项", MenuItems.Count);
+    }
+
+    private void RebuildMenuSections()
+    {
+        MenuSections.Clear();
+        AddMenuSection("工作台", MenuSectionKind.Workspace);
+        AddMenuSection("插件", MenuSectionKind.Plugin);
+        AddMenuSection("系统", MenuSectionKind.System);
+    }
+
+    private void AddMenuSection(string title, MenuSectionKind kind)
+    {
+        var items = MenuItems.Where(item => item.SectionKind == kind).ToArray();
+        if (items.Length == 0)
+        {
+            return;
+        }
+
+        var section = new MenuSection
+        {
+            Title = title,
+            Kind = kind
+        };
+
+        foreach (var item in items)
+        {
+            section.Items.Add(item);
+        }
+
+        MenuSections.Add(section);
     }
 
     private static string GetDefaultIcon(MainViewType viewType)
@@ -874,6 +971,7 @@ public class MainWindowViewModel : ViewModelBase
         {
             MainViewType.Home => "🏠",
             MainViewType.ResourceCenter => "🗂",
+            MainViewType.PluginCenter => "🧩",
             MainViewType.Todo => "📋",
             MainViewType.PluginHost => "🧩",
             MainViewType.PatientMgmt => "👤",
@@ -892,6 +990,9 @@ public class MainWindowViewModel : ViewModelBase
                 return true;
             case "resource-center":
                 viewType = MainViewType.ResourceCenter;
+                return true;
+            case "plugin-center":
+                viewType = MainViewType.PluginCenter;
                 return true;
             case "todo":
                 viewType = MainViewType.Todo;
@@ -917,6 +1018,7 @@ public class MainWindowViewModel : ViewModelBase
         {
             MainViewType.Home => "home",
             MainViewType.ResourceCenter => "resource-center",
+            MainViewType.PluginCenter => "plugin-center",
             MainViewType.Todo => "todo",
             MainViewType.Settings => "settings",
             MainViewType.PatientMgmt => "patient",

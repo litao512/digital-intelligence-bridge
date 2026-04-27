@@ -1,4 +1,5 @@
 using DigitalIntelligenceBridge.Services;
+using DigitalIntelligenceBridge.Plugin.Abstractions;
 using DigitalIntelligenceBridge.ViewModels;
 using Xunit;
 
@@ -56,6 +57,32 @@ public class MainWindowViewModelTests
     }
 
     [Fact]
+    public void MenuSections_ShouldSeparateWorkspaceAndPluginMenus_WhenExternalPluginMenusExist()
+    {
+        var pluginMenu = new PluginMenuItem
+        {
+            Id = "patient-registration.entry",
+            Name = "就诊登记",
+            Icon = "🧾",
+            Order = 10
+        };
+        var vm = new MainWindowViewModel(
+            new NullLoggerService<MainWindowViewModel>(),
+            Microsoft.Extensions.Options.Options.Create(new Configuration.AppSettings()),
+            externalPluginMenus: [pluginMenu]);
+
+        var workspace = Assert.Single(vm.MenuSections, section => section.Title == "工作台");
+        Assert.Contains(workspace.Items, item => item.Title == "首页");
+        Assert.Contains(workspace.Items, item => item.Title == "资源中心");
+        Assert.Contains(workspace.Items, item => item.Title == "插件中心");
+
+        var plugins = Assert.Single(vm.MenuSections, section => section.Title == "插件");
+        var item = Assert.Single(plugins.Items);
+        Assert.Equal("就诊登记", item.Title);
+        Assert.True(item.IsExternalPlugin);
+    }
+
+    [Fact]
     public void NavigateCommand_ShouldOpenTodoTab_WhenNavigateToTodo()
     {
         var vm = CreateVm();
@@ -80,6 +107,18 @@ public class MainWindowViewModelTests
         Assert.NotNull(vm.SelectedTab);
         Assert.Equal(TabItemType.ResourceCenter, vm.SelectedTab!.TabType);
         Assert.Contains(vm.MenuItems, x => x.ViewType == MainViewType.ResourceCenter && x.IsSelected);
+    }
+
+    [Fact]
+    public void NavigateCommand_ShouldOpenPluginCenterTab_WhenNavigateToPluginCenter()
+    {
+        var vm = CreateVm();
+
+        vm.NavigateCommand.Execute(MainViewType.PluginCenter);
+
+        Assert.Equal(MainViewType.PluginCenter, vm.CurrentView);
+        Assert.NotNull(vm.SelectedTab);
+        Assert.Equal(TabItemType.PluginCenter, vm.SelectedTab!.TabType);
     }
 
     [Fact]
@@ -185,6 +224,16 @@ public class MainWindowViewModelTests
     }
 
     [Fact]
+    public void MainWindowAxaml_ShouldBindSidebarToMenuSections()
+    {
+        var fullPath = FindRepositoryFile("digital-intelligence-bridge", "Views", "MainWindow.axaml");
+        var xaml = File.ReadAllText(fullPath);
+
+        Assert.Contains("ItemsSource=\"{Binding MenuSections}\"", xaml);
+        Assert.Contains("ItemsSource=\"{Binding Items}\"", xaml);
+    }
+
+    [Fact]
     public void ToggleMenuCollapseCommand_ShouldToggleCollapsedState()
     {
         var vm = CreateVm();
@@ -201,6 +250,23 @@ public class MainWindowViewModelTests
         Assert.False(vm.IsMenuCollapsed);
         Assert.Equal("◀", vm.MenuToggleGlyph);
         Assert.Equal(220, vm.SidebarWidth);
+    }
+
+    private static string FindRepositoryFile(params string[] relativePathParts)
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current is not null)
+        {
+            var candidate = Path.Combine(new[] { current.FullName }.Concat(relativePathParts).ToArray());
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            current = current.Parent;
+        }
+
+        throw new FileNotFoundException($"未找到仓库文件：{Path.Combine(relativePathParts)}");
     }
 
     private sealed class NullLoggerService<T> : ILoggerService<T>
