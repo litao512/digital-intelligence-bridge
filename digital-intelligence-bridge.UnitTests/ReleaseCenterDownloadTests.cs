@@ -149,6 +149,49 @@ public class ReleaseCenterDownloadTests
     }
 
     [Fact]
+    public async Task DownloadAvailablePluginPackagesAsync_ShouldSkipPluginPackage_WhenRuntimeVersionIsCurrent()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"release-cache-{Guid.NewGuid():N}");
+        var runtimeDir = Path.Combine(Path.GetTempPath(), $"release-runtime-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        Directory.CreateDirectory(Path.Combine(runtimeDir, "patient-registration"));
+        await File.WriteAllTextAsync(
+            Path.Combine(runtimeDir, "patient-registration", "plugin.json"),
+            """
+            {
+              "id": "patient-registration",
+              "name": "就诊登记",
+              "version": "1.0.1"
+            }
+            """);
+        var packageBytes = Encoding.UTF8.GetBytes("plugin-package-content");
+        var sha256 = Convert.ToHexString(SHA256.HashData(packageBytes)).ToLowerInvariant();
+
+        try
+        {
+            var service = CreatePluginDownloadService(tempDir, packageBytes, sha256, runtimePluginRoot: runtimeDir);
+
+            var result = await service.DownloadAvailablePluginPackagesAsync();
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(0, result.DownloadedCount);
+            Assert.Empty(Directory.GetFiles(tempDir, "*.zip", SearchOption.AllDirectories));
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+
+            if (Directory.Exists(runtimeDir))
+            {
+                Directory.Delete(runtimeDir, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task DownloadAvailablePluginPackagesAsync_ShouldFail_WhenSha256DoesNotMatch()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"release-cache-{Guid.NewGuid():N}");
@@ -224,7 +267,12 @@ public class ReleaseCenterDownloadTests
             }));
     }
 
-    private static ReleaseCenterService CreatePluginDownloadService(string cacheDirectory, byte[] packageBytes, string sha256, bool useRelativePackageUrl = false)
+    private static ReleaseCenterService CreatePluginDownloadService(
+        string cacheDirectory,
+        byte[] packageBytes,
+        string sha256,
+        bool useRelativePackageUrl = false,
+        string runtimePluginRoot = "")
     {
         var handler = new StubHttpMessageHandler(request =>
         {
@@ -278,7 +326,8 @@ public class ReleaseCenterDownloadTests
                     BaseUrl = "http://release-center.local",
                     Channel = "stable",
                     AnonKey = string.Empty,
-                    CacheDirectory = cacheDirectory
+                    CacheDirectory = cacheDirectory,
+                    RuntimePluginRoot = runtimePluginRoot
                 }
             }));
     }

@@ -114,7 +114,7 @@ public static class ConfigurationExtensions
     {
         if (File.Exists(userConfigPath))
         {
-            NormalizeExistingUserConfig(userConfigPath);
+            NormalizeExistingUserConfig(userConfigPath, defaultConfigPath);
             return;
         }
 
@@ -138,6 +138,9 @@ public static class ConfigurationExtensions
             },
             ReleaseCenter = new UserReleaseCenterConfig
             {
+                Enabled = settings.ReleaseCenter.Enabled,
+                BaseUrl = settings.ReleaseCenter.BaseUrl,
+                Channel = settings.ReleaseCenter.Channel,
                 SiteId = settings.ReleaseCenter.SiteId,
                 SiteOrganization = settings.ReleaseCenter.SiteOrganization,
                 SiteName = settings.ReleaseCenter.SiteName,
@@ -239,16 +242,49 @@ public static class ConfigurationExtensions
         }
     }
 
-    private static void NormalizeExistingUserConfig(string userConfigPath)
+    private static void NormalizeExistingUserConfig(string userConfigPath, string defaultConfigPath)
     {
         try
         {
-            var existingUserSettings = JsonSerializer.Deserialize<UserAppSettings>(File.ReadAllText(userConfigPath)) ?? new UserAppSettings();
+            var existingJson = File.ReadAllText(userConfigPath);
+            var existingUserSettings = JsonSerializer.Deserialize<UserAppSettings>(existingJson) ?? new UserAppSettings();
+            var defaultSettings = LoadDefaultSettings(defaultConfigPath);
+            BackfillMissingReleaseCenterConnectionFields(existingJson, existingUserSettings, defaultSettings);
             SaveUserSettings(userConfigPath, existingUserSettings);
         }
         catch
         {
             // 保持原文件，避免在异常情况下覆盖潜在可恢复配置。
+        }
+    }
+
+    private static void BackfillMissingReleaseCenterConnectionFields(
+        string existingJson,
+        UserAppSettings existingUserSettings,
+        AppSettings defaultSettings)
+    {
+        using var document = JsonDocument.Parse(existingJson);
+        if (!document.RootElement.TryGetProperty("ReleaseCenter", out var releaseCenterElement))
+        {
+            existingUserSettings.ReleaseCenter.Enabled = defaultSettings.ReleaseCenter.Enabled;
+            existingUserSettings.ReleaseCenter.BaseUrl = defaultSettings.ReleaseCenter.BaseUrl;
+            existingUserSettings.ReleaseCenter.Channel = defaultSettings.ReleaseCenter.Channel;
+            return;
+        }
+
+        if (!releaseCenterElement.TryGetProperty("Enabled", out _))
+        {
+            existingUserSettings.ReleaseCenter.Enabled = defaultSettings.ReleaseCenter.Enabled;
+        }
+
+        if (!releaseCenterElement.TryGetProperty("BaseUrl", out _))
+        {
+            existingUserSettings.ReleaseCenter.BaseUrl = defaultSettings.ReleaseCenter.BaseUrl;
+        }
+
+        if (!releaseCenterElement.TryGetProperty("Channel", out _))
+        {
+            existingUserSettings.ReleaseCenter.Channel = defaultSettings.ReleaseCenter.Channel;
         }
     }
 }

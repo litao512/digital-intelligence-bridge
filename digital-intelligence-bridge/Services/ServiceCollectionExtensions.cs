@@ -21,6 +21,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IApplicationService, ApplicationService>();
         services.AddSingleton<ISiteRegistrationDialogService, SiteRegistrationDialogService>();
         services.AddSingleton<IResourceApplicationDialogService, ResourceApplicationDialogService>();
+        services.AddSingleton<ITrayIconAvailabilityService, TrayIconAvailabilityService>();
         var authorizedResourceCacheService = new AuthorizedResourceCacheService();
         services.AddSingleton(authorizedResourceCacheService);
         services.AddSingleton<IAuthorizedResourceCacheService>(authorizedResourceCacheService);

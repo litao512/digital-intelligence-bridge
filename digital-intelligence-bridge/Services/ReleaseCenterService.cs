@@ -345,7 +345,11 @@ public sealed class ReleaseCenterService : IReleaseCenterService
         try
         {
             var pluginManifest = await GetPluginManifestAsync(cancellationToken).ConfigureAwait(false);
-            var downloadablePlugins = pluginManifest?.Plugins?.Where(item => !string.IsNullOrWhiteSpace(item.PackageUrl)).ToList() ?? new List<PluginItemDto>();
+            var installedVersions = GetInstalledPluginVersions();
+            var downloadablePlugins = pluginManifest?.Plugins?
+                .Where(item => !string.IsNullOrWhiteSpace(item.PackageUrl))
+                .Where(item => HasPluginUpdate(item, installedVersions))
+                .ToList() ?? new List<PluginItemDto>();
             if (downloadablePlugins.Count == 0)
             {
                 return new ReleaseCenterPluginDownloadResult(true, "没有可下载的插件包", $"channel={_config.Channel}", 0, cacheDirectory);
@@ -838,6 +842,63 @@ public sealed class ReleaseCenterService : IReleaseCenterService
     }
 
     private bool HasClientUpdate(ClientManifestDto? manifest) => manifest is not null && !string.IsNullOrWhiteSpace(manifest.LatestVersion) && CompareVersions(manifest.LatestVersion, _currentAppVersion) > 0;
+    private bool HasPluginUpdate(PluginItemDto plugin, IReadOnlyDictionary<string, string> installedVersions)
+    {
+        if (string.IsNullOrWhiteSpace(plugin.PluginId) || string.IsNullOrWhiteSpace(plugin.Version))
+        {
+            return true;
+        }
+
+        if (!installedVersions.TryGetValue(plugin.PluginId, out var installedVersion) || string.IsNullOrWhiteSpace(installedVersion))
+        {
+            return true;
+        }
+
+        return CompareVersions(plugin.Version, installedVersion) > 0;
+    }
+
+    private IReadOnlyDictionary<string, string> GetInstalledPluginVersions()
+    {
+        var runtimePluginRoot = ResolveRuntimePluginRoot();
+        if (!Directory.Exists(runtimePluginRoot))
+        {
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var versions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var pluginJsonPath in Directory.GetFiles(runtimePluginRoot, "plugin.json", SearchOption.AllDirectories))
+        {
+            try
+            {
+                using var stream = File.OpenRead(pluginJsonPath);
+                using var document = JsonDocument.Parse(stream);
+                if (!document.RootElement.TryGetProperty("id", out var idProperty)
+                    || !document.RootElement.TryGetProperty("version", out var versionProperty))
+                {
+                    continue;
+                }
+
+                var pluginId = idProperty.GetString();
+                var version = versionProperty.GetString();
+                if (string.IsNullOrWhiteSpace(pluginId) || string.IsNullOrWhiteSpace(version))
+                {
+                    continue;
+                }
+
+                if (!versions.TryGetValue(pluginId, out var current) || CompareVersions(version, current) > 0)
+                {
+                    versions[pluginId] = version;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "读取运行时插件版本失败: {PluginJsonPath}", pluginJsonPath);
+            }
+        }
+
+        return versions;
+    }
+
     private static string BuildClientSummary(ClientManifestDto? manifest) => manifest is null || string.IsNullOrWhiteSpace(manifest.LatestVersion) ? "客户端更新：暂无发布版本" : $"客户端最新版本：{manifest.LatestVersion}（最低升级版本：{manifest.MinUpgradeVersion ?? "未限制"}）";
     private static string BuildPluginSummary(PluginManifestDto? manifest) { var count = manifest?.Plugins?.Count ?? 0; if (count == 0) return "插件更新：暂无可用插件包"; var items = manifest!.Plugins!.Take(3).Select(item => $"{item.Name} {item.Version}"); return $"插件更新：{count} 个可用插件（{string.Join('、', items)}）"; }
     private static string BuildAuthorizedPluginSummary(PluginManifestDto? manifest) { var count = manifest?.Plugins?.Count ?? 0; return count == 0 ? "授权插件：当前站点未授权任何插件" : $"授权插件：{count} 个"; }
@@ -849,8 +910,65 @@ public sealed class ReleaseCenterService : IReleaseCenterService
     private static string ReadPluginId(string pluginJsonPath) { using var stream = File.OpenRead(pluginJsonPath); using var document = JsonDocument.Parse(stream); if (!document.RootElement.TryGetProperty("id", out var idProperty) || string.IsNullOrWhiteSpace(idProperty.GetString())) throw new InvalidOperationException($"{pluginJsonPath} 缺少插件 id。"); return idProperty.GetString()!; }
     private static void CopyDirectory(string sourceDirectory, string targetDirectory) { Directory.CreateDirectory(targetDirectory); foreach (var file in Directory.GetFiles(sourceDirectory)) File.Copy(file, Path.Combine(targetDirectory, Path.GetFileName(file)), overwrite: true); foreach (var directory in Directory.GetDirectories(sourceDirectory)) CopyDirectory(directory, Path.Combine(targetDirectory, Path.GetFileName(directory))); }
     private static void TryDeleteFile(string? path) { if (!string.IsNullOrWhiteSpace(path) && File.Exists(path)) { File.Delete(path); } }
-    public static int CompareVersions(string left, string right) { var leftParts = ParseVersionParts(left); var rightParts = ParseVersionParts(right); var max = Math.Max(leftParts.Length, rightParts.Length); for (var i = 0; i < max; i++) { var lv = i < leftParts.Length ? leftParts[i] : 0; var rv = i < rightParts.Length ? rightParts[i] : 0; if (lv != rv) return lv.CompareTo(rv); } return 0; }
+    public static int CompareVersions(string left, string right)
+    {
+        var leftParts = ParseVersionParts(left);
+        var rightParts = ParseVersionParts(right);
+        var max = Math.Max(leftParts.Length, rightParts.Length);
+        for (var i = 0; i < max; i++)
+        {
+            var lv = i < leftParts.Length ? leftParts[i] : 0;
+            var rv = i < rightParts.Length ? rightParts[i] : 0;
+            if (lv != rv) return lv.CompareTo(rv);
+        }
+
+        return ComparePrereleaseVersions(left, right);
+    }
+
     private static int[] ParseVersionParts(string value) => value.Split('-', 2)[0].Split('.', StringSplitOptions.RemoveEmptyEntries).Select(part => int.TryParse(part, out var parsed) ? parsed : 0).ToArray();
+    private static int ComparePrereleaseVersions(string left, string right)
+    {
+        var leftPrerelease = ParsePrereleaseParts(left);
+        var rightPrerelease = ParsePrereleaseParts(right);
+        if (leftPrerelease.Length == 0 || rightPrerelease.Length == 0)
+        {
+            return 0;
+        }
+
+        var max = Math.Max(leftPrerelease.Length, rightPrerelease.Length);
+        for (var i = 0; i < max; i++)
+        {
+            if (i >= leftPrerelease.Length) return -1;
+            if (i >= rightPrerelease.Length) return 1;
+
+            var leftToken = leftPrerelease[i];
+            var rightToken = rightPrerelease[i];
+            var leftIsNumber = int.TryParse(leftToken, out var leftNumber);
+            var rightIsNumber = int.TryParse(rightToken, out var rightNumber);
+            var comparison = leftIsNumber && rightIsNumber
+                ? leftNumber.CompareTo(rightNumber)
+                : string.Compare(leftToken, rightToken, StringComparison.OrdinalIgnoreCase);
+            if (comparison != 0)
+            {
+                return comparison;
+            }
+        }
+
+        return 0;
+    }
+
+    private static string[] ParsePrereleaseParts(string value)
+    {
+        var versionParts = value.Split('-', 2, StringSplitOptions.RemoveEmptyEntries);
+        if (versionParts.Length < 2)
+        {
+            return Array.Empty<string>();
+        }
+
+        return versionParts[1]
+            .Split('+', 2)[0]
+            .Split('.', StringSplitOptions.RemoveEmptyEntries);
+    }
 
     private sealed record SiteHeartbeatPayload(string SiteId, string SiteName, string Channel, string ClientVersion, string MachineName, DateTimeOffset CheckedAt);
     private sealed class ClientManifestDto { [JsonPropertyName("latestVersion")] public string? LatestVersion { get; set; } [JsonPropertyName("minUpgradeVersion")] public string? MinUpgradeVersion { get; set; } [JsonPropertyName("packageUrl")] public string? PackageUrl { get; set; } [JsonPropertyName("sha256")] public string? Sha256 { get; set; } }

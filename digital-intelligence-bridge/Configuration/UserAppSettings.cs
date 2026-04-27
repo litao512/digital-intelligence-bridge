@@ -20,6 +20,9 @@ public sealed class UserTrayConfig
 
 public sealed class UserReleaseCenterConfig
 {
+    public bool Enabled { get; set; }
+    public string BaseUrl { get; set; } = string.Empty;
+    public string Channel { get; set; } = "stable";
     public string SiteId { get; set; } = string.Empty;
     public string SiteOrganization { get; set; } = string.Empty;
     public string SiteName { get; set; } = string.Empty;

@@ -232,6 +232,8 @@ public class ReleaseCenterServiceTests
     [InlineData("1.0.1", "1.0.0", 1)]
     [InlineData("1.0.0", "1.0.1", -1)]
     [InlineData("1.0.0-beta.1", "1.0.0", 0)]
+    [InlineData("1.0.3-dev.3", "1.0.3-dev.2", 1)]
+    [InlineData("1.0.3-dev.2", "1.0.3-dev.3", -1)]
     [InlineData("1.0", "1.0.0", 0)]
     public void CompareVersions_ShouldReturnExpectedResult(string left, string right, int expectedSign)
     {

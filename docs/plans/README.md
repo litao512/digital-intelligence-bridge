@@ -22,6 +22,8 @@
 - [2026-04-21-resource-center-minimal-runtime-implementation.md](./2026-04-21-resource-center-minimal-runtime-implementation.md)
 - [2026-04-23-release-publish-script-design.md](./2026-04-23-release-publish-script-design.md)
 - [2026-04-23-release-publish-script.md](./2026-04-23-release-publish-script.md)
+- [2026-04-25-runtime-config-rotation-design.md](./2026-04-25-runtime-config-rotation-design.md)
+- [2026-04-25-runtime-config-rotation.md](./2026-04-25-runtime-config-rotation.md)
 - [2026-04-01-patient-registration-efficiency-plan.md](./2026-04-01-patient-registration-efficiency-plan.md)
 - [2026-02-19-technical-debt-backlog.md](./2026-02-19-technical-debt-backlog.md)
 
@@ -31,6 +33,7 @@
 - [2026-02-19-supabase-schema-setup.md](./2026-02-19-supabase-schema-setup.md)
 - [2026-02-20-release-archive.md](./2026-02-20-release-archive.md)
 - [2026-04-14-build-troubleshooting-retrospective.md](./2026-04-14-build-troubleshooting-retrospective.md)
+- [2026-04-25-client-release-rehearsal.md](./2026-04-25-client-release-rehearsal.md)
 
 ## 规则文档
 - [registration-code-display-rule.md](../standards/registration-code-display-rule.md)

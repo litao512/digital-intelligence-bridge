@@ -8,7 +8,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Media;
-using Avalonia.Platform;
 using DigitalIntelligenceBridge.Configuration;
 using DigitalIntelligenceBridge.Services;
 using Microsoft.Extensions.Options;
@@ -20,6 +19,7 @@ public class SettingsViewModel : ViewModelBase
 {
     private readonly IApplicationService _appService;
     private readonly ITrayService _trayService;
+    private readonly ITrayIconAvailabilityService _trayIconAvailabilityService;
     private readonly ILoggerService<SettingsViewModel> _logger;
     private readonly AppSettings _settings;
     private readonly ISupabaseService? _supabaseService;
@@ -269,10 +269,11 @@ public class SettingsViewModel : ViewModelBase
     public DelegateCommand RunSelfCheckCommand { get; }
     public DelegateCommand ExportSelfCheckReportCommand { get; }
 
-    public SettingsViewModel(IApplicationService appService, ITrayService trayService, ILoggerService<SettingsViewModel> logger, IOptions<AppSettings> settings, ISupabaseService? supabaseService = null, IReleaseCenterService? releaseCenterService = null)
+    public SettingsViewModel(IApplicationService appService, ITrayService trayService, ILoggerService<SettingsViewModel> logger, IOptions<AppSettings> settings, ISupabaseService? supabaseService = null, IReleaseCenterService? releaseCenterService = null, ITrayIconAvailabilityService? trayIconAvailabilityService = null)
     {
         _appService = appService;
         _trayService = trayService;
+        _trayIconAvailabilityService = trayIconAvailabilityService ?? new TrayIconAvailabilityService();
         _logger = logger;
         _settings = settings.Value;
         _supabaseService = supabaseService;
@@ -884,8 +885,8 @@ public class SettingsViewModel : ViewModelBase
             AddResult("用户配置文件", File.Exists(configPath), configPath);
             var defaultConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
             AddResult("默认配置文件", File.Exists(defaultConfigPath), defaultConfigPath);
-            var iconAvailable = IsTrayIconAvailable(_settings.Tray.IconPath, out var iconDetail);
-            AddResult("托盘图标文件", iconAvailable, iconDetail);
+            var iconAvailability = _trayIconAvailabilityService.CheckAvailability(_settings.Tray.IconPath);
+            AddResult("托盘图标文件", iconAvailability.IsAvailable, iconAvailability.Detail);
             var pluginDir = ConfigurationExtensions.GetRuntimePluginsDirectory(_settings.Plugin.PluginDirectory);
             var pluginExists = Directory.Exists(pluginDir);
             var pluginCount = pluginExists ? Directory.GetDirectories(pluginDir).Length + Directory.GetFiles(pluginDir, "*.dll").Length : 0;
@@ -990,29 +991,6 @@ public class SettingsViewModel : ViewModelBase
         }
     }
 
-    private static bool IsTrayIconAvailable(string iconPath, out string detail)
-    {
-        var fullPath = Path.Combine(AppContext.BaseDirectory, iconPath);
-        if (File.Exists(fullPath))
-        {
-            detail = fullPath;
-            return true;
-        }
-
-        try
-        {
-            var assemblyName = typeof(SettingsViewModel).Assembly.GetName().Name;
-            var uri = new Uri($"avares://{assemblyName}/{iconPath}");
-            using var _ = AssetLoader.Open(uri);
-            detail = $"{uri}（通过资源加载）";
-            return true;
-        }
-        catch (Exception ex)
-        {
-            detail = $"{fullPath}（文件不存在，且资源加载失败: {ex.Message}）";
-            return false;
-        }
-    }
 }
 
 public class SelfCheckItem

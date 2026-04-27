@@ -194,6 +194,51 @@ public class ConfigurationExtensionsTests
     }
 
     [Fact]
+    public void EnsureUserConfigExists_ShouldBackfillMissingReleaseCenterConnectionFields_FromDefaultConfig()
+    {
+        using var sandbox = new TestConfigSandbox();
+        var tempRoot = sandbox.RootDirectory;
+        var userConfigPath = Path.Combine(tempRoot, "appsettings.json");
+        var defaultConfigPath = Path.Combine(tempRoot, "default.appsettings.json");
+
+        File.WriteAllText(
+            userConfigPath,
+            """
+            {
+              "Application": { "MinimizeToTray": true, "StartWithSystem": false },
+              "Tray": { "ShowNotifications": true },
+              "ReleaseCenter": {
+                "SiteId": "site-001"
+              }
+            }
+            """);
+
+        File.WriteAllText(
+            defaultConfigPath,
+            """
+            {
+              "ReleaseCenter": {
+                "Enabled": true,
+                "BaseUrl": "http://101.42.19.26:8000",
+                "Channel": "stable",
+                "AnonKey": "default-anon-key"
+              }
+            }
+            """);
+
+        ConfigurationExtensions.EnsureUserConfigExists(userConfigPath, defaultConfigPath);
+
+        var json = File.ReadAllText(userConfigPath);
+        using var document = JsonDocument.Parse(json);
+        var releaseCenter = document.RootElement.GetProperty("ReleaseCenter");
+        Assert.True(releaseCenter.GetProperty("Enabled").GetBoolean());
+        Assert.Equal("http://101.42.19.26:8000", releaseCenter.GetProperty("BaseUrl").GetString());
+        Assert.Equal("stable", releaseCenter.GetProperty("Channel").GetString());
+        Assert.Equal("site-001", releaseCenter.GetProperty("SiteId").GetString());
+        Assert.False(releaseCenter.TryGetProperty("AnonKey", out var _));
+    }
+
+    [Fact]
     public void EnsureSafeUserConfiguration_ShouldThrow_WhenTestSettingsLeakIntoUserConfig()
     {
         var previousAllowUnsafeConfig = Environment.GetEnvironmentVariable("DIB_ALLOW_UNSAFE_CONFIG");
@@ -319,6 +364,9 @@ public class ConfigurationExtensionsTests
               "Application": { "MinimizeToTray": true, "StartWithSystem": false },
               "Tray": { "ShowNotifications": true },
               "ReleaseCenter": {
+                "Enabled": true,
+                "BaseUrl": "http://101.42.19.26:8000",
+                "Channel": "stable",
                 "AnonKey": "should-not-be-here",
                 "SiteId": "site-001"
               }
@@ -333,6 +381,9 @@ public class ConfigurationExtensionsTests
         using var document = JsonDocument.Parse(json);
         var releaseCenter = document.RootElement.GetProperty("ReleaseCenter");
         Assert.False(releaseCenter.TryGetProperty("AnonKey", out var _));
+        Assert.True(releaseCenter.GetProperty("Enabled").GetBoolean());
+        Assert.Equal("http://101.42.19.26:8000", releaseCenter.GetProperty("BaseUrl").GetString());
+        Assert.Equal("stable", releaseCenter.GetProperty("Channel").GetString());
         Assert.Equal("site-001", releaseCenter.GetProperty("SiteId").GetString());
     }
 }
