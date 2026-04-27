@@ -32,6 +32,7 @@ public sealed class HomeDashboardViewModel : ViewModelBase
     private readonly IApplicationService _applicationService;
     private readonly AppSettings _settings;
     private readonly IReleaseCenterService? _releaseCenterService;
+    private readonly IPluginUpdateOrchestrator? _pluginUpdateOrchestrator;
     private readonly Action _openSettingsAction;
 
     private string _siteDisplayName = "未配置使用单位";
@@ -98,16 +99,18 @@ public sealed class HomeDashboardViewModel : ViewModelBase
         IApplicationService applicationService,
         IOptions<AppSettings> appSettings,
         IReleaseCenterService? releaseCenterService,
-        Action openSettingsAction)
+        Action openSettingsAction,
+        IPluginUpdateOrchestrator? pluginUpdateOrchestrator = null)
     {
         _logger = logger;
         _applicationService = applicationService;
         _settings = appSettings.Value;
         _releaseCenterService = releaseCenterService;
+        _pluginUpdateOrchestrator = pluginUpdateOrchestrator;
         _openSettingsAction = openSettingsAction;
 
         InitializeSitePluginsCommand = new DelegateCommand(() => _ = InitializeSitePluginsAsync(), () => !IsBusy);
-        CheckUpdatesCommand = new DelegateCommand(() => _ = RefreshAsync(), () => !IsBusy);
+        CheckUpdatesCommand = new DelegateCommand(() => _ = RunPluginUpdateAsync(PluginUpdateTrigger.Manual), () => !IsBusy);
         OpenSettingsCommand = new DelegateCommand(() => _openSettingsAction());
         RestartApplicationCommand = new DelegateCommand(() => _applicationService.RestartApplication());
 
@@ -154,6 +157,67 @@ public sealed class HomeDashboardViewModel : ViewModelBase
             PendingActionTitle = "需要排查";
             PendingActionDetail = ex.Message;
             _logger.LogWarning("首页刷新发布中心状态失败: {Message}", ex.Message);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    public async Task RunPluginUpdateAsync(PluginUpdateTrigger trigger, CancellationToken cancellationToken = default)
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var orchestrator = _pluginUpdateOrchestrator ?? CreateDefaultPluginUpdateOrchestrator();
+            if (orchestrator is null)
+            {
+                ReleaseCenterStatusText = "发布中心未配置";
+                LastUpdateCheckStatus = FormatStatusTimestamp(DateTime.Now, "插件更新不可用");
+                PendingActionTitle = "需要排查";
+                PendingActionDetail = "未注册发布中心服务。";
+                return;
+            }
+
+            var result = await orchestrator.RunAsync(trigger, cancellationToken);
+            LastUpdateCheckStatus = FormatStatusTimestamp(result.CheckedAt, result.Summary);
+
+            if (result.CheckResult is not null)
+            {
+                var authorizedPlugins = ParseAuthorizedPluginStates(result.CheckResult.AuthorizedPluginDetail);
+                ReleaseCenterStatusText = result.CheckResult.IsSuccess ? "发布中心已连接" : "发布中心检查失败";
+                SiteStatus = result.CheckResult.SiteSummary;
+                RefreshLocalState(authorizedPlugins);
+            }
+            else
+            {
+                RefreshLocalState(Array.Empty<AuthorizedPluginState>());
+            }
+
+            if (result.RestartRequired)
+            {
+                LastPrepareStatus = FormatStatusTimestamp(result.CheckedAt, result.Summary);
+                PendingActionTitle = "需要重启";
+                PendingActionDetail = "插件更新已预安装，重启 DIB 后生效。";
+            }
+            else if (!result.IsSuccess)
+            {
+                PendingActionTitle = "需要排查";
+                PendingActionDetail = string.IsNullOrWhiteSpace(result.Detail) ? result.Summary : result.Detail;
+            }
+        }
+        catch (Exception ex)
+        {
+            ReleaseCenterStatusText = "发布中心检查失败";
+            LastUpdateCheckStatus = FormatStatusTimestamp(DateTime.Now, "插件更新失败");
+            PendingActionTitle = "需要排查";
+            PendingActionDetail = ex.Message;
+            _logger.LogWarning("首页执行插件自动更新失败: {Message}", ex.Message);
         }
         finally
         {
@@ -436,8 +500,34 @@ public sealed class HomeDashboardViewModel : ViewModelBase
     private static string MapChannelLabel(string channel)
         => string.Equals(channel, "stable", StringComparison.OrdinalIgnoreCase) ? "稳定版" : channel;
 
+    private IPluginUpdateOrchestrator? CreateDefaultPluginUpdateOrchestrator()
+    {
+        return _releaseCenterService is null
+            ? null
+            : new PluginUpdateOrchestrator(
+                _releaseCenterService,
+                new ForwardingPluginUpdateLogger(_logger));
+    }
+
     private sealed record AuthorizedPluginState(string PluginId, string Name, string Version);
     private sealed record LocalPluginState(string PluginId, string Name, string Version, string Status);
+
+    private sealed class ForwardingPluginUpdateLogger : ILoggerService<PluginUpdateOrchestrator>
+    {
+        private readonly ILoggerService<HomeDashboardViewModel> _logger;
+
+        public ForwardingPluginUpdateLogger(ILoggerService<HomeDashboardViewModel> logger)
+        {
+            _logger = logger;
+        }
+
+        public void LogCritical(string message, params object[] args) => _logger.LogCritical(message, args);
+        public void LogDebug(string message, params object[] args) => _logger.LogDebug(message, args);
+        public void LogError(string message, params object[] args) => _logger.LogError(message, args);
+        public void LogError(Exception exception, string message, params object[] args) => _logger.LogError(exception, message, args);
+        public void LogInformation(string message, params object[] args) => _logger.LogInformation(message, args);
+        public void LogWarning(string message, params object[] args) => _logger.LogWarning(message, args);
+    }
 
     private sealed class NullLoggerService : ILoggerService<HomeDashboardViewModel>
     {

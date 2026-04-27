@@ -105,6 +105,30 @@ public class HomeDashboardViewModelTests
     }
 
     [Fact]
+    public async Task CheckUpdatesCommand_ShouldRunPluginAutoUpdateAndShowRestart_WhenPrepared()
+    {
+        using var sandbox = new TestConfigSandbox();
+        var updateService = new StubPluginUpdateOrchestrator(new PluginUpdateRunResult(
+            true,
+            "已生成 1 个预安装目录",
+            "prepare-detail",
+            true,
+            DateTime.Now,
+            null,
+            null,
+            null));
+        var vm = CreateVm(pluginUpdateOrchestrator: updateService);
+
+        vm.CheckUpdatesCommand.Execute();
+        await WaitUntilAsync(() => !vm.IsBusy);
+
+        Assert.Equal(1, updateService.RunCallCount);
+        Assert.Equal(PluginUpdateTrigger.Manual, updateService.LastTrigger);
+        Assert.Equal("需要重启", vm.PendingActionTitle);
+        Assert.Contains("重启", vm.PendingActionDetail);
+    }
+
+    [Fact]
     public void Commands_ShouldInvokeSettingsNavigationAndRestart()
     {
         using var sandbox = new TestConfigSandbox();
@@ -156,7 +180,8 @@ public class HomeDashboardViewModelTests
         string siteName = "门诊一楼登记台",
         string siteRemark = "收费处旁",
         string? runtimePluginRoot = null,
-        string? stagingDirectory = null)
+        string? stagingDirectory = null,
+        IPluginUpdateOrchestrator? pluginUpdateOrchestrator = null)
     {
         var settings = new AppSettings
         {
@@ -187,7 +212,8 @@ public class HomeDashboardViewModelTests
             appService ?? new StubApplicationService(),
             Options.Create(settings),
             releaseCenterService,
-            openSettings ?? (() => { }));
+            openSettings ?? (() => { }),
+            pluginUpdateOrchestrator);
     }
 
     private sealed class DashboardReleaseCenterService : IReleaseCenterService
@@ -252,6 +278,19 @@ public class HomeDashboardViewModelTests
         public Task OnShutdownAsync() => Task.CompletedTask;
         public Task OnStartedAsync() => Task.CompletedTask;
         public void RestartApplication() => RestartCalled = true;
+    }
+
+    private sealed class StubPluginUpdateOrchestrator(PluginUpdateRunResult result) : IPluginUpdateOrchestrator
+    {
+        public int RunCallCount { get; private set; }
+        public PluginUpdateTrigger LastTrigger { get; private set; }
+
+        public Task<PluginUpdateRunResult> RunAsync(PluginUpdateTrigger trigger, CancellationToken cancellationToken = default)
+        {
+            RunCallCount++;
+            LastTrigger = trigger;
+            return Task.FromResult(result);
+        }
     }
 
     private sealed class NullLoggerService<T> : ILoggerService<T>

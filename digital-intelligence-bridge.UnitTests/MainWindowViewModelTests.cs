@@ -33,6 +33,29 @@ public class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task RunStartupPluginUpdateAsync_ShouldDelegateToHomeDashboardWithStartupTrigger()
+    {
+        var updateService = new StubPluginUpdateOrchestrator(new PluginUpdateRunResult(
+            true,
+            "插件包已缓存 0 项",
+            string.Empty,
+            false,
+            DateTime.Now,
+            null,
+            null,
+            null));
+        var vm = new MainWindowViewModel(
+            new NullLoggerService<MainWindowViewModel>(),
+            Microsoft.Extensions.Options.Options.Create(new Configuration.AppSettings()),
+            pluginUpdateOrchestrator: updateService);
+
+        await vm.RunStartupPluginUpdateAsync(delay: TimeSpan.Zero);
+
+        Assert.Equal(1, updateService.RunCallCount);
+        Assert.Equal(PluginUpdateTrigger.Startup, updateService.LastTrigger);
+    }
+
+    [Fact]
     public void NavigateCommand_ShouldOpenTodoTab_WhenNavigateToTodo()
     {
         var vm = CreateVm();
@@ -200,5 +223,17 @@ public class MainWindowViewModelTests
         public string GetApplicationName() => "DIB客户端";
         public void RestartApplication() { }
     }
-}
 
+    private sealed class StubPluginUpdateOrchestrator(PluginUpdateRunResult result) : IPluginUpdateOrchestrator
+    {
+        public int RunCallCount { get; private set; }
+        public PluginUpdateTrigger LastTrigger { get; private set; }
+
+        public Task<PluginUpdateRunResult> RunAsync(PluginUpdateTrigger trigger, CancellationToken cancellationToken = default)
+        {
+            RunCallCount++;
+            LastTrigger = trigger;
+            return Task.FromResult(result);
+        }
+    }
+}

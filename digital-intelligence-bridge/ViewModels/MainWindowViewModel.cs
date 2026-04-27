@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -99,6 +100,7 @@ public class MainWindowViewModel : ViewModelBase
     private readonly Dictionary<string, LoadedPlugin> _loadedPluginsByMenuId;
     private readonly IApplicationService? _applicationService;
     private readonly IReleaseCenterService? _releaseCenterService;
+    private readonly IPluginUpdateOrchestrator? _pluginUpdateOrchestrator;
     public ResourceCenterViewModel ResourceCenter { get; }
 
     // 集合
@@ -417,7 +419,8 @@ public class MainWindowViewModel : ViewModelBase
         IReadOnlyList<LoadedPlugin>? loadedPlugins = null,
         IApplicationService? applicationService = null,
         IReleaseCenterService? releaseCenterService = null,
-        IResourceApplicationDialogService? resourceApplicationDialogService = null)
+        IResourceApplicationDialogService? resourceApplicationDialogService = null,
+        IPluginUpdateOrchestrator? pluginUpdateOrchestrator = null)
     {
         _logger = logger;
         _settings = appSettings?.Value ?? new AppSettings();
@@ -426,6 +429,7 @@ public class MainWindowViewModel : ViewModelBase
         _loadedPluginsByMenuId = BuildLoadedPluginIndex(loadedPlugins);
         _applicationService = applicationService;
         _releaseCenterService = releaseCenterService;
+        _pluginUpdateOrchestrator = pluginUpdateOrchestrator;
 
         // 初始化命令
         AddTodoCommand = new DelegateCommand(OnAddTodo, CanAddTodo);
@@ -444,7 +448,8 @@ public class MainWindowViewModel : ViewModelBase
             _applicationService ?? new NullApplicationService(_settings),
             Options.Create(_settings),
             _releaseCenterService,
-            () => NavigateTo(MainViewType.Settings));
+            () => NavigateTo(MainViewType.Settings),
+            _pluginUpdateOrchestrator ?? CreateDefaultPluginUpdateOrchestrator());
         ResourceCenter = new ResourceCenterViewModel(
             new ForwardingLoggerService<ResourceCenterViewModel>(_logger),
             _releaseCenterService,
@@ -473,8 +478,36 @@ public class MainWindowViewModel : ViewModelBase
         InitializeHomeTab();
         UpdateMenuSelection(CurrentView);
         _ = HomeDashboard.RefreshAsync();
+        _ = RunStartupPluginUpdateAsync();
 
         _logger.LogInformation("主窗口视图模型已初始化");
+    }
+
+    public async Task RunStartupPluginUpdateAsync(TimeSpan? delay = null, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var startupDelay = delay ?? TimeSpan.FromSeconds(5);
+            if (startupDelay > TimeSpan.Zero)
+            {
+                await Task.Delay(startupDelay, cancellationToken);
+            }
+
+            for (var i = 0; i < 200 && HomeDashboard.IsBusy; i++)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
+            }
+
+            await HomeDashboard.RunPluginUpdateAsync(PluginUpdateTrigger.Startup, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // 启动静默检查被取消时无需打扰用户。
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("启动静默检查插件更新失败: {Message}", ex.Message);
+        }
     }
 
     private async Task LoadTodosFromRepositoryAsync()
@@ -919,6 +952,15 @@ public class MainWindowViewModel : ViewModelBase
     {
         var normalized = string.IsNullOrWhiteSpace(version) ? "1.0.0" : version.Trim();
         return normalized.StartsWith("v", StringComparison.OrdinalIgnoreCase) ? normalized : $"v{normalized}";
+    }
+
+    private IPluginUpdateOrchestrator? CreateDefaultPluginUpdateOrchestrator()
+    {
+        return _releaseCenterService is null
+            ? null
+            : new PluginUpdateOrchestrator(
+                _releaseCenterService,
+                new ForwardingLoggerService<PluginUpdateOrchestrator>(_logger));
     }
 
     private void InitializeSampleData()
