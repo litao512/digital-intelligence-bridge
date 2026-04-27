@@ -164,11 +164,6 @@ public sealed class PluginCenterViewModel : ViewModelBase
 
     private string ResolveRuntimePluginRoot()
     {
-        if (!string.IsNullOrWhiteSpace(_settings.ReleaseCenter.RuntimePluginRoot))
-        {
-            return _settings.ReleaseCenter.RuntimePluginRoot;
-        }
-
         return ConfigurationExtensions.GetRuntimePluginsDirectory(_settings.Plugin.PluginDirectory);
     }
 

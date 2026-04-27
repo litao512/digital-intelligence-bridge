@@ -31,6 +31,28 @@ public class PluginCenterViewModelTests
     }
 
     [Fact]
+    public async Task RefreshAsync_ShouldUseClientPluginDirectory_WhenReleaseCenterRuntimeRootOverridesEmptyDirectory()
+    {
+        using var sandbox = new TestConfigSandbox();
+        CreatePluginManifest(Path.Combine(sandbox.RootDirectory, "client-plugins"), "patient-registration", "就诊登记", "1.0.3");
+        Directory.CreateDirectory(Path.Combine(sandbox.RootDirectory, "empty-runtime"));
+        var settings = CreateSettings(sandbox);
+        settings.Plugin.PluginDirectory = Path.Combine(sandbox.RootDirectory, "client-plugins");
+        settings.ReleaseCenter.RuntimePluginRoot = Path.Combine(sandbox.RootDirectory, "empty-runtime");
+        var vm = new PluginCenterViewModel(
+            new NullLoggerService<PluginCenterViewModel>(),
+            Options.Create(settings),
+            null);
+
+        await vm.RefreshAsync();
+
+        var item = Assert.Single(vm.PluginItems);
+        Assert.Equal("patient-registration", item.PluginId);
+        Assert.Equal("就诊登记", item.Name);
+        Assert.Equal("1.0.3", item.CurrentVersion);
+    }
+
+    [Fact]
     public async Task RefreshAsync_ShouldMarkPluginUpdatable_WhenAuthorizedVersionIsNewer()
     {
         using var sandbox = new TestConfigSandbox();
@@ -156,6 +178,10 @@ public class PluginCenterViewModelTests
     {
         return new AppSettings
         {
+            Plugin = new PluginConfig
+            {
+                PluginDirectory = Path.Combine(sandbox.RootDirectory, "runtime")
+            },
             ReleaseCenter = new ReleaseCenterConfig
             {
                 RuntimePluginRoot = Path.Combine(sandbox.RootDirectory, "runtime"),
