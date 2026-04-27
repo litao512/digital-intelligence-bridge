@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\digital-intelligence-bridge\digital-intelligence-bridge.csproj" />
+    <ProjectReference Include="..\DibClient.Updater\DibClient.Updater.csproj" />
     <ProjectReference Include="..\DigitalIntelligenceBridge.Plugin.Abstractions\DigitalIntelligenceBridge.Plugin.Abstractions.csproj" />
     <ProjectReference Include="..\DigitalIntelligenceBridge.Plugin.Host\DigitalIntelligenceBridge.Plugin.Host.csproj" />
     <ProjectReference Include="..\plugins-src\MedicalDrugImport.Plugin\MedicalDrugImport.Plugin.csproj" />

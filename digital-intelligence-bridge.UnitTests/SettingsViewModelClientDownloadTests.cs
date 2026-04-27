@@ -12,17 +12,27 @@ public class SettingsViewModelClientDownloadTests
     [Fact]
     public async Task DownloadClientPackageCommand_ShouldPopulateClientDownloadSummary_AndRequireExit_WhenServiceReturnsSuccess()
     {
-        var vm = CreateVm(new StubReleaseCenterService());
+        var packagePath = Path.Combine(Path.GetTempPath(), "dib-settings-download-tests", Guid.NewGuid().ToString("N"), "dib-win-x64-portable-1.0.1.zip");
+        Directory.CreateDirectory(Path.GetDirectoryName(packagePath)!);
+        File.WriteAllText(packagePath, "zip");
+        var upgradeService = new RecordingClientUpgradeService();
+        var vm = CreateVm(new StubReleaseCenterService(packagePath), upgradeService);
 
         vm.DownloadClientPackageCommand.Execute();
         await WaitForDownloadAsync(vm);
         await WaitForConditionAsync(() => vm.ClientPackageDownloadDetail.Contains("进度："));
 
         Assert.Equal("客户端更新包已缓存：1.0.1", vm.ClientPackageDownloadSummary);
-        Assert.Equal("客户端升级包已就绪，请退出 DIB 后执行升级。", vm.ClientUpgradeNotice);
+        Assert.Equal("客户端升级包已就绪，可以立即升级。", vm.ClientUpgradeNotice);
+        Assert.True(vm.StartClientUpgradeCommand.CanExecute());
         Assert.Contains("进度：", vm.ClientPackageDownloadDetail);
         Assert.Contains("速度：", vm.ClientPackageDownloadDetail);
         Assert.NotNull(vm.LastClientPackageDownloadAt);
+
+        vm.StartClientUpgradeCommand.Execute();
+
+        Assert.Equal(packagePath, upgradeService.LastPackagePath);
+        Assert.Equal("客户端升级已启动", vm.ClientUpgradeNotice);
     }
 
     [Fact]
@@ -72,7 +82,7 @@ public class SettingsViewModelClientDownloadTests
         }
     }
 
-    private static SettingsViewModel CreateVm(IReleaseCenterService releaseCenterService)
+    private static SettingsViewModel CreateVm(IReleaseCenterService releaseCenterService, IClientUpgradeService? clientUpgradeService = null)
     {
         var settings = new AppSettings
         {
@@ -88,11 +98,30 @@ public class SettingsViewModelClientDownloadTests
             new NullLoggerService<SettingsViewModel>(),
             Options.Create(settings),
             new StubSupabaseService(),
-            releaseCenterService);
+            releaseCenterService,
+            clientUpgradeService: clientUpgradeService);
+    }
+
+    private sealed class RecordingClientUpgradeService : IClientUpgradeService
+    {
+        public string? LastPackagePath { get; private set; }
+
+        public ClientUpgradeStartResult StartUpgrade(string packagePath)
+        {
+            LastPackagePath = packagePath;
+            return new ClientUpgradeStartResult(true, "客户端升级已启动", "detail");
+        }
     }
 
     private sealed class StubReleaseCenterService : IReleaseCenterService
     {
+        private readonly string _packagePath;
+
+        public StubReleaseCenterService(string? packagePath = null)
+        {
+            _packagePath = packagePath ?? @"C:\cache\dib-win-x64-portable-1.0.1.zip";
+        }
+
         public bool IsConfigured => true;
         public Task<ReleaseCenterCheckResult> CheckForUpdatesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterCheckResult(true, "ok", "client", "plugin", "detail", "site", "authorized", "authorized-detail"));
         public Task<ResourceDiscoverySnapshot> DiscoverResourcesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ResourceDiscoverySnapshot());
@@ -103,7 +132,7 @@ public class SettingsViewModelClientDownloadTests
             progress?.Report(new ReleaseCenterDownloadProgress("downloading", "正在下载客户端更新包", 50, 100, 2048, TimeSpan.FromSeconds(1)));
             progress?.Report(new ReleaseCenterDownloadProgress("verifying", "正在校验客户端更新包", 100, 100, 0, TimeSpan.Zero));
             progress?.Report(new ReleaseCenterDownloadProgress("completed", "客户端下载完成", 100, 100, 0, TimeSpan.Zero));
-            return Task.FromResult(new ReleaseCenterClientDownloadResult(true, "客户端更新包已缓存：1.0.1", "detail", "1.0.1", "C:\\cache", "C:\\cache\\dib-win-x64-portable-1.0.1.zip"));
+            return Task.FromResult(new ReleaseCenterClientDownloadResult(true, "客户端更新包已缓存：1.0.1", "detail", "1.0.1", Path.GetDirectoryName(_packagePath) ?? "C:\\cache", _packagePath));
         }
         public Task<ReleaseCenterPluginDownloadResult> DownloadAvailablePluginPackagesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterPluginDownloadResult(true, "插件包已缓存 1 项", "detail", 1, "C:\\cache"));
         public Task<ReleaseCenterPluginPrepareResult> PrepareCachedPluginPackagesAsync(CancellationToken cancellationToken = default) => Task.FromResult(new ReleaseCenterPluginPrepareResult(true, "已生成 1 个预安装目录", "detail", 1, "C:\\staging"));

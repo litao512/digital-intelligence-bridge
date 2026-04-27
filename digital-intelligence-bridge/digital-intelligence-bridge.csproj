@@ -14,6 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\DibClient.Updater\DibClient.Updater.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\DigitalIntelligenceBridge.Plugin.Abstractions\DigitalIntelligenceBridge.Plugin.Abstractions.csproj" />
     <ProjectReference Include="..\DigitalIntelligenceBridge.Plugin.Host\DigitalIntelligenceBridge.Plugin.Host.csproj" />
   </ItemGroup>
@@ -62,4 +63,19 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <Target Name="CopyClientUpdaterToOutput" AfterTargets="Build">
+    <ItemGroup>
+      <ClientUpdaterOutputFiles Include="..\DibClient.Updater\bin\$(Configuration)\net10.0\DibClient.Updater.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ClientUpdaterOutputFiles)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="CopyClientUpdaterToPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <ClientUpdaterPublishFiles Include="..\DibClient.Updater\bin\$(Configuration)\net10.0\$(RuntimeIdentifier)\DibClient.Updater.*" />
+      <ClientUpdaterPublishFiles Include="..\DibClient.Updater\bin\$(Configuration)\net10.0\DibClient.Updater.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ClientUpdaterPublishFiles)" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

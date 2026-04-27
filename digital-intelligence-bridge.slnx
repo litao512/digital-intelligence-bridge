@@ -4,6 +4,7 @@
     <Project Path="plugins-src/PatientRegistration.Plugin/PatientRegistration.Plugin.csproj" />
   </Folder>
   <Project Path="digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj" />
+  <Project Path="DibClient.Updater/DibClient.Updater.csproj" />
   <Project Path="digital-intelligence-bridge/digital-intelligence-bridge.csproj" />
   <Project Path="DigitalIntelligenceBridge.Plugin.Abstractions/DigitalIntelligenceBridge.Plugin.Abstractions.csproj" />
   <Project Path="DigitalIntelligenceBridge.Plugin.Host/DigitalIntelligenceBridge.Plugin.Host.csproj" />

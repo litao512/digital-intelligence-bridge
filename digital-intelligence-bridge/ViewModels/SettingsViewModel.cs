@@ -24,6 +24,7 @@ public class SettingsViewModel : ViewModelBase
     private readonly AppSettings _settings;
     private readonly ISupabaseService? _supabaseService;
     private readonly IReleaseCenterService? _releaseCenterService;
+    private readonly IClientUpgradeService? _clientUpgradeService;
     private bool _isDarkMode;
     private bool _startMinimizedToTray;
     private bool _startWithSystem;
@@ -51,6 +52,7 @@ public class SettingsViewModel : ViewModelBase
     private bool _isClientPackageDownloadRunning;
     private CancellationTokenSource? _clientPackageDownloadCts;
     private string _clientUpgradeNotice = string.Empty;
+    private string _clientUpgradePackagePath = string.Empty;
     private string _pluginDownloadSummary = "插件包下载：尚未执行";
     private string _pluginDownloadDetail = string.Empty;
     private DateTime? _lastPluginDownloadAt;
@@ -182,6 +184,7 @@ public class SettingsViewModel : ViewModelBase
                 RaisePropertyChanged(nameof(DownloadClientPackageButtonText));
                 DownloadClientPackageCommand.RaiseCanExecuteChanged();
                 CancelClientPackageDownloadCommand.RaiseCanExecuteChanged();
+                StartClientUpgradeCommand.RaiseCanExecuteChanged();
             }
         }
     }
@@ -242,6 +245,7 @@ public class SettingsViewModel : ViewModelBase
     public string RunSelfCheckButtonText => IsSelfCheckRunning ? "执行中..." : "运行自检";
     public string CheckUpdateButtonText => IsUpdateCheckRunning ? "检查中..." : "检查更新";
     public string DownloadClientPackageButtonText => IsClientPackageDownloadRunning ? "下载中..." : "下载客户端更新包";
+    public string StartClientUpgradeButtonText => "立即升级";
     public string CancelClientPackageDownloadButtonText => IsClientPackageDownloadRunning ? "停止下载客户端包" : "停止下载";
     public string DownloadPluginPackagesButtonText => IsPluginDownloadRunning ? "下载中..." : "下载插件包";
     public string CancelPluginPackagesDownloadButtonText => IsPluginDownloadRunning ? "停止下载插件包" : "停止下载";
@@ -259,6 +263,7 @@ public class SettingsViewModel : ViewModelBase
     public DelegateCommand CheckUpdateCommand { get; }
     public DelegateCommand DownloadClientPackageCommand { get; }
     public DelegateCommand CancelClientPackageDownloadCommand { get; }
+    public DelegateCommand StartClientUpgradeCommand { get; }
     public DelegateCommand DownloadPluginPackagesCommand { get; }
     public DelegateCommand CancelPluginPackagesDownloadCommand { get; }
     public DelegateCommand PreparePluginPackagesCommand { get; }
@@ -269,7 +274,7 @@ public class SettingsViewModel : ViewModelBase
     public DelegateCommand RunSelfCheckCommand { get; }
     public DelegateCommand ExportSelfCheckReportCommand { get; }
 
-    public SettingsViewModel(IApplicationService appService, ITrayService trayService, ILoggerService<SettingsViewModel> logger, IOptions<AppSettings> settings, ISupabaseService? supabaseService = null, IReleaseCenterService? releaseCenterService = null, ITrayIconAvailabilityService? trayIconAvailabilityService = null)
+    public SettingsViewModel(IApplicationService appService, ITrayService trayService, ILoggerService<SettingsViewModel> logger, IOptions<AppSettings> settings, ISupabaseService? supabaseService = null, IReleaseCenterService? releaseCenterService = null, ITrayIconAvailabilityService? trayIconAvailabilityService = null, IClientUpgradeService? clientUpgradeService = null)
     {
         _appService = appService;
         _trayService = trayService;
@@ -278,6 +283,7 @@ public class SettingsViewModel : ViewModelBase
         _settings = settings.Value;
         _supabaseService = supabaseService;
         _releaseCenterService = releaseCenterService;
+        _clientUpgradeService = clientUpgradeService;
         LoadSettings();
         SaveSettingsCommand = new DelegateCommand(SaveSettings);
         SaveSiteProfileCommand = new DelegateCommand(SaveSiteProfile, () => !string.IsNullOrWhiteSpace(SiteOrganizationInput) && !string.IsNullOrWhiteSpace(SiteNameInput));
@@ -289,6 +295,7 @@ public class SettingsViewModel : ViewModelBase
         CheckUpdateCommand = new DelegateCommand(() => _ = CheckUpdateAsync(), () => !IsUpdateCheckRunning);
         DownloadClientPackageCommand = new DelegateCommand(() => _ = DownloadClientPackageAsync(), () => !IsClientPackageDownloadRunning);
         CancelClientPackageDownloadCommand = new DelegateCommand(CancelClientPackageDownload, () => IsClientPackageDownloadRunning);
+        StartClientUpgradeCommand = new DelegateCommand(StartClientUpgrade, CanStartClientUpgrade);
         DownloadPluginPackagesCommand = new DelegateCommand(() => _ = DownloadPluginPackagesAsync(), () => !IsPluginDownloadRunning);
         CancelPluginPackagesDownloadCommand = new DelegateCommand(CancelPluginPackagesDownload, () => IsPluginDownloadRunning);
         PreparePluginPackagesCommand = new DelegateCommand(() => _ = PreparePluginPackagesAsync(), () => !IsPluginPrepareRunning);
@@ -572,7 +579,9 @@ public class SettingsViewModel : ViewModelBase
             LastClientPackageDownloadAt = DateTime.Now;
             if (result.IsSuccess && !string.IsNullOrWhiteSpace(result.PackagePath))
             {
-                ClientUpgradeNotice = "客户端升级包已就绪，请退出 DIB 后执行升级。";
+                _clientUpgradePackagePath = result.PackagePath;
+                ClientUpgradeNotice = "客户端升级包已就绪，可以立即升级。";
+                StartClientUpgradeCommand.RaiseCanExecuteChanged();
             }
         }
         catch (OperationCanceledException)
@@ -580,6 +589,8 @@ public class SettingsViewModel : ViewModelBase
             ClientPackageDownloadSummary = "客户端下载已取消";
             ClientPackageDownloadDetail = "已取消客户端更新包下载。";
             ClientUpgradeNotice = string.Empty;
+            _clientUpgradePackagePath = string.Empty;
+            StartClientUpgradeCommand.RaiseCanExecuteChanged();
         }
         catch (Exception ex)
         {
@@ -593,6 +604,29 @@ public class SettingsViewModel : ViewModelBase
             _clientPackageDownloadCts = null;
             IsClientPackageDownloadRunning = false;
         }
+    }
+
+    private bool CanStartClientUpgrade()
+    {
+        return !IsClientPackageDownloadRunning
+            && _clientUpgradeService is not null
+            && !string.IsNullOrWhiteSpace(_clientUpgradePackagePath)
+            && File.Exists(_clientUpgradePackagePath);
+    }
+
+    private void StartClientUpgrade()
+    {
+        if (!CanStartClientUpgrade())
+        {
+            ClientUpgradeNotice = "客户端升级不可用，请先下载客户端更新包。";
+            return;
+        }
+
+        var result = _clientUpgradeService!.StartUpgrade(_clientUpgradePackagePath);
+        ClientUpgradeNotice = result.Summary;
+        ClientPackageDownloadDetail = string.IsNullOrWhiteSpace(result.Detail)
+            ? ClientPackageDownloadDetail
+            : ClientPackageDownloadDetail + Environment.NewLine + result.Detail;
     }
     private async Task DownloadPluginPackagesAsync()
     {

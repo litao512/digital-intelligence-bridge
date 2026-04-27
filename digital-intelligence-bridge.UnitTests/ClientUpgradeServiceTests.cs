@@ -1,0 +1,72 @@
+using DigitalIntelligenceBridge.Services;
+using Xunit;
+
+namespace DigitalIntelligenceBridge.UnitTests;
+
+public class ClientUpgradeServiceTests
+{
+    [Fact]
+    public void BuildStartInfo_ShouldUseTemporaryUpdaterCopy_AndPassUpgradeArguments()
+    {
+        var testRoot = Path.Combine(Path.GetTempPath(), "dib-client-upgrade-tests", Guid.NewGuid().ToString("N"));
+        var appDir = Path.Combine(testRoot, "app");
+        var cacheDir = Path.Combine(testRoot, "cache");
+        Directory.CreateDirectory(appDir);
+        Directory.CreateDirectory(cacheDir);
+        var appExePath = Path.Combine(appDir, "digital-intelligence-bridge.exe");
+        var updaterExePath = Path.Combine(appDir, "DibClient.Updater.exe");
+        var packagePath = Path.Combine(cacheDir, "dib-win-x64-portable-1.0.4.zip");
+        File.WriteAllText(appExePath, "app");
+        File.WriteAllText(updaterExePath, "updater");
+        File.WriteAllText(Path.Combine(appDir, "DibClient.Updater.dll"), "updater dll");
+        File.WriteAllText(packagePath, "zip");
+
+        var launcher = new RecordingClientUpgradeProcessLauncher();
+        var appExit = new RecordingClientUpgradeApplicationExit();
+        var service = new ClientUpgradeService(
+            launcher,
+            appExit,
+            () => 1234,
+            () => appExePath,
+            () => appDir,
+            () => Path.Combine(testRoot, "updater-runs"));
+
+        var result = service.StartUpgrade(packagePath);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(appExit.WasCalled);
+        Assert.NotNull(launcher.LastRequest);
+        Assert.StartsWith(Path.Combine(testRoot, "updater-runs"), launcher.LastRequest!.WorkingDirectory, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("--package", launcher.LastRequest.Arguments);
+        Assert.Contains(packagePath, launcher.LastRequest.Arguments);
+        Assert.Contains("--target-dir", launcher.LastRequest.Arguments);
+        Assert.Contains(appDir, launcher.LastRequest.Arguments);
+        Assert.Contains("--exe", launcher.LastRequest.Arguments);
+        Assert.Contains(appExePath, launcher.LastRequest.Arguments);
+        Assert.Contains("--process-id", launcher.LastRequest.Arguments);
+        Assert.Contains("1234", launcher.LastRequest.Arguments);
+        Assert.NotEqual(updaterExePath, launcher.LastRequest.FileName);
+        Assert.True(File.Exists(launcher.LastRequest.FileName));
+        Assert.True(File.Exists(Path.Combine(launcher.LastRequest.WorkingDirectory, "DibClient.Updater.dll")));
+    }
+
+    private sealed class RecordingClientUpgradeProcessLauncher : IClientUpgradeProcessLauncher
+    {
+        public ClientUpgradeProcessRequest? LastRequest { get; private set; }
+
+        public void Launch(ClientUpgradeProcessRequest request)
+        {
+            LastRequest = request;
+        }
+    }
+
+    private sealed class RecordingClientUpgradeApplicationExit : IClientUpgradeApplicationExit
+    {
+        public bool WasCalled { get; private set; }
+
+        public void ExitApplication()
+        {
+            WasCalled = true;
+        }
+    }
+}

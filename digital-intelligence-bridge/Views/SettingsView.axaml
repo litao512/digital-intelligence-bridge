@@ -201,6 +201,9 @@
                         <Button Content="{Binding DownloadClientPackageButtonText}"
                                Command="{Binding DownloadClientPackageCommand}"
                                Classes="Secondary"/>
+                        <Button Content="{Binding StartClientUpgradeButtonText}"
+                               Command="{Binding StartClientUpgradeCommand}"
+                               Classes="Primary"/>
                         <Button Content="{Binding CancelClientPackageDownloadButtonText}"
                                Command="{Binding CancelClientPackageDownloadCommand}"
                                Classes="Secondary"/>

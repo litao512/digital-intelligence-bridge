@@ -27,6 +27,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAuthorizedResourceCacheService>(authorizedResourceCacheService);
         services.AddSingleton<PluginAuthorizedResourceCacheService>(authorizedResourceCacheService);
         services.AddSingleton<ITrayService, TrayService>();
+        services.AddSingleton<IClientUpgradeService, ClientUpgradeService>();
         services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromMinutes(10) });
         services.AddSingleton<ISupabaseService, SupabaseService>();
         services.AddSingleton<IReleaseCenterService, ReleaseCenterService>();
