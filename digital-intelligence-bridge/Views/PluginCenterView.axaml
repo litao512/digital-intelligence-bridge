@@ -34,11 +34,11 @@
         </Grid>
 
         <Grid Grid.Row="1"
-              ColumnDefinitions="*,*,*"
+              ColumnDefinitions="*,*,*,*"
               ColumnSpacing="12">
             <Border Classes="Card" Padding="14">
                 <StackPanel Spacing="4">
-                    <TextBlock Text="已生效"
+                    <TextBlock Text="已最新"
                                Foreground="{DynamicResource TextMutedBrush}"/>
                     <TextBlock Text="{Binding InstalledCountText}"
                                FontSize="20"
@@ -47,6 +47,15 @@
             </Border>
             <Border Grid.Column="1" Classes="Card" Padding="14">
                 <StackPanel Spacing="4">
+                    <TextBlock Text="可更新"
+                               Foreground="{DynamicResource TextMutedBrush}"/>
+                    <TextBlock Text="{Binding UpdatableCountText}"
+                               FontSize="20"
+                               FontWeight="SemiBold"/>
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="2" Classes="Card" Padding="14">
+                <StackPanel Spacing="4">
                     <TextBlock Text="待重启"
                                Foreground="{DynamicResource TextMutedBrush}"/>
                     <TextBlock Text="{Binding PendingRestartCountText}"
@@ -54,7 +63,7 @@
                                FontWeight="SemiBold"/>
                 </StackPanel>
             </Border>
-            <Border Grid.Column="2" Classes="Card" Padding="14">
+            <Border Grid.Column="3" Classes="Card" Padding="14">
                 <StackPanel Spacing="4">
                     <TextBlock Text="异常"
                                Foreground="{DynamicResource TextMutedBrush}"/>
@@ -70,12 +79,14 @@
                 Padding="14">
             <Grid RowDefinitions="Auto,*"
                   RowSpacing="8">
-                <Grid ColumnDefinitions="2*,2*,*,*"
+                <Grid ColumnDefinitions="2*,2*,*,*,*,2*"
                       ColumnSpacing="12">
                     <TextBlock Text="插件名称" FontWeight="SemiBold"/>
                     <TextBlock Grid.Column="1" Text="插件 ID" FontWeight="SemiBold"/>
-                    <TextBlock Grid.Column="2" Text="版本" FontWeight="SemiBold"/>
-                    <TextBlock Grid.Column="3" Text="状态" FontWeight="SemiBold"/>
+                    <TextBlock Grid.Column="2" Text="当前版本" FontWeight="SemiBold"/>
+                    <TextBlock Grid.Column="3" Text="最新版本" FontWeight="SemiBold"/>
+                    <TextBlock Grid.Column="4" Text="状态" FontWeight="SemiBold"/>
+                    <TextBlock Grid.Column="5" Text="详情" FontWeight="SemiBold"/>
                 </Grid>
 
                 <ItemsControl Grid.Row="1"
@@ -85,15 +96,20 @@
                             <Border BorderBrush="{DynamicResource BorderBrush}"
                                     BorderThickness="0,1,0,0"
                                     Padding="0,10">
-                                <Grid ColumnDefinitions="2*,2*,*,*"
+                                <Grid ColumnDefinitions="2*,2*,*,*,*,2*"
                                       ColumnSpacing="12">
                                     <TextBlock Text="{Binding Name}" TextWrapping="Wrap"/>
                                     <TextBlock Grid.Column="1"
                                                Text="{Binding PluginId}"
                                                Foreground="{DynamicResource TextMutedBrush}"
                                                TextWrapping="Wrap"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding Version}"/>
-                                    <TextBlock Grid.Column="3" Text="{Binding Status}"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding CurrentVersion}"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding LatestVersion}"/>
+                                    <TextBlock Grid.Column="4" Text="{Binding Status}"/>
+                                    <TextBlock Grid.Column="5"
+                                               Text="{Binding Detail}"
+                                               Foreground="{DynamicResource TextMutedBrush}"
+                                               TextWrapping="Wrap"/>
                                 </Grid>
                             </Border>
                         </DataTemplate>
