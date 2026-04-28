@@ -109,6 +109,43 @@ public class ReleaseCenterPrepareInstallTests
     }
 
     [Fact]
+    public async Task PreparePluginPackageAsync_ShouldUseNewStagingDirectory_WhenExistingDirectoryIsLocked()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"release-stage-{Guid.NewGuid():N}");
+        var cache = Path.Combine(root, "cache");
+        var staging = Path.Combine(root, "staging");
+        Directory.CreateDirectory(cache);
+        var packagePath = Path.Combine(cache, "patient-registration-1.0.2.zip");
+        CreatePluginZip(packagePath, "patient-registration", "PatientRegistration.Plugin.dll");
+        var existingDirectory = Path.Combine(staging, "patient-registration-1.0.2");
+        Directory.CreateDirectory(existingDirectory);
+        var lockedFilePath = Path.Combine(existingDirectory, "libSkiaSharp.dylib");
+        await File.WriteAllTextAsync(lockedFilePath, "locked");
+
+        try
+        {
+            await using var lockedFile = new FileStream(lockedFilePath, FileMode.Open, FileAccess.Read, FileShare.None);
+            var service = CreateService(cache, staging);
+
+            var result = await service.PreparePluginPackageAsync("patient-registration", "1.0.2");
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(1, result.PreparedCount);
+            Assert.True(File.Exists(lockedFilePath));
+            var pluginJsonFiles = Directory.GetFiles(staging, "plugin.json", SearchOption.AllDirectories);
+            var pluginJsonFile = Assert.Single(pluginJsonFiles);
+            Assert.NotEqual(existingDirectory, Path.GetDirectoryName(pluginJsonFile));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task MarkPluginForUninstallAsync_ShouldCreateUninstallMarker()
     {
         var root = Path.Combine(Path.GetTempPath(), $"release-stage-{Guid.NewGuid():N}");

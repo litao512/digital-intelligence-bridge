@@ -1117,11 +1117,7 @@ public sealed class ReleaseCenterService : IReleaseCenterService
     private static string PreparePluginZip(string zipFile, string stagingDirectory)
     {
         var packageName = Path.GetFileNameWithoutExtension(zipFile);
-        var extractDirectory = Path.Combine(stagingDirectory, packageName);
-        if (Directory.Exists(extractDirectory))
-        {
-            Directory.Delete(extractDirectory, recursive: true);
-        }
+        var extractDirectory = ResolvePluginExtractDirectory(stagingDirectory, packageName);
 
         ZipFile.ExtractToDirectory(zipFile, extractDirectory);
         var pluginJsonPath = Directory.GetFiles(extractDirectory, "plugin.json", SearchOption.AllDirectories).FirstOrDefault();
@@ -1132,6 +1128,16 @@ public sealed class ReleaseCenterService : IReleaseCenterService
 
         var pluginId = ReadPluginId(pluginJsonPath);
         return $"{pluginId}: {extractDirectory}";
+    }
+    private static string ResolvePluginExtractDirectory(string stagingDirectory, string packageName)
+    {
+        var extractDirectory = Path.Combine(stagingDirectory, packageName);
+        if (!Directory.Exists(extractDirectory))
+        {
+            return extractDirectory;
+        }
+
+        return Path.Combine(stagingDirectory, $"{packageName}-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}");
     }
     private static void CopyDirectory(string sourceDirectory, string targetDirectory) { Directory.CreateDirectory(targetDirectory); foreach (var file in Directory.GetFiles(sourceDirectory)) File.Copy(file, Path.Combine(targetDirectory, Path.GetFileName(file)), overwrite: true); foreach (var directory in Directory.GetDirectories(sourceDirectory)) CopyDirectory(directory, Path.Combine(targetDirectory, Path.GetFileName(directory))); }
     private static string[] NormalizeStagedPluginDirectories(string[] stagedDirectories)
