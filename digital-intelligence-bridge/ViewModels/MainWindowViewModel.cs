@@ -121,6 +121,7 @@ public class MainWindowViewModel : ViewModelBase
     private readonly IApplicationService? _applicationService;
     private readonly IReleaseCenterService? _releaseCenterService;
     private readonly IPluginUpdateOrchestrator? _pluginUpdateOrchestrator;
+    private readonly ITrayService? _trayService;
     public ResourceCenterViewModel ResourceCenter { get; }
 
     // 集合
@@ -450,7 +451,8 @@ public class MainWindowViewModel : ViewModelBase
         IApplicationService? applicationService = null,
         IReleaseCenterService? releaseCenterService = null,
         IResourceApplicationDialogService? resourceApplicationDialogService = null,
-        IPluginUpdateOrchestrator? pluginUpdateOrchestrator = null)
+        IPluginUpdateOrchestrator? pluginUpdateOrchestrator = null,
+        ITrayService? trayService = null)
     {
         _logger = logger;
         _settings = appSettings?.Value ?? new AppSettings();
@@ -460,6 +462,7 @@ public class MainWindowViewModel : ViewModelBase
         _applicationService = applicationService;
         _releaseCenterService = releaseCenterService;
         _pluginUpdateOrchestrator = pluginUpdateOrchestrator;
+        _trayService = trayService;
 
         // 初始化命令
         AddTodoCommand = new DelegateCommand(OnAddTodo, CanAddTodo);
@@ -488,7 +491,8 @@ public class MainWindowViewModel : ViewModelBase
             new ForwardingLoggerService<PluginCenterViewModel>(_logger),
             Options.Create(_settings),
             _pluginUpdateOrchestrator ?? CreateDefaultPluginUpdateOrchestrator(),
-            _applicationService ?? new NullApplicationService(_settings));
+            _applicationService ?? new NullApplicationService(_settings),
+            _trayService);
 
         // 初始化筛选命令
         ClearFilterCommand = new DelegateCommand(ClearFilter);

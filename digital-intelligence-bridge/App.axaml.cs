@@ -76,7 +76,8 @@ public partial class App : PrismApplication
             runtimePlugins,
             Container.Resolve<IApplicationService>(),
             releaseCenterService,
-            Container.Resolve<IResourceApplicationDialogService>());
+            Container.Resolve<IResourceApplicationDialogService>(),
+            trayService: Container.Resolve<ITrayService>());
         return _mainWindow;
     }
 

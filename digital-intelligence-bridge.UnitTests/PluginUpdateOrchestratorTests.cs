@@ -111,15 +111,74 @@ public class PluginUpdateOrchestratorTests
         Assert.Equal(0, releaseCenter.PrepareCallCount);
     }
 
+    [Fact]
+    public async Task CheckAsync_ShouldOnlyCheckUpdates()
+    {
+        var releaseCenter = new StubReleaseCenterService();
+        var orchestrator = new PluginUpdateOrchestrator(
+            releaseCenter,
+            new NullLoggerService<PluginUpdateOrchestrator>());
+
+        var result = await orchestrator.CheckAsync(PluginUpdateTrigger.Manual);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, releaseCenter.CheckCallCount);
+        Assert.Equal(0, releaseCenter.DownloadCallCount);
+        Assert.Equal(0, releaseCenter.PrepareCallCount);
+    }
+
+    [Fact]
+    public async Task InstallOrUpdateAsync_ShouldDownloadAndPrepareRequestedPlugin()
+    {
+        var releaseCenter = new StubReleaseCenterService
+        {
+            DownloadResult = new ReleaseCenterPluginDownloadResult(true, "插件包已缓存 1 项", "download-detail", 1, "cache"),
+            PrepareResult = new ReleaseCenterPluginPrepareResult(true, "已生成 1 个预安装目录", "prepare-detail", 1, "staging")
+        };
+        var orchestrator = new PluginUpdateOrchestrator(
+            releaseCenter,
+            new NullLoggerService<PluginUpdateOrchestrator>());
+
+        var result = await orchestrator.InstallOrUpdateAsync("patient-registration", "1.0.3");
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.RestartRequired);
+        Assert.Equal("patient-registration", releaseCenter.DownloadPluginId);
+        Assert.Equal("1.0.3", releaseCenter.DownloadVersion);
+        Assert.Equal("patient-registration", releaseCenter.PreparePluginId);
+        Assert.Equal("1.0.3", releaseCenter.PrepareVersion);
+    }
+
+    [Fact]
+    public async Task UninstallAsync_ShouldMarkRequestedPluginForUninstall()
+    {
+        var releaseCenter = new StubReleaseCenterService();
+        var orchestrator = new PluginUpdateOrchestrator(
+            releaseCenter,
+            new NullLoggerService<PluginUpdateOrchestrator>());
+
+        var result = await orchestrator.UninstallAsync("patient-registration");
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.RestartRequired);
+        Assert.Equal("patient-registration", releaseCenter.UninstallPluginId);
+    }
+
     private sealed class StubReleaseCenterService : IReleaseCenterService
     {
         public bool IsConfigured { get; set; } = true;
         public int CheckCallCount { get; private set; }
         public int DownloadCallCount { get; private set; }
         public int PrepareCallCount { get; private set; }
+        public string DownloadPluginId { get; private set; } = string.Empty;
+        public string DownloadVersion { get; private set; } = string.Empty;
+        public string PreparePluginId { get; private set; } = string.Empty;
+        public string PrepareVersion { get; private set; } = string.Empty;
+        public string UninstallPluginId { get; private set; } = string.Empty;
         public ReleaseCenterCheckResult CheckResult { get; set; } = new(true, "ok", "client", "plugin", "detail", "site", "authorized", "authorized-detail");
         public ReleaseCenterPluginDownloadResult DownloadResult { get; set; } = new(true, "插件包已缓存 0 项", string.Empty, 0, "cache");
         public ReleaseCenterPluginPrepareResult PrepareResult { get; set; } = new(true, "已生成 0 个预安装目录", string.Empty, 0, "staging");
+        public ReleaseCenterPluginUninstallResult UninstallResult { get; set; } = new(true, "插件已标记为待卸载", string.Empty, "patient-registration", "staging");
 
         public Task<ReleaseCenterCheckResult> CheckForUpdatesAsync(CancellationToken cancellationToken = default)
         {
@@ -133,10 +192,32 @@ public class PluginUpdateOrchestratorTests
             return Task.FromResult(DownloadResult);
         }
 
+        public Task<ReleaseCenterPluginDownloadResult> DownloadPluginPackageAsync(string pluginId, string? version = null, IProgress<ReleaseCenterDownloadProgress>? progress = null, CancellationToken cancellationToken = default)
+        {
+            DownloadCallCount++;
+            DownloadPluginId = pluginId;
+            DownloadVersion = version ?? string.Empty;
+            return Task.FromResult(DownloadResult);
+        }
+
         public Task<ReleaseCenterPluginPrepareResult> PrepareCachedPluginPackagesAsync(CancellationToken cancellationToken = default)
         {
             PrepareCallCount++;
             return Task.FromResult(PrepareResult);
+        }
+
+        public Task<ReleaseCenterPluginPrepareResult> PreparePluginPackageAsync(string pluginId, string? version = null, CancellationToken cancellationToken = default)
+        {
+            PrepareCallCount++;
+            PreparePluginId = pluginId;
+            PrepareVersion = version ?? string.Empty;
+            return Task.FromResult(PrepareResult);
+        }
+
+        public Task<ReleaseCenterPluginUninstallResult> MarkPluginForUninstallAsync(string pluginId, CancellationToken cancellationToken = default)
+        {
+            UninstallPluginId = pluginId;
+            return Task.FromResult(UninstallResult);
         }
 
         public Task<ResourceDiscoverySnapshot> DiscoverResourcesAsync(CancellationToken cancellationToken = default)

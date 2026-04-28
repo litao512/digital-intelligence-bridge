@@ -93,6 +93,92 @@ public class ReleaseCenterActivatePreparedTests
         Assert.True(Directory.Exists(backupRoot));
     }
 
+    [Fact]
+    public async Task ActivatePreparedPluginPackagesAsync_ShouldRemoveRuntimePlugin_WhenUninstallMarkerExists()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"release-activate-{Guid.NewGuid():N}");
+        var staging = Path.Combine(root, "staging");
+        var runtime = Path.Combine(root, "runtime-plugins");
+        var backup = Path.Combine(root, "backup");
+        Directory.CreateDirectory(staging);
+        Directory.CreateDirectory(runtime);
+        Directory.CreateDirectory(backup);
+
+        var uninstallDir = Path.Combine(staging, "uninstall-patient-registration");
+        Directory.CreateDirectory(uninstallDir);
+        await File.WriteAllTextAsync(Path.Combine(uninstallDir, "uninstall.json"), """
+{
+  "pluginId": "patient-registration",
+  "requestedAt": "2026-04-28T00:00:00Z"
+}
+""");
+
+        var existingDir = Path.Combine(runtime, "patient-registration");
+        Directory.CreateDirectory(existingDir);
+        await File.WriteAllTextAsync(Path.Combine(existingDir, "PatientRegistration.Plugin.dll"), "old-binary");
+
+        try
+        {
+            var service = CreateService(staging, runtime, backup);
+
+            var result = await service.ActivatePreparedPluginPackagesAsync();
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(1, result.ActivatedCount);
+            Assert.False(Directory.Exists(existingDir));
+            Assert.False(Directory.Exists(uninstallDir));
+            var backupDll = Assert.Single(Directory.GetFiles(backup, "PatientRegistration.Plugin.dll", SearchOption.AllDirectories));
+            Assert.Equal("old-binary", await File.ReadAllTextAsync(backupDll));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ActivatePreparedPluginPackagesAsync_ShouldActivateOnlyLatestPreparedVersion_WhenSamePluginHasMultipleStagedDirectories()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"release-activate-{Guid.NewGuid():N}");
+        var staging = Path.Combine(root, "staging");
+        var runtime = Path.Combine(root, "runtime-plugins");
+        var backup = Path.Combine(root, "backup");
+        Directory.CreateDirectory(staging);
+        Directory.CreateDirectory(runtime);
+        Directory.CreateDirectory(backup);
+
+        await CreatePreparedPluginAsync(Path.Combine(staging, "patient-registration-1.0.3-dev.3"), "1.0.3-dev.3", "old-staged-binary");
+        await CreatePreparedPluginAsync(Path.Combine(staging, "patient-registration-1.0.3-dev.4"), "1.0.3-dev.4", "new-staged-binary");
+
+        var existingDir = Path.Combine(runtime, "patient-registration");
+        Directory.CreateDirectory(existingDir);
+        await File.WriteAllTextAsync(Path.Combine(existingDir, "PatientRegistration.Plugin.dll"), "runtime-binary");
+
+        try
+        {
+            var service = CreateService(staging, runtime, backup);
+
+            var result = await service.ActivatePreparedPluginPackagesAsync();
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(1, result.ActivatedCount);
+            Assert.Equal("new-staged-binary", await File.ReadAllTextAsync(Path.Combine(runtime, "patient-registration", "PatientRegistration.Plugin.dll")));
+            Assert.Empty(Directory.GetDirectories(staging));
+            var backupDll = Assert.Single(Directory.GetFiles(backup, "PatientRegistration.Plugin.dll", SearchOption.AllDirectories));
+            Assert.Equal("runtime-binary", await File.ReadAllTextAsync(backupDll));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     private static ReleaseCenterService CreateService(string stagingDirectory, string runtimePluginRoot, string backupDirectory, string pluginDirectory = "plugins")
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
@@ -117,6 +203,21 @@ public class ReleaseCenterActivatePreparedTests
                     BackupDirectory = backupDirectory
                 }
             }));
+    }
+
+    private static async Task CreatePreparedPluginAsync(string preparedDir, string version, string binaryContent)
+    {
+        Directory.CreateDirectory(preparedDir);
+        await File.WriteAllTextAsync(Path.Combine(preparedDir, "plugin.json"), $$"""
+{
+  "id": "patient-registration",
+  "name": "就诊登记",
+  "version": "{{version}}",
+  "entryAssembly": "PatientRegistration.Plugin.dll",
+  "entryType": "PatientRegistration.Plugin.PatientRegistrationPlugin, PatientRegistration.Plugin"
+}
+""");
+        await File.WriteAllTextAsync(Path.Combine(preparedDir, "PatientRegistration.Plugin.dll"), binaryContent);
     }
 
     private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler

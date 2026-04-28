@@ -77,6 +77,64 @@ public class ReleaseCenterPrepareInstallTests
         }
     }
 
+    [Fact]
+    public async Task PreparePluginPackageAsync_ShouldExtractOnlyRequestedPlugin()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"release-stage-{Guid.NewGuid():N}");
+        var cache = Path.Combine(root, "cache");
+        var staging = Path.Combine(root, "staging");
+        Directory.CreateDirectory(cache);
+        CreatePluginZip(Path.Combine(cache, "patient-registration-1.0.2.zip"), "patient-registration", "PatientRegistration.Plugin.dll");
+        CreatePluginZip(Path.Combine(cache, "other-plugin-2.0.0.zip"), "other-plugin", "Other.Plugin.dll");
+
+        try
+        {
+            var service = CreateService(cache, staging);
+
+            var result = await service.PreparePluginPackageAsync("patient-registration", "1.0.2");
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(1, result.PreparedCount);
+            var pluginJson = Assert.Single(Directory.GetFiles(staging, "plugin.json", SearchOption.AllDirectories));
+            Assert.Contains("patient-registration", await File.ReadAllTextAsync(pluginJson));
+            Assert.DoesNotContain("other-plugin", string.Join(Environment.NewLine, Directory.GetFiles(staging, "plugin.json", SearchOption.AllDirectories)));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task MarkPluginForUninstallAsync_ShouldCreateUninstallMarker()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"release-stage-{Guid.NewGuid():N}");
+        var cache = Path.Combine(root, "cache");
+        var staging = Path.Combine(root, "staging");
+
+        try
+        {
+            var service = CreateService(cache, staging);
+
+            var result = await service.MarkPluginForUninstallAsync("patient-registration");
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal("patient-registration", result.PluginId);
+            var marker = Assert.Single(Directory.GetFiles(staging, "uninstall.json", SearchOption.AllDirectories));
+            Assert.Contains("patient-registration", await File.ReadAllTextAsync(marker));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     private static ReleaseCenterService CreateService(string cacheDirectory, string stagingDirectory)
     {
         var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)

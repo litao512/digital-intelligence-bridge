@@ -15,13 +15,19 @@ namespace DigitalIntelligenceBridge.ViewModels;
 
 public sealed class PluginCenterItem : ViewModelBase
 {
-    public string PluginId { get; init; } = string.Empty;
-    public string Name { get; init; } = string.Empty;
+    private string _actionText = string.Empty;
+    private bool _canExecuteAction;
+
+    public string PluginId { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
     public string Version => CurrentVersion;
-    public string CurrentVersion { get; init; } = string.Empty;
-    public string LatestVersion { get; init; } = string.Empty;
-    public string Status { get; init; } = string.Empty;
-    public string Detail { get; init; } = string.Empty;
+    public string CurrentVersion { get; set; } = string.Empty;
+    public string LatestVersion { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string Detail { get; set; } = string.Empty;
+    public string ActionText { get => _actionText; set => SetProperty(ref _actionText, value); }
+    public bool CanExecuteAction { get => _canExecuteAction; set => SetProperty(ref _canExecuteAction, value); }
+    public DelegateCommand? ActionCommand { get; set; }
 }
 
 public sealed class PluginCenterViewModel : ViewModelBase
@@ -30,6 +36,9 @@ public sealed class PluginCenterViewModel : ViewModelBase
     private readonly AppSettings _settings;
     private readonly IPluginUpdateOrchestrator? _pluginUpdateOrchestrator;
     private readonly IApplicationService? _applicationService;
+    private readonly ITrayService? _trayService;
+    private CancellationTokenSource? _activeDownloadCancellation;
+    private string _activeDownloadPluginId = string.Empty;
     private IReadOnlyList<PluginCenterAvailablePlugin> _availablePlugins = [];
     private string _installedCountText = "0 个";
     private string _updatableCountText = "0 个";
@@ -52,12 +61,14 @@ public sealed class PluginCenterViewModel : ViewModelBase
         ILoggerService<PluginCenterViewModel> logger,
         IOptions<AppSettings> settings,
         IPluginUpdateOrchestrator? pluginUpdateOrchestrator,
-        IApplicationService? applicationService = null)
+        IApplicationService? applicationService = null,
+        ITrayService? trayService = null)
     {
         _logger = logger;
         _settings = settings.Value;
         _pluginUpdateOrchestrator = pluginUpdateOrchestrator;
         _applicationService = applicationService;
+        _trayService = trayService;
         RefreshCommand = new DelegateCommand(() => _ = RefreshAsync(), () => !IsBusy);
         CheckUpdatesCommand = new DelegateCommand(() => _ = CheckUpdatesAsync(), () => !IsBusy);
         RestartApplicationCommand = new DelegateCommand(() => _applicationService?.RestartApplication());
@@ -98,25 +109,36 @@ public sealed class PluginCenterViewModel : ViewModelBase
     {
         PluginItems.Clear();
         var runtimePlugins = ReadLocalPluginStates(ResolveRuntimePluginRoot(), "已生效");
-        var stagingPlugins = ReadLocalPluginStates(ResolveStagingDirectory(), "待重启生效");
-        var merged = MergePluginStates(runtimePlugins, stagingPlugins, _availablePlugins);
+        var stagingDirectory = ResolveStagingDirectory();
+        var stagingPlugins = ReadLocalPluginStates(stagingDirectory, "待重启生效");
+        var uninstallPlugins = ReadUninstallPluginStates(stagingDirectory, runtimePlugins);
+        var merged = MergePluginStates(runtimePlugins, stagingPlugins.Concat(uninstallPlugins).ToArray(), _availablePlugins);
 
         foreach (var item in merged)
         {
-            PluginItems.Add(new PluginCenterItem
+            var actionText = ResolveActionText(item.Status);
+            var pluginItem = new PluginCenterItem
             {
                 PluginId = item.PluginId,
                 Name = item.Name,
                 CurrentVersion = item.CurrentVersion,
                 LatestVersion = item.LatestVersion,
                 Status = item.Status,
-                Detail = item.Detail
-            });
+                Detail = item.Detail,
+                ActionText = actionText,
+                CanExecuteAction = !string.IsNullOrWhiteSpace(actionText)
+            };
+            if (pluginItem.CanExecuteAction)
+            {
+                pluginItem.ActionCommand = new DelegateCommand(() => _ = ExecutePluginActionAsync(pluginItem));
+            }
+
+            PluginItems.Add(pluginItem);
         }
 
         InstalledCountText = $"{PluginItems.Count(item => string.Equals(item.Status, "已最新", StringComparison.Ordinal))} 个";
         UpdatableCountText = $"{PluginItems.Count(item => string.Equals(item.Status, "可更新", StringComparison.Ordinal))} 个";
-        PendingRestartCountText = $"{PluginItems.Count(item => string.Equals(item.Status, "待重启生效", StringComparison.Ordinal))} 个";
+        PendingRestartCountText = $"{PluginItems.Count(item => string.Equals(item.Status, "待重启生效", StringComparison.Ordinal) || string.Equals(item.Status, "待卸载", StringComparison.Ordinal))} 个";
         FailedCountText = $"{PluginItems.Count(item => string.Equals(item.Status, "加载失败", StringComparison.Ordinal))} 个";
         return Task.CompletedTask;
     }
@@ -137,7 +159,7 @@ public sealed class PluginCenterViewModel : ViewModelBase
                 return;
             }
 
-            var result = await _pluginUpdateOrchestrator.RunAsync(PluginUpdateTrigger.Manual);
+            var result = await _pluginUpdateOrchestrator.CheckAsync(PluginUpdateTrigger.Manual);
             LastUpdateStatus = $"{result.CheckedAt:yyyy-MM-dd HH:mm:ss} · {result.Summary}";
             if (result.CheckResult is not null)
             {
@@ -160,6 +182,106 @@ public sealed class PluginCenterViewModel : ViewModelBase
         {
             IsBusy = false;
         }
+    }
+
+    private async Task ExecutePluginActionAsync(PluginCenterItem item)
+    {
+        if (item.ActionText == "停止下载"
+            && string.Equals(_activeDownloadPluginId, item.PluginId, StringComparison.OrdinalIgnoreCase))
+        {
+            _activeDownloadCancellation?.Cancel();
+            LastUpdateStatus = $"{item.Name} · 正在停止下载";
+            return;
+        }
+
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            if (_pluginUpdateOrchestrator is null)
+            {
+                LastUpdateStatus = "插件更新不可用";
+                return;
+            }
+
+            var requestedAction = item.ActionText;
+            if (requestedAction is "安装" or "更新" or "重试")
+            {
+                NotifyPluginOperation("插件下载开始", $"{item.Name} {item.LatestVersion}");
+            }
+
+            var progress = new Progress<ReleaseCenterDownloadProgress>(progressItem => UpdatePluginDownloadProgress(item, progressItem));
+            CancellationToken cancellationToken = default;
+            if (requestedAction is "安装" or "更新" or "重试")
+            {
+                _activeDownloadCancellation?.Dispose();
+                _activeDownloadCancellation = new CancellationTokenSource();
+                _activeDownloadPluginId = item.PluginId;
+                cancellationToken = _activeDownloadCancellation.Token;
+                item.ActionText = "停止下载";
+                item.CanExecuteAction = true;
+            }
+
+            var result = requestedAction switch
+            {
+                "安装" or "更新" or "重试" => await _pluginUpdateOrchestrator.InstallOrUpdateAsync(item.PluginId, item.LatestVersion, progress, cancellationToken),
+                "卸载" => await _pluginUpdateOrchestrator.UninstallAsync(item.PluginId),
+                "重启生效" => RestartAndReturnResult(item.PluginId),
+                _ => new PluginUpdateRunResult(true, "无需操作", item.PluginId, false, DateTime.Now, null, null, null)
+            };
+
+            LastUpdateStatus = $"{result.CheckedAt:yyyy-MM-dd HH:mm:ss} · {result.Summary}";
+            if (requestedAction is "安装" or "更新" or "重试")
+            {
+                NotifyPluginOperation(result.IsSuccess ? "插件下载完成" : "插件下载失败", $"{item.Name}：{result.Summary}");
+            }
+            if (result.RestartRequired)
+            {
+                LastPrepareStatus = LastUpdateStatus;
+            }
+
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            LastUpdateStatus = "插件操作失败";
+            NotifyPluginOperation("插件操作失败", item.Name);
+            _logger.LogWarning("插件中心执行插件操作失败: {Message}", ex.Message);
+        }
+        finally
+        {
+            if (string.Equals(_activeDownloadPluginId, item.PluginId, StringComparison.OrdinalIgnoreCase))
+            {
+                _activeDownloadCancellation?.Dispose();
+                _activeDownloadCancellation = null;
+                _activeDownloadPluginId = string.Empty;
+            }
+
+            IsBusy = false;
+        }
+    }
+
+    private void UpdatePluginDownloadProgress(PluginCenterItem item, ReleaseCenterDownloadProgress progress)
+    {
+        var status = progress.TotalBytes is > 0
+            ? $"{progress.Status} {progress.BytesReceived * 100 / progress.TotalBytes.Value}%"
+            : progress.Status;
+        LastUpdateStatus = $"{item.Name} · {status}";
+    }
+
+    private void NotifyPluginOperation(string title, string message)
+    {
+        _trayService?.ShowNotification(title, message);
+    }
+
+    private PluginUpdateRunResult RestartAndReturnResult(string pluginId)
+    {
+        _applicationService?.RestartApplication();
+        return new PluginUpdateRunResult(true, "正在重启 DIB", pluginId, true, DateTime.Now, null, null, null);
     }
 
     private string ResolveRuntimePluginRoot()
@@ -201,12 +323,15 @@ public sealed class PluginCenterViewModel : ViewModelBase
         {
             if (merged.TryGetValue(available.PluginId, out var local))
             {
-                if (string.Equals(local.Status, "待重启生效", StringComparison.Ordinal))
+                if (string.Equals(local.Status, "待重启生效", StringComparison.Ordinal)
+                    || string.Equals(local.Status, "待卸载", StringComparison.Ordinal))
                 {
                     merged[available.PluginId] = CopyWith(
                         local,
                         latestVersion: available.Version,
-                        detail: "更新已预安装，重启后生效。");
+                        detail: string.Equals(local.Status, "待卸载", StringComparison.Ordinal)
+                            ? "插件已标记卸载，重启后生效。"
+                            : "更新已预安装，重启后生效。");
                     continue;
                 }
 
@@ -297,6 +422,61 @@ public sealed class PluginCenterViewModel : ViewModelBase
             .GroupBy(item => item.PluginId, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
             .ToArray();
+    }
+
+    private static IReadOnlyList<PluginCenterItem> ReadUninstallPluginStates(string stagingDirectory, IReadOnlyList<PluginCenterItem> runtimePlugins)
+    {
+        if (!Directory.Exists(stagingDirectory))
+        {
+            return [];
+        }
+
+        var runtimeById = runtimePlugins.ToDictionary(item => item.PluginId, StringComparer.OrdinalIgnoreCase);
+        var items = new List<PluginCenterItem>();
+        foreach (var markerPath in Directory.GetFiles(stagingDirectory, "uninstall.json", SearchOption.AllDirectories))
+        {
+            try
+            {
+                using var stream = File.OpenRead(markerPath);
+                using var document = JsonDocument.Parse(stream);
+                if (!document.RootElement.TryGetProperty("pluginId", out var pluginIdElement)
+                    || string.IsNullOrWhiteSpace(pluginIdElement.GetString()))
+                {
+                    continue;
+                }
+
+                var pluginId = pluginIdElement.GetString()!;
+                runtimeById.TryGetValue(pluginId, out var runtimePlugin);
+                items.Add(new PluginCenterItem
+                {
+                    PluginId = pluginId,
+                    Name = runtimePlugin?.Name ?? pluginId,
+                    CurrentVersion = runtimePlugin?.CurrentVersion ?? "未识别",
+                    LatestVersion = runtimePlugin?.LatestVersion ?? string.Empty,
+                    Status = "待卸载",
+                    Detail = "插件已标记卸载，重启后生效。"
+                });
+            }
+            catch
+            {
+                // 忽略损坏的卸载标记，避免插件中心整体加载失败。
+            }
+        }
+
+        return items;
+    }
+
+    private static string ResolveActionText(string status)
+    {
+        return status switch
+        {
+            "未安装" => "安装",
+            "可更新" => "更新",
+            "已生效" or "已最新" => "卸载",
+            "待重启生效" or "待卸载" => "重启生效",
+            "加载失败" => "重试",
+            _ => string.Empty
+        };
     }
 
     private static IReadOnlyList<PluginCenterAvailablePlugin> ParseAvailablePlugins(string detail)

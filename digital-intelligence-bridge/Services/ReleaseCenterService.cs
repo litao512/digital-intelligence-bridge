@@ -31,7 +31,13 @@ public interface IReleaseCenterService
     Task<ResourceApplicationSubmitResult> ApplyResourceAsync(string resourceId, string pluginCode, string reason, CancellationToken cancellationToken = default);
     Task<ReleaseCenterClientDownloadResult> DownloadLatestClientPackageAsync(IProgress<ReleaseCenterDownloadProgress>? progress = null, CancellationToken cancellationToken = default);
     Task<ReleaseCenterPluginDownloadResult> DownloadAvailablePluginPackagesAsync(CancellationToken cancellationToken = default);
+    Task<ReleaseCenterPluginDownloadResult> DownloadPluginPackageAsync(string pluginId, string? version = null, IProgress<ReleaseCenterDownloadProgress>? progress = null, CancellationToken cancellationToken = default)
+        => DownloadAvailablePluginPackagesAsync(cancellationToken);
     Task<ReleaseCenterPluginPrepareResult> PrepareCachedPluginPackagesAsync(CancellationToken cancellationToken = default);
+    Task<ReleaseCenterPluginPrepareResult> PreparePluginPackageAsync(string pluginId, string? version = null, CancellationToken cancellationToken = default)
+        => PrepareCachedPluginPackagesAsync(cancellationToken);
+    Task<ReleaseCenterPluginUninstallResult> MarkPluginForUninstallAsync(string pluginId, CancellationToken cancellationToken = default)
+        => Task.FromResult(new ReleaseCenterPluginUninstallResult(false, "插件卸载不可用", "当前发布中心服务未实现插件卸载。", pluginId, string.Empty));
     Task<ReleaseCenterPluginActivateResult> ActivatePreparedPluginPackagesAsync(CancellationToken cancellationToken = default);
     Task<ReleaseCenterPluginRollbackResult> RestoreLatestPluginBackupAsync(CancellationToken cancellationToken = default);
 }
@@ -49,6 +55,7 @@ public sealed record ReleaseCenterClientDownloadResult(bool IsSuccess, string Su
 public sealed record ReleaseCenterDownloadProgress(string Stage, string Status, long BytesReceived, long? TotalBytes, double BytesPerSecond, TimeSpan? EstimatedRemaining);
 public sealed record ReleaseCenterPluginDownloadResult(bool IsSuccess, string Summary, string Detail, int DownloadedCount, string CacheDirectory);
 public sealed record ReleaseCenterPluginPrepareResult(bool IsSuccess, string Summary, string Detail, int PreparedCount, string StagingDirectory);
+public sealed record ReleaseCenterPluginUninstallResult(bool IsSuccess, string Summary, string Detail, string PluginId, string StagingDirectory);
 public sealed record ReleaseCenterPluginActivateResult(bool IsSuccess, string Summary, string Detail, int ActivatedCount, string RuntimePluginRoot);
 public sealed record ReleaseCenterPluginRollbackResult(bool IsSuccess, string Summary, string Detail, int RestoredCount, string RuntimePluginRoot);
 public sealed record ResourceApplicationSubmitResult(
@@ -376,6 +383,92 @@ public sealed class ReleaseCenterService : IReleaseCenterService
         }
     }
 
+    public async Task<ReleaseCenterPluginDownloadResult> DownloadPluginPackageAsync(string pluginId, string? version = null, IProgress<ReleaseCenterDownloadProgress>? progress = null, CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured)
+        {
+            return new ReleaseCenterPluginDownloadResult(false, "插件包下载不可用", "ReleaseCenter 未启用或缺少 BaseUrl/Channel。", 0, string.Empty);
+        }
+
+        var normalizedPluginId = pluginId.Trim();
+        var cacheDirectory = ResolveCacheDirectory();
+        Directory.CreateDirectory(cacheDirectory);
+        string? targetPath = null;
+
+        try
+        {
+            progress?.Report(new ReleaseCenterDownloadProgress("preparing", "正在准备插件下载", 0, null, 0, null));
+            var pluginManifest = await GetPluginManifestAsync(cancellationToken).ConfigureAwait(false);
+            var plugin = pluginManifest?.Plugins?
+                .FirstOrDefault(item =>
+                    string.Equals(item.PluginId, normalizedPluginId, StringComparison.OrdinalIgnoreCase)
+                    && (string.IsNullOrWhiteSpace(version) || string.Equals(item.Version, version, StringComparison.OrdinalIgnoreCase)));
+
+            if (plugin is null || string.IsNullOrWhiteSpace(plugin.PackageUrl))
+            {
+                return new ReleaseCenterPluginDownloadResult(true, "没有可下载的插件包", $"pluginId={normalizedPluginId}; version={version ?? "latest"}", 0, cacheDirectory);
+            }
+
+            var fileName = BuildDownloadFileName(plugin);
+            targetPath = Path.Combine(cacheDirectory, fileName);
+            var packageUrl = NormalizePackageUrl(plugin.PackageUrl!);
+            using var response = await _httpClient.GetAsync(packageUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            var totalBytes = response.Content.Headers.ContentLength;
+            await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            await using var target = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
+            using var incrementalHash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            var buffer = new byte[81920];
+            long bytesReceived = 0;
+            var stopwatch = Stopwatch.StartNew();
+            var lastReport = TimeSpan.Zero;
+
+            while (true)
+            {
+                var read = await source.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(false);
+                if (read == 0)
+                {
+                    break;
+                }
+
+                await target.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+                incrementalHash.AppendData(buffer, 0, read);
+                bytesReceived += read;
+                var elapsed = stopwatch.Elapsed;
+                var shouldReport = elapsed - lastReport >= TimeSpan.FromMilliseconds(250) || (totalBytes.HasValue && bytesReceived >= totalBytes.Value);
+                if (shouldReport)
+                {
+                    var bytesPerSecond = elapsed.TotalSeconds > 0 ? bytesReceived / elapsed.TotalSeconds : 0;
+                    TimeSpan? remaining = null;
+                    if (totalBytes.HasValue && bytesPerSecond > 0)
+                    {
+                        remaining = TimeSpan.FromSeconds(Math.Max(0, (totalBytes.Value - bytesReceived) / bytesPerSecond));
+                    }
+
+                    progress?.Report(new ReleaseCenterDownloadProgress("downloading", "正在下载插件包", bytesReceived, totalBytes, bytesPerSecond, remaining));
+                    lastReport = elapsed;
+                }
+            }
+
+            progress?.Report(new ReleaseCenterDownloadProgress("verifying", "正在校验插件包", bytesReceived, totalBytes ?? bytesReceived, 0, TimeSpan.Zero));
+            var computedHash = Convert.ToHexString(incrementalHash.GetHashAndReset()).ToLowerInvariant();
+            ValidateSha256(plugin, computedHash);
+            progress?.Report(new ReleaseCenterDownloadProgress("completed", "插件包下载完成", bytesReceived, totalBytes ?? bytesReceived, 0, TimeSpan.Zero));
+            return new ReleaseCenterPluginDownloadResult(true, "插件包已缓存 1 项", targetPath, 1, cacheDirectory);
+        }
+        catch (OperationCanceledException)
+        {
+            TryDeleteFile(targetPath);
+            return new ReleaseCenterPluginDownloadResult(false, "插件下载已取消", "已取消插件包下载。", 0, cacheDirectory);
+        }
+        catch (Exception ex)
+        {
+            TryDeleteFile(targetPath);
+            _logger.LogWarning(ex, "下载指定发布中心插件包失败: {PluginId}", normalizedPluginId);
+            return new ReleaseCenterPluginDownloadResult(false, "插件包下载失败", ex.Message, 0, cacheDirectory);
+        }
+    }
+
     public Task<ReleaseCenterPluginPrepareResult> PrepareCachedPluginPackagesAsync(CancellationToken cancellationToken = default)
     {
         var cacheDirectory = ResolveCacheDirectory();
@@ -399,22 +492,7 @@ public sealed class ReleaseCenterService : IReleaseCenterService
             foreach (var zipFile in zipFiles)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var packageName = Path.GetFileNameWithoutExtension(zipFile);
-                var extractDirectory = Path.Combine(stagingDirectory, packageName);
-                if (Directory.Exists(extractDirectory))
-                {
-                    Directory.Delete(extractDirectory, recursive: true);
-                }
-
-                ZipFile.ExtractToDirectory(zipFile, extractDirectory);
-                var pluginJsonPath = Directory.GetFiles(extractDirectory, "plugin.json", SearchOption.AllDirectories).FirstOrDefault();
-                if (pluginJsonPath is null)
-                {
-                    throw new InvalidOperationException($"缓存包 {Path.GetFileName(zipFile)} 缺少 plugin.json。");
-                }
-
-                var pluginId = ReadPluginId(pluginJsonPath);
-                prepared.Add($"{pluginId}: {extractDirectory}");
+                prepared.Add(PreparePluginZip(zipFile, stagingDirectory));
             }
 
             return Task.FromResult(new ReleaseCenterPluginPrepareResult(true, $"已生成 {prepared.Count} 个预安装目录", string.Join(Environment.NewLine, prepared), prepared.Count, stagingDirectory));
@@ -423,6 +501,69 @@ public sealed class ReleaseCenterService : IReleaseCenterService
         {
             _logger.LogWarning(ex, "准备插件预安装目录失败");
             return Task.FromResult(new ReleaseCenterPluginPrepareResult(false, "插件预安装失败", ex.Message, 0, stagingDirectory));
+        }
+    }
+
+    public Task<ReleaseCenterPluginPrepareResult> PreparePluginPackageAsync(string pluginId, string? version = null, CancellationToken cancellationToken = default)
+    {
+        var normalizedPluginId = pluginId.Trim();
+        var cacheDirectory = ResolveCacheDirectory();
+        var stagingDirectory = ResolveStagingDirectory();
+        Directory.CreateDirectory(stagingDirectory);
+
+        try
+        {
+            if (!Directory.Exists(cacheDirectory))
+            {
+                return Task.FromResult(new ReleaseCenterPluginPrepareResult(true, "没有可预安装的缓存包", cacheDirectory, 0, stagingDirectory));
+            }
+
+            var zipFile = Directory
+                .GetFiles(cacheDirectory, "*.zip", SearchOption.TopDirectoryOnly)
+                .Where(path => Path.GetFileName(path).StartsWith(normalizedPluginId, StringComparison.OrdinalIgnoreCase))
+                .FirstOrDefault(path => string.IsNullOrWhiteSpace(version) || Path.GetFileNameWithoutExtension(path).Contains(version, StringComparison.OrdinalIgnoreCase));
+
+            if (zipFile is null)
+            {
+                return Task.FromResult(new ReleaseCenterPluginPrepareResult(true, "没有可预安装的缓存包", $"pluginId={normalizedPluginId}; version={version ?? "latest"}", 0, stagingDirectory));
+            }
+
+            var prepared = PreparePluginZip(zipFile, stagingDirectory);
+            return Task.FromResult(new ReleaseCenterPluginPrepareResult(true, "已生成 1 个预安装目录", prepared, 1, stagingDirectory));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "准备指定插件预安装目录失败: {PluginId}", normalizedPluginId);
+            return Task.FromResult(new ReleaseCenterPluginPrepareResult(false, "插件预安装失败", ex.Message, 0, stagingDirectory));
+        }
+    }
+
+    public async Task<ReleaseCenterPluginUninstallResult> MarkPluginForUninstallAsync(string pluginId, CancellationToken cancellationToken = default)
+    {
+        var normalizedPluginId = pluginId.Trim();
+        var stagingDirectory = ResolveStagingDirectory();
+        Directory.CreateDirectory(stagingDirectory);
+
+        try
+        {
+            var markerDirectory = Path.Combine(stagingDirectory, $"uninstall-{normalizedPluginId}");
+            if (Directory.Exists(markerDirectory))
+            {
+                Directory.Delete(markerDirectory, recursive: true);
+            }
+
+            Directory.CreateDirectory(markerDirectory);
+            var markerPath = Path.Combine(markerDirectory, "uninstall.json");
+            await File.WriteAllTextAsync(
+                markerPath,
+                JsonSerializer.Serialize(new PluginUninstallMarker(normalizedPluginId, DateTimeOffset.UtcNow)),
+                cancellationToken).ConfigureAwait(false);
+            return new ReleaseCenterPluginUninstallResult(true, "插件已标记为待卸载", markerPath, normalizedPluginId, stagingDirectory);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "标记插件待卸载失败: {PluginId}", normalizedPluginId);
+            return new ReleaseCenterPluginUninstallResult(false, "插件卸载标记失败", ex.Message, normalizedPluginId, stagingDirectory);
         }
     }
 
@@ -441,7 +582,7 @@ public sealed class ReleaseCenterService : IReleaseCenterService
                 return Task.FromResult(new ReleaseCenterPluginActivateResult(true, "没有待激活的预安装目录", stagingDirectory, 0, runtimePluginRoot));
             }
 
-            var stagedDirectories = Directory.GetDirectories(stagingDirectory);
+            var stagedDirectories = NormalizeStagedPluginDirectories(Directory.GetDirectories(stagingDirectory));
             if (stagedDirectories.Length == 0)
             {
                 return Task.FromResult(new ReleaseCenterPluginActivateResult(true, "没有待激活的预安装目录", stagingDirectory, 0, runtimePluginRoot));
@@ -454,6 +595,22 @@ public sealed class ReleaseCenterService : IReleaseCenterService
             foreach (var stagedDirectory in stagedDirectories)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                var uninstallMarkerPath = Path.Combine(stagedDirectory, "uninstall.json");
+                if (File.Exists(uninstallMarkerPath))
+                {
+                    var marker = ReadPluginUninstallMarker(uninstallMarkerPath);
+                    var uninstallTargetDirectory = Path.Combine(runtimePluginRoot, marker.PluginId);
+                    if (Directory.Exists(uninstallTargetDirectory))
+                    {
+                        var backupDirectory = Path.Combine(backupSession, marker.PluginId);
+                        Directory.Move(uninstallTargetDirectory, backupDirectory);
+                    }
+
+                    Directory.Delete(stagedDirectory, recursive: true);
+                    activated.Add($"{marker.PluginId}: uninstall");
+                    continue;
+                }
+
                 var pluginJsonPath = Directory.GetFiles(stagedDirectory, "plugin.json", SearchOption.AllDirectories).FirstOrDefault();
                 if (pluginJsonPath is null)
                 {
@@ -906,9 +1063,87 @@ public sealed class ReleaseCenterService : IReleaseCenterService
     private static string BuildDownloadFileName(PluginItemDto plugin) { if (Uri.TryCreate(plugin.PackageUrl, UriKind.Absolute, out var uri)) { var fromUrl = Path.GetFileName(uri.LocalPath); if (!string.IsNullOrWhiteSpace(fromUrl)) return fromUrl; } var version = string.IsNullOrWhiteSpace(plugin.Version) ? "latest" : plugin.Version; return $"{plugin.PluginId}-{version}.zip"; }
     private static string BuildClientDownloadFileName(ClientManifestDto clientManifest) { if (Uri.TryCreate(clientManifest.PackageUrl, UriKind.Absolute, out var uri)) { var fromUrl = Path.GetFileName(uri.LocalPath); if (!string.IsNullOrWhiteSpace(fromUrl)) return fromUrl; } var version = string.IsNullOrWhiteSpace(clientManifest.LatestVersion) ? "latest" : clientManifest.LatestVersion; return $"dib-win-x64-portable-{version}.zip"; }
     private static void ValidateSha256(PluginItemDto plugin, byte[] bytes) { if (string.IsNullOrWhiteSpace(plugin.Sha256)) return; var computed = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(); if (!string.Equals(computed, plugin.Sha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException($"插件 {plugin.PluginId} 的 SHA256 校验失败。"); }
+    private static void ValidateSha256(PluginItemDto plugin, string computedHash) { if (string.IsNullOrWhiteSpace(plugin.Sha256)) return; if (!string.Equals(computedHash, plugin.Sha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException($"插件 {plugin.PluginId} 的 SHA256 校验失败。"); }
     private static void ValidateClientSha256(ClientManifestDto clientManifest, string computedHash) { if (string.IsNullOrWhiteSpace(clientManifest.Sha256)) return; if (!string.Equals(computedHash, clientManifest.Sha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("客户端更新包的 SHA256 校验失败。"); }
     private static string ReadPluginId(string pluginJsonPath) { using var stream = File.OpenRead(pluginJsonPath); using var document = JsonDocument.Parse(stream); if (!document.RootElement.TryGetProperty("id", out var idProperty) || string.IsNullOrWhiteSpace(idProperty.GetString())) throw new InvalidOperationException($"{pluginJsonPath} 缺少插件 id。"); return idProperty.GetString()!; }
+    private static PluginUninstallMarker ReadPluginUninstallMarker(string markerPath) { using var stream = File.OpenRead(markerPath); return JsonSerializer.Deserialize<PluginUninstallMarker>(stream) ?? throw new InvalidOperationException($"{markerPath} 缺少卸载标记。"); }
+    private static string PreparePluginZip(string zipFile, string stagingDirectory)
+    {
+        var packageName = Path.GetFileNameWithoutExtension(zipFile);
+        var extractDirectory = Path.Combine(stagingDirectory, packageName);
+        if (Directory.Exists(extractDirectory))
+        {
+            Directory.Delete(extractDirectory, recursive: true);
+        }
+
+        ZipFile.ExtractToDirectory(zipFile, extractDirectory);
+        var pluginJsonPath = Directory.GetFiles(extractDirectory, "plugin.json", SearchOption.AllDirectories).FirstOrDefault();
+        if (pluginJsonPath is null)
+        {
+            throw new InvalidOperationException($"缓存包 {Path.GetFileName(zipFile)} 缺少 plugin.json。");
+        }
+
+        var pluginId = ReadPluginId(pluginJsonPath);
+        return $"{pluginId}: {extractDirectory}";
+    }
     private static void CopyDirectory(string sourceDirectory, string targetDirectory) { Directory.CreateDirectory(targetDirectory); foreach (var file in Directory.GetFiles(sourceDirectory)) File.Copy(file, Path.Combine(targetDirectory, Path.GetFileName(file)), overwrite: true); foreach (var directory in Directory.GetDirectories(sourceDirectory)) CopyDirectory(directory, Path.Combine(targetDirectory, Path.GetFileName(directory))); }
+    private static string[] NormalizeStagedPluginDirectories(string[] stagedDirectories)
+    {
+        var selected = new Dictionary<string, StagedPluginDirectory>(StringComparer.OrdinalIgnoreCase);
+        var passthrough = new List<string>();
+
+        foreach (var stagedDirectory in stagedDirectories)
+        {
+            var uninstallMarkerPath = Path.Combine(stagedDirectory, "uninstall.json");
+            if (File.Exists(uninstallMarkerPath))
+            {
+                passthrough.Add(stagedDirectory);
+                continue;
+            }
+
+            var pluginJsonPath = Directory.GetFiles(stagedDirectory, "plugin.json", SearchOption.AllDirectories).FirstOrDefault();
+            if (pluginJsonPath is null)
+            {
+                passthrough.Add(stagedDirectory);
+                continue;
+            }
+
+            var staged = ReadStagedPluginDirectory(stagedDirectory, pluginJsonPath);
+            if (!selected.TryGetValue(staged.PluginId, out var current)
+                || CompareVersions(staged.Version, current.Version) > 0)
+            {
+                if (current is not null && Directory.Exists(current.Directory))
+                {
+                    Directory.Delete(current.Directory, recursive: true);
+                }
+
+                selected[staged.PluginId] = staged;
+            }
+            else
+            {
+                Directory.Delete(stagedDirectory, recursive: true);
+            }
+        }
+
+        return passthrough
+            .Concat(selected.Values.Select(item => item.Directory))
+            .ToArray();
+    }
+
+    private static StagedPluginDirectory ReadStagedPluginDirectory(string directory, string pluginJsonPath)
+    {
+        using var stream = File.OpenRead(pluginJsonPath);
+        using var document = JsonDocument.Parse(stream);
+        if (!document.RootElement.TryGetProperty("id", out var idProperty) || string.IsNullOrWhiteSpace(idProperty.GetString()))
+        {
+            throw new InvalidOperationException($"{pluginJsonPath} 缺少插件 id。");
+        }
+
+        var version = document.RootElement.TryGetProperty("version", out var versionProperty)
+            ? versionProperty.GetString() ?? "0.0.0"
+            : "0.0.0";
+        return new StagedPluginDirectory(directory, idProperty.GetString()!, version);
+    }
     private static void TryDeleteFile(string? path) { if (!string.IsNullOrWhiteSpace(path) && File.Exists(path)) { File.Delete(path); } }
     public static int CompareVersions(string left, string right)
     {
@@ -974,6 +1209,8 @@ public sealed class ReleaseCenterService : IReleaseCenterService
     private sealed class ClientManifestDto { [JsonPropertyName("latestVersion")] public string? LatestVersion { get; set; } [JsonPropertyName("minUpgradeVersion")] public string? MinUpgradeVersion { get; set; } [JsonPropertyName("packageUrl")] public string? PackageUrl { get; set; } [JsonPropertyName("sha256")] public string? Sha256 { get; set; } }
     private sealed class PluginManifestDto { [JsonPropertyName("plugins")] public List<PluginItemDto>? Plugins { get; set; } }
     private sealed class PluginItemDto { [JsonPropertyName("pluginId")] public string PluginId { get; set; } = string.Empty; [JsonPropertyName("name")] public string Name { get; set; } = string.Empty; [JsonPropertyName("version")] public string Version { get; set; } = string.Empty; [JsonPropertyName("packageUrl")] public string? PackageUrl { get; set; } [JsonPropertyName("sha256")] public string? Sha256 { get; set; } }
+    private sealed record PluginUninstallMarker([property: JsonPropertyName("pluginId")] string PluginId, [property: JsonPropertyName("requestedAt")] DateTimeOffset RequestedAt);
+    private sealed record StagedPluginDirectory(string Directory, string PluginId, string Version);
 }
 
 

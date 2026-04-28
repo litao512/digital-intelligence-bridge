@@ -24,6 +24,12 @@ public sealed record PluginUpdateRunResult(
 public interface IPluginUpdateOrchestrator
 {
     Task<PluginUpdateRunResult> RunAsync(PluginUpdateTrigger trigger, CancellationToken cancellationToken = default);
+    Task<PluginUpdateRunResult> CheckAsync(PluginUpdateTrigger trigger, CancellationToken cancellationToken = default)
+        => RunAsync(trigger, cancellationToken);
+    Task<PluginUpdateRunResult> InstallOrUpdateAsync(string pluginId, string? version = null, IProgress<ReleaseCenterDownloadProgress>? progress = null, CancellationToken cancellationToken = default)
+        => RunAsync(PluginUpdateTrigger.Manual, cancellationToken);
+    Task<PluginUpdateRunResult> UninstallAsync(string pluginId, CancellationToken cancellationToken = default)
+        => RunAsync(PluginUpdateTrigger.Manual, cancellationToken);
 }
 
 public sealed class PluginUpdateOrchestrator : IPluginUpdateOrchestrator
@@ -121,6 +127,96 @@ public sealed class PluginUpdateOrchestrator : IPluginUpdateOrchestrator
                 null,
                 null,
                 null);
+        }
+    }
+
+    public async Task<PluginUpdateRunResult> CheckAsync(PluginUpdateTrigger trigger, CancellationToken cancellationToken = default)
+    {
+        var checkedAt = DateTime.Now;
+        if (_releaseCenterService is null || !_releaseCenterService.IsConfigured)
+        {
+            return new PluginUpdateRunResult(
+                false,
+                "发布中心未配置",
+                "ReleaseCenter 未启用或缺少 BaseUrl/Channel。",
+                false,
+                checkedAt,
+                null,
+                null,
+                null);
+        }
+
+        try
+        {
+            var checkResult = await _releaseCenterService.CheckForUpdatesAsync(cancellationToken).ConfigureAwait(false);
+            return new PluginUpdateRunResult(
+                checkResult.IsSuccess,
+                checkResult.Summary,
+                checkResult.Detail,
+                false,
+                checkedAt,
+                checkResult,
+                null,
+                null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("插件更新检查失败: {Message}", ex.Message);
+            return new PluginUpdateRunResult(
+                false,
+                "插件更新检查失败",
+                ex.Message,
+                false,
+                checkedAt,
+                null,
+                null,
+                null);
+        }
+    }
+
+    public async Task<PluginUpdateRunResult> InstallOrUpdateAsync(string pluginId, string? version = null, IProgress<ReleaseCenterDownloadProgress>? progress = null, CancellationToken cancellationToken = default)
+    {
+        var checkedAt = DateTime.Now;
+        if (_releaseCenterService is null || !_releaseCenterService.IsConfigured)
+        {
+            return new PluginUpdateRunResult(false, "发布中心未配置", "ReleaseCenter 未启用或缺少 BaseUrl/Channel。", false, checkedAt, null, null, null);
+        }
+
+        try
+        {
+            var downloadResult = await _releaseCenterService.DownloadPluginPackageAsync(pluginId, version, progress, cancellationToken).ConfigureAwait(false);
+            if (!downloadResult.IsSuccess || downloadResult.DownloadedCount <= 0)
+            {
+                return new PluginUpdateRunResult(downloadResult.IsSuccess, downloadResult.Summary, downloadResult.Detail, false, checkedAt, null, downloadResult, null);
+            }
+
+            var prepareResult = await _releaseCenterService.PreparePluginPackageAsync(pluginId, version, cancellationToken).ConfigureAwait(false);
+            return new PluginUpdateRunResult(prepareResult.IsSuccess, prepareResult.Summary, prepareResult.Detail, prepareResult.IsSuccess && prepareResult.PreparedCount > 0, checkedAt, null, downloadResult, prepareResult);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("插件安装或更新失败: {PluginId}; {Message}", pluginId, ex.Message);
+            return new PluginUpdateRunResult(false, "插件安装或更新失败", ex.Message, false, checkedAt, null, null, null);
+        }
+    }
+
+    public async Task<PluginUpdateRunResult> UninstallAsync(string pluginId, CancellationToken cancellationToken = default)
+    {
+        var checkedAt = DateTime.Now;
+        if (_releaseCenterService is null || !_releaseCenterService.IsConfigured)
+        {
+            return new PluginUpdateRunResult(false, "发布中心未配置", "ReleaseCenter 未启用或缺少 BaseUrl/Channel。", false, checkedAt, null, null, null);
+        }
+
+        try
+        {
+            var uninstallResult = await _releaseCenterService.MarkPluginForUninstallAsync(pluginId, cancellationToken).ConfigureAwait(false);
+            return new PluginUpdateRunResult(uninstallResult.IsSuccess, uninstallResult.Summary, uninstallResult.Detail, uninstallResult.IsSuccess, checkedAt, null, null, null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("插件卸载失败: {PluginId}; {Message}", pluginId, ex.Message);
+            return new PluginUpdateRunResult(false, "插件卸载失败", ex.Message, false, checkedAt, null, null, null);
         }
     }
 }

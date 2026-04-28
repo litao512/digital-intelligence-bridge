@@ -272,7 +272,8 @@ public class ReleaseCenterDownloadTests
         byte[] packageBytes,
         string sha256,
         bool useRelativePackageUrl = false,
-        string runtimePluginRoot = "")
+        string runtimePluginRoot = "",
+        bool simulateStreaming = false)
     {
         var handler = new StubHttpMessageHandler(request =>
         {
@@ -308,9 +309,13 @@ public class ReleaseCenterDownloadTests
                 };
             }
 
+            HttpContent content = simulateStreaming
+                ? new SlowCancelableByteArrayContent(packageBytes)
+                : new ByteArrayContent(packageBytes);
+
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new ByteArrayContent(packageBytes)
+                Content = content
             };
         });
 
@@ -328,6 +333,69 @@ public class ReleaseCenterDownloadTests
                     AnonKey = string.Empty,
                     CacheDirectory = cacheDirectory,
                     RuntimePluginRoot = runtimePluginRoot
+                }
+            }));
+    }
+
+    private static ReleaseCenterService CreateMultiPluginDownloadService(
+        string cacheDirectory,
+        byte[] requestedBytes,
+        string requestedSha256,
+        byte[] otherBytes,
+        string otherSha256,
+        List<string> downloadedUrls)
+    {
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var url = request.RequestUri!.AbsoluteUri;
+            if (url.Contains("plugin-manifest", StringComparison.OrdinalIgnoreCase))
+            {
+                var manifest = $$"""
+{
+  "plugins": [
+    {
+      "pluginId": "patient-registration",
+      "name": "就诊登记",
+      "version": "1.0.2",
+      "packageUrl": "http://release-center.local/packages/patient-registration-1.0.2.zip",
+      "sha256": "{{requestedSha256}}"
+    },
+    {
+      "pluginId": "other-plugin",
+      "name": "其他插件",
+      "version": "2.0.0",
+      "packageUrl": "http://release-center.local/packages/other-plugin-2.0.0.zip",
+      "sha256": "{{otherSha256}}"
+    }
+  ]
+}
+""";
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(manifest, Encoding.UTF8, "application/json")
+                };
+            }
+
+            downloadedUrls.Add(url);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(url.Contains("other-plugin", StringComparison.OrdinalIgnoreCase) ? otherBytes : requestedBytes)
+            };
+        });
+
+        return new ReleaseCenterService(
+            new HttpClient(handler),
+            NullLogger<ReleaseCenterService>.Instance,
+            Options.Create(new AppSettings
+            {
+                Application = new ApplicationConfig { Version = "1.0.0" },
+                ReleaseCenter = new ReleaseCenterConfig
+                {
+                    Enabled = true,
+                    BaseUrl = "http://release-center.local",
+                    Channel = "stable",
+                    AnonKey = string.Empty,
+                    CacheDirectory = cacheDirectory
                 }
             }));
     }
@@ -378,6 +446,107 @@ public class ReleaseCenterDownloadTests
                 await Task.Delay(5, cancellationToken);
                 var count = Math.Min(4096, buffer.Length);
                 return await base.ReadAsync(buffer[..count], cancellationToken);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task DownloadPluginPackageAsync_ShouldDownloadOnlyRequestedPlugin_WhenManifestContainsMultiplePlugins()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"release-cache-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var requestedBytes = Encoding.UTF8.GetBytes("requested-plugin-content");
+        var otherBytes = Encoding.UTF8.GetBytes("other-plugin-content");
+        var requestedSha256 = Convert.ToHexString(SHA256.HashData(requestedBytes)).ToLowerInvariant();
+        var otherSha256 = Convert.ToHexString(SHA256.HashData(otherBytes)).ToLowerInvariant();
+        var downloadedUrls = new List<string>();
+
+        try
+        {
+            var service = CreateMultiPluginDownloadService(tempDir, requestedBytes, requestedSha256, otherBytes, otherSha256, downloadedUrls);
+
+            var result = await service.DownloadPluginPackageAsync("patient-registration", "1.0.2");
+
+            Assert.True(result.IsSuccess);
+            Assert.Equal(1, result.DownloadedCount);
+            var downloadedFile = Assert.Single(Directory.GetFiles(tempDir, "*.zip", SearchOption.TopDirectoryOnly));
+            Assert.Equal(requestedBytes, await File.ReadAllBytesAsync(downloadedFile));
+            Assert.Single(downloadedUrls);
+            Assert.Contains("patient-registration-1.0.2.zip", downloadedUrls[0]);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task DownloadPluginPackageAsync_ShouldReportProgress_WhenDownloadingRequestedPlugin()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"release-cache-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var packageBytes = Encoding.UTF8.GetBytes(new string('P', 192 * 1024));
+        var sha256 = Convert.ToHexString(SHA256.HashData(packageBytes)).ToLowerInvariant();
+        var progressEvents = new List<ReleaseCenterDownloadProgress>();
+        var progress = new Progress<ReleaseCenterDownloadProgress>(item => progressEvents.Add(item));
+
+        try
+        {
+            var service = CreatePluginDownloadService(tempDir, packageBytes, sha256, simulateStreaming: true);
+
+            var result = await service.DownloadPluginPackageAsync("patient-registration", "1.0.1", progress);
+            await WaitForAsync(() => progressEvents.Count >= 2);
+
+            Assert.True(result.IsSuccess);
+            Assert.Contains(progressEvents, item => item.Stage == "downloading" && item.BytesReceived > 0);
+            Assert.Contains(progressEvents, item => item.Stage == "verifying");
+            Assert.Contains(progressEvents, item => item.Stage == "completed");
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task DownloadPluginPackageAsync_ShouldReturnCancelled_AndDeletePartialFile_WhenCancellationRequested()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"release-cache-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var packageBytes = Encoding.UTF8.GetBytes(new string('C', 256 * 1024));
+        var sha256 = Convert.ToHexString(SHA256.HashData(packageBytes)).ToLowerInvariant();
+        var cts = new CancellationTokenSource();
+        var observedDownloadProgress = false;
+
+        try
+        {
+            var progress = new Progress<ReleaseCenterDownloadProgress>(item =>
+            {
+                if (!observedDownloadProgress && item.Stage == "downloading" && item.BytesReceived > 0)
+                {
+                    observedDownloadProgress = true;
+                    cts.Cancel();
+                }
+            });
+            var service = CreatePluginDownloadService(tempDir, packageBytes, sha256, simulateStreaming: true);
+
+            var result = await service.DownloadPluginPackageAsync("patient-registration", "1.0.1", progress, cts.Token);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal("插件下载已取消", result.Summary);
+            Assert.Empty(Directory.GetFiles(tempDir, "*.zip", SearchOption.AllDirectories));
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, recursive: true);
             }
         }
     }

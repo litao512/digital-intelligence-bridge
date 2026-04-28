@@ -79,14 +79,15 @@
                 Padding="14">
             <Grid RowDefinitions="Auto,*"
                   RowSpacing="8">
-                <Grid ColumnDefinitions="2*,2*,*,*,*,2*"
+                <Grid ColumnDefinitions="2*,2*,*,*,*,96,2*"
                       ColumnSpacing="12">
                     <TextBlock Text="插件名称" FontWeight="SemiBold"/>
                     <TextBlock Grid.Column="1" Text="插件 ID" FontWeight="SemiBold"/>
                     <TextBlock Grid.Column="2" Text="当前版本" FontWeight="SemiBold"/>
                     <TextBlock Grid.Column="3" Text="最新版本" FontWeight="SemiBold"/>
                     <TextBlock Grid.Column="4" Text="状态" FontWeight="SemiBold"/>
-                    <TextBlock Grid.Column="5" Text="详情" FontWeight="SemiBold"/>
+                    <TextBlock Grid.Column="5" Text="操作" FontWeight="SemiBold"/>
+                    <TextBlock Grid.Column="6" Text="详情" FontWeight="SemiBold"/>
                 </Grid>
 
                 <ItemsControl Grid.Row="1"
@@ -96,7 +97,7 @@
                             <Border BorderBrush="{DynamicResource BorderBrush}"
                                     BorderThickness="0,1,0,0"
                                     Padding="0,10">
-                                <Grid ColumnDefinitions="2*,2*,*,*,*,2*"
+                                <Grid ColumnDefinitions="2*,2*,*,*,*,96,2*"
                                       ColumnSpacing="12">
                                     <TextBlock Text="{Binding Name}" TextWrapping="Wrap"/>
                                     <TextBlock Grid.Column="1"
@@ -106,7 +107,11 @@
                                     <TextBlock Grid.Column="2" Text="{Binding CurrentVersion}"/>
                                     <TextBlock Grid.Column="3" Text="{Binding LatestVersion}"/>
                                     <TextBlock Grid.Column="4" Text="{Binding Status}"/>
-                                    <TextBlock Grid.Column="5"
+                                    <Button Grid.Column="5"
+                                            Content="{Binding ActionText}"
+                                            Command="{Binding ActionCommand}"
+                                            IsVisible="{Binding CanExecuteAction}"/>
+                                    <TextBlock Grid.Column="6"
                                                Text="{Binding Detail}"
                                                Foreground="{DynamicResource TextMutedBrush}"
                                                TextWrapping="Wrap"/>
