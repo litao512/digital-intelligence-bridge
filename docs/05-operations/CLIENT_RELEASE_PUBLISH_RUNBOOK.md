@@ -307,7 +307,15 @@ clients/stable/1.0.3/dib-win-x64-portable-1.0.3.zip
 - `sha256` 正确
 - `publishedAt` 符合本次发布时间
 
-只有上述 5 组检查全部通过，才应对外宣告“客户端发布完成”。
+6. 本机协同升级验收通过
+
+- 按 `docs/05-operations/CLIENT_UPGRADE_E2E_TESTING.md` 准备旧版沙盒客户端
+- 在真实 UI 中完成 `检查更新`、`下载客户端更新包`、`立即升级`
+- 运行 `scripts/test-client-upgrade-e2e.ps1 -Collect`
+- 确认目标目录 `appsettings.json` 已升级到新版本
+- 确认升级器日志没有 `升级失败`
+
+只有上述 6 组检查全部通过，才应对外宣告“客户端发布完成”。
 
 ## 12. 同版本重发修复流程
 
