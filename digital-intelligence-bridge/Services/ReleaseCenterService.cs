@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -66,6 +67,8 @@ public sealed record ResourceApplicationSubmitResult(
 
 public sealed class ReleaseCenterService : IReleaseCenterService
 {
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> PluginPackageDownloadLocks = new(StringComparer.OrdinalIgnoreCase);
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<ReleaseCenterService> _logger;
     private readonly AppSettings _appSettings;
@@ -365,13 +368,16 @@ public sealed class ReleaseCenterService : IReleaseCenterService
             var downloaded = new List<string>();
             foreach (var plugin in downloadablePlugins)
             {
-                var fileName = BuildDownloadFileName(plugin);
-                var targetPath = Path.Combine(cacheDirectory, fileName);
-                var packageUrl = NormalizePackageUrl(plugin.PackageUrl!);
-                var bytes = await _httpClient.GetByteArrayAsync(packageUrl, cancellationToken).ConfigureAwait(false);
-                ValidateSha256(plugin, bytes);
-                await File.WriteAllBytesAsync(targetPath, bytes, cancellationToken).ConfigureAwait(false);
-                downloaded.Add(targetPath);
+                var downloadResult = await DownloadPluginPackageAsync(plugin.PluginId, plugin.Version, null, cancellationToken).ConfigureAwait(false);
+                if (!downloadResult.IsSuccess)
+                {
+                    return downloadResult;
+                }
+
+                if (downloadResult.DownloadedCount > 0 && !string.IsNullOrWhiteSpace(downloadResult.Detail))
+                {
+                    downloaded.Add(downloadResult.Detail);
+                }
             }
 
             return new ReleaseCenterPluginDownloadResult(true, $"插件包已缓存 {downloaded.Count} 项", string.Join(Environment.NewLine, downloaded), downloaded.Count, cacheDirectory);
@@ -394,6 +400,7 @@ public sealed class ReleaseCenterService : IReleaseCenterService
         var cacheDirectory = ResolveCacheDirectory();
         Directory.CreateDirectory(cacheDirectory);
         string? targetPath = null;
+        var ownsTargetFile = false;
 
         try
         {
@@ -412,58 +419,83 @@ public sealed class ReleaseCenterService : IReleaseCenterService
             var fileName = BuildDownloadFileName(plugin);
             targetPath = Path.Combine(cacheDirectory, fileName);
             var packageUrl = NormalizePackageUrl(plugin.PackageUrl!);
-            using var response = await _httpClient.GetAsync(packageUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
-            var totalBytes = response.Content.Headers.ContentLength;
-            await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            await using var target = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
-            using var incrementalHash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-            var buffer = new byte[81920];
-            long bytesReceived = 0;
-            var stopwatch = Stopwatch.StartNew();
-            var lastReport = TimeSpan.Zero;
 
-            while (true)
+            var downloadLock = PluginPackageDownloadLocks.GetOrAdd(
+                Path.GetFullPath(targetPath),
+                _ => new SemaphoreSlim(1, 1));
+            await downloadLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+            ownsTargetFile = true;
+            try
             {
-                var read = await source.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(false);
-                if (read == 0)
+                if (TryValidateCachedPluginPackage(plugin, targetPath))
                 {
-                    break;
+                    progress?.Report(new ReleaseCenterDownloadProgress("completed", "插件包已在本地缓存", 0, null, 0, TimeSpan.Zero));
+                    return new ReleaseCenterPluginDownloadResult(true, "插件包已缓存 1 项", targetPath, 1, cacheDirectory);
                 }
 
-                await target.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
-                incrementalHash.AppendData(buffer, 0, read);
-                bytesReceived += read;
-                var elapsed = stopwatch.Elapsed;
-                var shouldReport = elapsed - lastReport >= TimeSpan.FromMilliseconds(250) || (totalBytes.HasValue && bytesReceived >= totalBytes.Value);
-                if (shouldReport)
+                using var response = await _httpClient.GetAsync(packageUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
+                var totalBytes = response.Content.Headers.ContentLength;
+                await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+                await using var target = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
+                using var incrementalHash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+                var buffer = new byte[81920];
+                long bytesReceived = 0;
+                var stopwatch = Stopwatch.StartNew();
+                var lastReport = TimeSpan.Zero;
+
+                while (true)
                 {
-                    var bytesPerSecond = elapsed.TotalSeconds > 0 ? bytesReceived / elapsed.TotalSeconds : 0;
-                    TimeSpan? remaining = null;
-                    if (totalBytes.HasValue && bytesPerSecond > 0)
+                    var read = await source.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken).ConfigureAwait(false);
+                    if (read == 0)
                     {
-                        remaining = TimeSpan.FromSeconds(Math.Max(0, (totalBytes.Value - bytesReceived) / bytesPerSecond));
+                        break;
                     }
 
-                    progress?.Report(new ReleaseCenterDownloadProgress("downloading", "正在下载插件包", bytesReceived, totalBytes, bytesPerSecond, remaining));
-                    lastReport = elapsed;
-                }
-            }
+                    await target.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+                    incrementalHash.AppendData(buffer, 0, read);
+                    bytesReceived += read;
+                    var elapsed = stopwatch.Elapsed;
+                    var shouldReport = elapsed - lastReport >= TimeSpan.FromMilliseconds(250) || (totalBytes.HasValue && bytesReceived >= totalBytes.Value);
+                    if (shouldReport)
+                    {
+                        var bytesPerSecond = elapsed.TotalSeconds > 0 ? bytesReceived / elapsed.TotalSeconds : 0;
+                        TimeSpan? remaining = null;
+                        if (totalBytes.HasValue && bytesPerSecond > 0)
+                        {
+                            remaining = TimeSpan.FromSeconds(Math.Max(0, (totalBytes.Value - bytesReceived) / bytesPerSecond));
+                        }
 
-            progress?.Report(new ReleaseCenterDownloadProgress("verifying", "正在校验插件包", bytesReceived, totalBytes ?? bytesReceived, 0, TimeSpan.Zero));
-            var computedHash = Convert.ToHexString(incrementalHash.GetHashAndReset()).ToLowerInvariant();
-            ValidateSha256(plugin, computedHash);
-            progress?.Report(new ReleaseCenterDownloadProgress("completed", "插件包下载完成", bytesReceived, totalBytes ?? bytesReceived, 0, TimeSpan.Zero));
-            return new ReleaseCenterPluginDownloadResult(true, "插件包已缓存 1 项", targetPath, 1, cacheDirectory);
+                        progress?.Report(new ReleaseCenterDownloadProgress("downloading", "正在下载插件包", bytesReceived, totalBytes, bytesPerSecond, remaining));
+                        lastReport = elapsed;
+                    }
+                }
+
+                progress?.Report(new ReleaseCenterDownloadProgress("verifying", "正在校验插件包", bytesReceived, totalBytes ?? bytesReceived, 0, TimeSpan.Zero));
+                var computedHash = Convert.ToHexString(incrementalHash.GetHashAndReset()).ToLowerInvariant();
+                ValidateSha256(plugin, computedHash);
+                progress?.Report(new ReleaseCenterDownloadProgress("completed", "插件包下载完成", bytesReceived, totalBytes ?? bytesReceived, 0, TimeSpan.Zero));
+                return new ReleaseCenterPluginDownloadResult(true, "插件包已缓存 1 项", targetPath, 1, cacheDirectory);
+            }
+            finally
+            {
+                downloadLock.Release();
+            }
         }
         catch (OperationCanceledException)
         {
-            TryDeleteFile(targetPath);
+            if (ownsTargetFile)
+            {
+                TryDeleteFile(targetPath);
+            }
             return new ReleaseCenterPluginDownloadResult(false, "插件下载已取消", "已取消插件包下载。", 0, cacheDirectory);
         }
         catch (Exception ex)
         {
-            TryDeleteFile(targetPath);
+            if (ownsTargetFile)
+            {
+                TryDeleteFile(targetPath);
+            }
             _logger.LogWarning(ex, "下载指定发布中心插件包失败: {PluginId}", normalizedPluginId);
             return new ReleaseCenterPluginDownloadResult(false, "插件包下载失败", ex.Message, 0, cacheDirectory);
         }
@@ -1064,6 +1096,21 @@ public sealed class ReleaseCenterService : IReleaseCenterService
     private static string BuildClientDownloadFileName(ClientManifestDto clientManifest) { if (Uri.TryCreate(clientManifest.PackageUrl, UriKind.Absolute, out var uri)) { var fromUrl = Path.GetFileName(uri.LocalPath); if (!string.IsNullOrWhiteSpace(fromUrl)) return fromUrl; } var version = string.IsNullOrWhiteSpace(clientManifest.LatestVersion) ? "latest" : clientManifest.LatestVersion; return $"dib-win-x64-portable-{version}.zip"; }
     private static void ValidateSha256(PluginItemDto plugin, byte[] bytes) { if (string.IsNullOrWhiteSpace(plugin.Sha256)) return; var computed = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(); if (!string.Equals(computed, plugin.Sha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException($"插件 {plugin.PluginId} 的 SHA256 校验失败。"); }
     private static void ValidateSha256(PluginItemDto plugin, string computedHash) { if (string.IsNullOrWhiteSpace(plugin.Sha256)) return; if (!string.Equals(computedHash, plugin.Sha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException($"插件 {plugin.PluginId} 的 SHA256 校验失败。"); }
+    private static bool TryValidateCachedPluginPackage(PluginItemDto plugin, string targetPath)
+    {
+        if (!File.Exists(targetPath))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(plugin.Sha256))
+        {
+            return true;
+        }
+
+        var computed = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(targetPath))).ToLowerInvariant();
+        return string.Equals(computed, plugin.Sha256, StringComparison.OrdinalIgnoreCase);
+    }
     private static void ValidateClientSha256(ClientManifestDto clientManifest, string computedHash) { if (string.IsNullOrWhiteSpace(clientManifest.Sha256)) return; if (!string.Equals(computedHash, clientManifest.Sha256, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("客户端更新包的 SHA256 校验失败。"); }
     private static string ReadPluginId(string pluginJsonPath) { using var stream = File.OpenRead(pluginJsonPath); using var document = JsonDocument.Parse(stream); if (!document.RootElement.TryGetProperty("id", out var idProperty) || string.IsNullOrWhiteSpace(idProperty.GetString())) throw new InvalidOperationException($"{pluginJsonPath} 缺少插件 id。"); return idProperty.GetString()!; }
     private static PluginUninstallMarker ReadPluginUninstallMarker(string markerPath) { using var stream = File.OpenRead(markerPath); return JsonSerializer.Deserialize<PluginUninstallMarker>(stream) ?? throw new InvalidOperationException($"{markerPath} 缺少卸载标记。"); }

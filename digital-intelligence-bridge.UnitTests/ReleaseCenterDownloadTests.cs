@@ -550,5 +550,47 @@ public class ReleaseCenterDownloadTests
             }
         }
     }
+
+    [Fact]
+    public async Task DownloadPluginPackageAsync_ShouldSerializeSamePackageDownload_WhenBulkDownloadRunsConcurrently()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"release-cache-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var packageBytes = Encoding.UTF8.GetBytes(new string('D', 512 * 1024));
+        var sha256 = Convert.ToHexString(SHA256.HashData(packageBytes)).ToLowerInvariant();
+        var progressEvents = new List<ReleaseCenterDownloadProgress>();
+        using var progressReady = new ManualResetEventSlim(false);
+        var progress = new Progress<ReleaseCenterDownloadProgress>(item =>
+        {
+            progressEvents.Add(item);
+            if (item.Stage == "downloading" && item.BytesReceived > 0)
+            {
+                progressReady.Set();
+            }
+        });
+
+        try
+        {
+            var service = CreatePluginDownloadService(tempDir, packageBytes, sha256, simulateStreaming: true);
+
+            var singleDownloadTask = service.DownloadPluginPackageAsync("patient-registration", "1.0.1", progress);
+            Assert.True(progressReady.Wait(TimeSpan.FromSeconds(5)));
+            var bulkDownloadTask = service.DownloadAvailablePluginPackagesAsync();
+
+            var results = await Task.WhenAll(singleDownloadTask, bulkDownloadTask);
+
+            Assert.All(results, result => Assert.True(result.IsSuccess));
+            Assert.All(results, result => Assert.Equal(1, result.DownloadedCount));
+            var downloadedFile = Assert.Single(Directory.GetFiles(tempDir, "*.zip", SearchOption.TopDirectoryOnly));
+            Assert.Equal(packageBytes, await File.ReadAllBytesAsync(downloadedFile));
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+        }
+    }
 }
 
