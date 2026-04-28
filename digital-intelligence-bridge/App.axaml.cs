@@ -114,6 +114,7 @@ public partial class App : PrismApplication
         containerRegistry.RegisterInstance<IAuthorizedResourceCacheService>(authorizedResourceCacheService);
         containerRegistry.RegisterInstance<PluginAuthorizedResourceCacheService>(authorizedResourceCacheService);
         containerRegistry.RegisterSingleton<ITrayService, TrayService>();
+        containerRegistry.RegisterSingleton<IClientUpgradeService, ClientUpgradeService>();
         containerRegistry.RegisterSingleton<IApplicationService, ApplicationService>();
         containerRegistry.RegisterInstance(new HttpClient
         {

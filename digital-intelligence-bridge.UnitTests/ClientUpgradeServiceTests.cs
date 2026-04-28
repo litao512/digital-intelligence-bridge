@@ -6,6 +6,17 @@ namespace DigitalIntelligenceBridge.UnitTests;
 public class ClientUpgradeServiceTests
 {
     [Fact]
+    public void AppContainerRegistrations_ShouldRegisterClientUpgradeService_ForSettingsViewAutowire()
+    {
+        var appPath = FindRepositoryFile("digital-intelligence-bridge", "App.axaml.cs");
+        var source = File.ReadAllText(appPath);
+
+        Assert.Contains(
+            "containerRegistry.RegisterSingleton<IClientUpgradeService, ClientUpgradeService>()",
+            source);
+    }
+
+    [Fact]
     public void BuildStartInfo_ShouldUseTemporaryUpdaterCopy_AndPassUpgradeArguments()
     {
         var testRoot = Path.Combine(Path.GetTempPath(), "dib-client-upgrade-tests", Guid.NewGuid().ToString("N"));
@@ -48,6 +59,23 @@ public class ClientUpgradeServiceTests
         Assert.NotEqual(updaterExePath, launcher.LastRequest.FileName);
         Assert.True(File.Exists(launcher.LastRequest.FileName));
         Assert.True(File.Exists(Path.Combine(launcher.LastRequest.WorkingDirectory, "DibClient.Updater.dll")));
+    }
+
+    private static string FindRepositoryFile(params string[] relativePathParts)
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current is not null)
+        {
+            var candidate = Path.Combine(new[] { current.FullName }.Concat(relativePathParts).ToArray());
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            current = current.Parent;
+        }
+
+        throw new FileNotFoundException($"未找到仓库文件：{Path.Combine(relativePathParts)}");
     }
 
     private sealed class RecordingClientUpgradeProcessLauncher : IClientUpgradeProcessLauncher
