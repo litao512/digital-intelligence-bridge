@@ -61,6 +61,37 @@ public class ClientUpgradeServiceTests
         Assert.True(File.Exists(Path.Combine(launcher.LastRequest.WorkingDirectory, "DibClient.Updater.dll")));
     }
 
+    [Fact]
+    public void BuildStartInfo_ShouldEscapeTargetDirectory_WhenBaseDirectoryEndsWithSeparator()
+    {
+        var testRoot = Path.Combine(Path.GetTempPath(), "dib-client-upgrade-tests", Guid.NewGuid().ToString("N"));
+        var appDir = Path.Combine(testRoot, "app");
+        var cacheDir = Path.Combine(testRoot, "cache");
+        Directory.CreateDirectory(appDir);
+        Directory.CreateDirectory(cacheDir);
+        var appExePath = Path.Combine(appDir, "digital-intelligence-bridge.exe");
+        var updaterExePath = Path.Combine(appDir, "DibClient.Updater.exe");
+        var packagePath = Path.Combine(cacheDir, "dib-win-x64-portable-1.0.8.zip");
+        File.WriteAllText(appExePath, "app");
+        File.WriteAllText(updaterExePath, "updater");
+        File.WriteAllText(packagePath, "zip");
+
+        var launcher = new RecordingClientUpgradeProcessLauncher();
+        var service = new ClientUpgradeService(
+            launcher,
+            new RecordingClientUpgradeApplicationExit(),
+            () => 1234,
+            () => appExePath,
+            () => appDir + Path.DirectorySeparatorChar,
+            () => Path.Combine(testRoot, "updater-runs"));
+
+        var result = service.StartUpgrade(packagePath);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(launcher.LastRequest);
+        Assert.DoesNotContain($"{appDir}{Path.DirectorySeparatorChar}\" --exe", launcher.LastRequest!.Arguments);
+    }
+
     private static string FindRepositoryFile(params string[] relativePathParts)
     {
         var current = new DirectoryInfo(AppContext.BaseDirectory);

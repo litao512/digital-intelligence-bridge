@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace DigitalIntelligenceBridge.Services;
 
@@ -143,7 +144,37 @@ public sealed class ClientUpgradeService : IClientUpgradeService
             "--restart");
     }
 
-    private static string Quote(string value) => "\"" + value.Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
+    private static string Quote(string value)
+    {
+        var builder = new StringBuilder();
+        builder.Append('"');
+        var backslashCount = 0;
+
+        foreach (var character in value)
+        {
+            if (character == '\\')
+            {
+                backslashCount++;
+                continue;
+            }
+
+            if (character == '"')
+            {
+                builder.Append('\\', backslashCount * 2 + 1);
+                builder.Append('"');
+                backslashCount = 0;
+                continue;
+            }
+
+            builder.Append('\\', backslashCount);
+            backslashCount = 0;
+            builder.Append(character);
+        }
+
+        builder.Append('\\', backslashCount * 2);
+        builder.Append('"');
+        return builder.ToString();
+    }
 
     private sealed class ProcessClientUpgradeProcessLauncher : IClientUpgradeProcessLauncher
     {
