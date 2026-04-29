@@ -537,7 +537,26 @@ public class MainWindowViewModel : ViewModelBase
                 await Task.Delay(TimeSpan.FromMilliseconds(50), cancellationToken);
             }
 
-            await HomeDashboard.RunPluginUpdateAsync(PluginUpdateTrigger.Startup, cancellationToken);
+            var orchestrator = _pluginUpdateOrchestrator ?? CreateDefaultPluginUpdateOrchestrator();
+            if (orchestrator is null)
+            {
+                return;
+            }
+
+            var result = await orchestrator.CheckAsync(PluginUpdateTrigger.Startup, cancellationToken);
+            if (result.CheckResult is null)
+            {
+                return;
+            }
+
+            await PluginCenter.ApplyAvailablePluginsAsync(result.CheckResult.AuthorizedPluginDetail, cancellationToken);
+            var updateCount = CountAvailablePlugins(result.CheckResult.AuthorizedPluginDetail);
+            if (updateCount > 0)
+            {
+                var message = $"{updateCount} 个插件可更新";
+                _trayService?.SetTooltip($"DIB客户端 · {message}");
+                _trayService?.ShowNotification("插件可更新", $"{message}，请打开插件中心安装或更新。");
+            }
         }
         catch (OperationCanceledException)
         {
@@ -937,6 +956,18 @@ public class MainWindowViewModel : ViewModelBase
 
         RebuildMenuSections();
         _logger.LogInformation("菜单项初始化完成，共 {Count} 项", MenuItems.Count);
+    }
+
+    private static int CountAvailablePlugins(string detail)
+    {
+        if (string.IsNullOrWhiteSpace(detail))
+        {
+            return 0;
+        }
+
+        return detail
+            .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Count(line => line.Split(" / ", StringSplitOptions.None).Length >= 3);
     }
 
     private void RebuildMenuSections()

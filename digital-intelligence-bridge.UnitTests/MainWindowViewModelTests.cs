@@ -1,6 +1,7 @@
 using DigitalIntelligenceBridge.Services;
 using DigitalIntelligenceBridge.Plugin.Abstractions;
 using DigitalIntelligenceBridge.ViewModels;
+using Avalonia.Controls;
 using Xunit;
 
 namespace DigitalIntelligenceBridge.UnitTests;
@@ -34,7 +35,7 @@ public class MainWindowViewModelTests
     }
 
     [Fact]
-    public async Task RunStartupPluginUpdateAsync_ShouldDelegateToHomeDashboardWithStartupTrigger()
+    public async Task RunStartupPluginUpdateAsync_ShouldCheckWithStartupTrigger()
     {
         var updateService = new StubPluginUpdateOrchestrator(new PluginUpdateRunResult(
             true,
@@ -52,8 +53,61 @@ public class MainWindowViewModelTests
 
         await vm.RunStartupPluginUpdateAsync(delay: TimeSpan.Zero);
 
-        Assert.Equal(1, updateService.RunCallCount);
+        Assert.Equal(1, updateService.CheckCallCount);
+        Assert.Equal(0, updateService.RunCallCount);
         Assert.Equal(PluginUpdateTrigger.Startup, updateService.LastTrigger);
+    }
+
+    [Fact]
+    public async Task RunStartupPluginUpdateAsync_ShouldOnlyCheckPluginsAndExposeAvailablePlugins()
+    {
+        using var sandbox = new TestConfigSandbox();
+        var updateService = new StubPluginUpdateOrchestrator(new PluginUpdateRunResult(
+            true,
+            "发现插件更新",
+            string.Empty,
+            false,
+            DateTime.Now,
+            new ReleaseCenterCheckResult(
+                true,
+                "发现 1 类可用更新",
+                "客户端更新：暂无发布版本",
+                "插件更新：1 个可用插件（就诊登记 1.0.3）",
+                "detail",
+                "site",
+                "authorized",
+                "就诊登记 / patient-registration / 1.0.3"),
+            null,
+            null));
+        var trayService = new StubTrayService();
+        var settings = new Configuration.AppSettings
+        {
+            Plugin = new Configuration.PluginConfig
+            {
+                PluginDirectory = Path.Combine(sandbox.RootDirectory, "runtime")
+            },
+            ReleaseCenter = new Configuration.ReleaseCenterConfig
+            {
+                RuntimePluginRoot = Path.Combine(sandbox.RootDirectory, "runtime"),
+                StagingDirectory = Path.Combine(sandbox.RootDirectory, "staging")
+            }
+        };
+        var vm = new MainWindowViewModel(
+            new NullLoggerService<MainWindowViewModel>(),
+            Microsoft.Extensions.Options.Options.Create(settings),
+            pluginUpdateOrchestrator: updateService,
+            trayService: trayService);
+
+        await vm.RunStartupPluginUpdateAsync(delay: TimeSpan.Zero);
+
+        Assert.Equal(1, updateService.CheckCallCount);
+        Assert.Equal(0, updateService.RunCallCount);
+        await vm.PluginCenter.RefreshAsync();
+        var item = Assert.Single(vm.PluginCenter.PluginItems);
+        Assert.Equal("安装", item.ActionText);
+        Assert.Equal("未安装", item.Status);
+        Assert.Contains(trayService.Notifications, item => item.Title == "插件可更新");
+        Assert.Contains("1 个插件可更新", trayService.Tooltip);
     }
 
     [Fact]
@@ -293,6 +347,7 @@ public class MainWindowViewModelTests
     private sealed class StubPluginUpdateOrchestrator(PluginUpdateRunResult result) : IPluginUpdateOrchestrator
     {
         public int RunCallCount { get; private set; }
+        public int CheckCallCount { get; private set; }
         public PluginUpdateTrigger LastTrigger { get; private set; }
 
         public Task<PluginUpdateRunResult> RunAsync(PluginUpdateTrigger trigger, CancellationToken cancellationToken = default)
@@ -301,5 +356,31 @@ public class MainWindowViewModelTests
             LastTrigger = trigger;
             return Task.FromResult(result);
         }
+
+        public Task<PluginUpdateRunResult> CheckAsync(PluginUpdateTrigger trigger, CancellationToken cancellationToken = default)
+        {
+            CheckCallCount++;
+            LastTrigger = trigger;
+            return Task.FromResult(result);
+        }
+    }
+
+    private sealed class StubTrayService : ITrayService
+    {
+        public List<(string Title, string Message)> Notifications { get; } = new();
+        public string Tooltip { get; private set; } = string.Empty;
+        public bool IsWindowVisible => true;
+        public bool IsExiting => false;
+        public void Initialize(Window mainWindow) { }
+        public void ShowWindow() { }
+        public void HideWindow() { }
+        public void ToggleWindow() { }
+        public void ExitApplication() { }
+        public void AddMenuItem(string header, Action callback, string? parentPath = null) { }
+        public void RemoveMenuItem(string path) { }
+        public void AddSeparator(string? parentPath = null) { }
+        public void SetTooltip(string tooltip) => Tooltip = tooltip;
+        public void SetShowNotifications(bool show) { }
+        public void ShowNotification(string title, string message) => Notifications.Add((title, message));
     }
 }

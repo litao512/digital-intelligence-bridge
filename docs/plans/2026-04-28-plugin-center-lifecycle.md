@@ -1,23 +1,23 @@
-# 插件中心独立生命周期 Implementation Plan
+# 插件中心独立生命周期实施计划
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **执行提示：** 实施本计划时按任务逐项执行，并在每个任务后运行对应验证。
 
-**Goal:** 将插件中心改为每个插件独立检查、下载、预安装、卸载和重启生效的生命周期管理界面。
+**目标：** 将插件中心改为每个插件独立检查、下载、预安装、卸载和重启生效的生命周期管理界面。
 
-**Architecture:** 发布中心服务提供插件级下载、预安装和待卸载标记；插件中心 ViewModel 合并运行时目录、staging 目录、待卸载标记和发布中心清单，给每一行生成独立操作命令。重启激活流程统一处理预安装目录和待卸载标记，避免运行时 DLL 占用问题。
+**架构：** 发布中心服务提供插件级下载、预安装和待卸载标记；插件中心 ViewModel 合并运行时目录、staging 目录、待卸载标记和发布中心清单，给每一行生成独立操作命令。重启激活流程统一处理预安装目录和待卸载标记，避免运行时 DLL 占用问题。
 
-**Tech Stack:** .NET、Avalonia、Prism `DelegateCommand`、xUnit、`System.IO.Compression`、现有 `ReleaseCenterService`。
+**技术栈：** .NET、Avalonia、Prism `DelegateCommand`、xUnit、`System.IO.Compression`、现有 `ReleaseCenterService`。
 
 ---
 
-### Task 1: 服务接口测试
+### 任务 1：服务接口测试
 
-**Files:**
-- Modify: `digital-intelligence-bridge.UnitTests/ReleaseCenterDownloadTests.cs`
-- Modify: `digital-intelligence-bridge.UnitTests/ReleaseCenterPrepareInstallTests.cs`
-- Modify: `digital-intelligence-bridge.UnitTests/ReleaseCenterActivatePreparedTests.cs`
+**文件：**
+- 修改：`digital-intelligence-bridge.UnitTests/ReleaseCenterDownloadTests.cs`
+- 修改：`digital-intelligence-bridge.UnitTests/ReleaseCenterPrepareInstallTests.cs`
+- 修改：`digital-intelligence-bridge.UnitTests/ReleaseCenterActivatePreparedTests.cs`
 
-**Step 1: Write failing tests**
+**步骤 1：编写失败测试**
 
 新增测试覆盖：
 
@@ -26,18 +26,18 @@
 - `MarkPluginForUninstallAsync` 创建待卸载标记。
 - `ActivatePreparedPluginPackagesAsync` 处理待卸载标记，删除目标运行时目录并创建备份。
 
-**Step 2: Run tests to verify they fail**
+**步骤 2：运行测试并确认失败**
 
-Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj --no-build -v minimal --filter "ReleaseCenterDownloadTests|ReleaseCenterPrepareInstallTests|ReleaseCenterActivatePreparedTests"`
+运行：`dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj --no-build -v minimal --filter "ReleaseCenterDownloadTests|ReleaseCenterPrepareInstallTests|ReleaseCenterActivatePreparedTests"`
 
-Expected: FAIL，原因是接口和方法尚不存在。
+预期：失败，原因是接口和方法尚不存在。
 
-### Task 2: 插件级发布中心能力
+### 任务 2：插件级发布中心能力
 
-**Files:**
-- Modify: `digital-intelligence-bridge/Services/ReleaseCenterService.cs`
+**文件：**
+- 修改：`digital-intelligence-bridge/Services/ReleaseCenterService.cs`
 
-**Step 1: Extend records and interface**
+**步骤 1：扩展记录类型和接口**
 
 新增结果类型：
 
@@ -53,15 +53,15 @@ Task<ReleaseCenterPluginPrepareResult> PreparePluginPackageAsync(string pluginId
 Task<ReleaseCenterPluginUninstallResult> MarkPluginForUninstallAsync(string pluginId, CancellationToken cancellationToken = default);
 ```
 
-**Step 2: Implement plugin-level download**
+**步骤 2：实现插件级下载**
 
 复用 manifest 获取、URL 归一化、SHA256 校验和文件命名逻辑，只筛选目标 `pluginId` 与可选 `version`。
 
-**Step 3: Implement plugin-level prepare**
+**步骤 3：实现插件级预安装**
 
 只查找目标插件缓存 zip，解压到 staging 下的单个目录。目录命名继续使用 zip 文件名，避免和现有激活流程冲突。
 
-**Step 4: Implement uninstall marker**
+**步骤 4：实现卸载标记**
 
 在 staging 下创建目录：`uninstall-<pluginId>`，内部写入 `uninstall.json`：
 
@@ -72,26 +72,26 @@ Task<ReleaseCenterPluginUninstallResult> MarkPluginForUninstallAsync(string plug
 }
 ```
 
-**Step 5: Extend activation**
+**步骤 5：扩展激活流程**
 
 `ActivatePreparedPluginPackagesAsync` 遍历 staging 时：
 
 - 如果目录包含 `uninstall.json`，读取 `pluginId`，备份并删除运行时插件目录，然后删除该 staging 目录。
 - 否则按现有预安装逻辑复制插件。
 
-**Step 6: Run tests**
+**步骤 6：运行测试**
 
-Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj --no-build -v minimal --filter "ReleaseCenterDownloadTests|ReleaseCenterPrepareInstallTests|ReleaseCenterActivatePreparedTests"`
+运行：`dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj --no-build -v minimal --filter "ReleaseCenterDownloadTests|ReleaseCenterPrepareInstallTests|ReleaseCenterActivatePreparedTests"`
 
-Expected: PASS。
+预期：通过。
 
-### Task 3: 插件更新编排拆分
+### 任务 3：插件更新编排拆分
 
-**Files:**
-- Modify: `digital-intelligence-bridge/Services/PluginUpdateOrchestrator.cs`
-- Modify: `digital-intelligence-bridge.UnitTests/PluginUpdateOrchestratorTests.cs`
+**文件：**
+- 修改：`digital-intelligence-bridge/Services/PluginUpdateOrchestrator.cs`
+- 修改：`digital-intelligence-bridge.UnitTests/PluginUpdateOrchestratorTests.cs`
 
-**Step 1: Write failing tests**
+**步骤 1：编写失败测试**
 
 覆盖：
 
@@ -99,7 +99,7 @@ Expected: PASS。
 - `InstallOrUpdateAsync(pluginId, version)` 调用插件级下载和预安装。
 - `UninstallAsync(pluginId)` 调用插件级卸载标记。
 
-**Step 2: Implement interface**
+**步骤 2：实现接口**
 
 `IPluginUpdateOrchestrator` 新增：
 
@@ -111,19 +111,19 @@ Task<PluginUpdateRunResult> UninstallAsync(string pluginId, CancellationToken ca
 
 保留 `RunAsync`，内部调用 `CheckAsync` + 批量旧流程，避免现有启动事件暂时断裂。
 
-**Step 3: Run tests**
+**步骤 3：运行测试**
 
-Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj --no-build -v minimal --filter PluginUpdateOrchestratorTests`
+运行：`dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj --no-build -v minimal --filter PluginUpdateOrchestratorTests`
 
-Expected: PASS。
+预期：通过。
 
-### Task 4: 插件中心 ViewModel
+### 任务 4：插件中心 ViewModel
 
-**Files:**
-- Modify: `digital-intelligence-bridge/ViewModels/PluginCenterViewModel.cs`
-- Modify: `digital-intelligence-bridge.UnitTests/PluginCenterViewModelTests.cs`
+**文件：**
+- 修改：`digital-intelligence-bridge/ViewModels/PluginCenterViewModel.cs`
+- 修改：`digital-intelligence-bridge.UnitTests/PluginCenterViewModelTests.cs`
 
-**Step 1: Write failing tests**
+**步骤 1：编写失败测试**
 
 覆盖：
 
@@ -134,7 +134,7 @@ Expected: PASS。
 - 已安装插件行显示 `卸载`。
 - 执行行操作后刷新列表和状态文案。
 
-**Step 2: Implement item commands**
+**步骤 2：实现行操作命令**
 
 `PluginCenterItem` 增加：
 
@@ -151,26 +151,26 @@ public DelegateCommand? ActionCommand { get; init; }
 - 重启生效：调用 `RestartApplicationCommand`。
 - 重试：重复上一次失败动作。
 
-**Step 3: Read uninstall markers**
+**步骤 3：读取卸载标记**
 
 `RefreshAsync` 读取 staging 中 `uninstall.json`，并合并为 `待卸载` 状态。
 
-**Step 4: Run tests**
+**步骤 4：运行测试**
 
-Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj --no-build -v minimal --filter PluginCenterViewModelTests`
+运行：`dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj --no-build -v minimal --filter PluginCenterViewModelTests`
 
-Expected: PASS。
+预期：通过。
 
-### Task 5: 插件中心 UI
+### 任务 5：插件中心 UI
 
-**Files:**
-- Modify: `digital-intelligence-bridge/Views/PluginCenterView.axaml`
+**文件：**
+- 修改：`digital-intelligence-bridge/Views/PluginCenterView.axaml`
 
-**Step 1: Update table columns**
+**步骤 1：更新表格列**
 
 将列表列调整为：插件名称、插件 ID、当前版本、最新版本、状态、操作、详情。
 
-**Step 2: Bind action button**
+**步骤 2：绑定操作按钮**
 
 在操作列增加按钮：
 
@@ -180,40 +180,40 @@ Expected: PASS。
         IsVisible="{Binding CanExecuteAction}"/>
 ```
 
-**Step 3: Keep layout stable**
+**步骤 3：保持布局稳定**
 
 给操作列固定宽度，避免按钮文字造成表格跳动。
 
-### Task 6: Build and verification
+### 任务 6：构建和验证
 
-**Files:**
-- No direct edits.
+**文件：**
+- 无直接编辑。
 
-**Step 1: Build app**
+**步骤 1：构建应用**
 
-Run: `dotnet build digital-intelligence-bridge/digital-intelligence-bridge.csproj --no-restore -m:1 -c Debug -v minimal`
+运行：`dotnet build digital-intelligence-bridge/digital-intelligence-bridge.csproj --no-restore -m:1 -c Debug -v minimal`
 
-Expected: build succeeds.
+预期：构建成功。
 
-**Step 2: Build tests**
+**步骤 2：构建测试**
 
-Run: `dotnet build digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj --no-restore -m:1 -v minimal`
+运行：`dotnet build digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj --no-restore -m:1 -v minimal`
 
-Expected: build succeeds.
+预期：构建成功。
 
-**Step 3: Run targeted tests**
+**步骤 3：运行目标测试**
 
-Run: `dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj --no-build -v minimal --filter "PluginCenterViewModelTests|PluginUpdateOrchestratorTests|ReleaseCenterDownloadTests|ReleaseCenterPrepareInstallTests|ReleaseCenterActivatePreparedTests"`
+运行：`dotnet test digital-intelligence-bridge.UnitTests/digital-intelligence-bridge.UnitTests.csproj --no-build -v minimal --filter "PluginCenterViewModelTests|PluginUpdateOrchestratorTests|ReleaseCenterDownloadTests|ReleaseCenterPrepareInstallTests|ReleaseCenterActivatePreparedTests"`
 
-Expected: all targeted tests pass.
+预期：所有目标测试通过。
 
-**Step 4: Run plugin E2E smoke**
+**步骤 4：运行插件端到端冒烟测试**
 
-Run: `pwsh -File .\scripts\test-plugin-upgrade-e2e-script.ps1`
+运行：`pwsh -File .\scripts\test-plugin-upgrade-e2e-script.ps1`
 
-Expected: script self-test passes.
+预期：脚本自检通过。
 
-**Step 5: Commit**
+**步骤 5：提交**
 
 ```bash
 git add docs/plans/2026-04-28-plugin-center-lifecycle-design.md docs/plans/2026-04-28-plugin-center-lifecycle.md digital-intelligence-bridge digital-intelligence-bridge.UnitTests

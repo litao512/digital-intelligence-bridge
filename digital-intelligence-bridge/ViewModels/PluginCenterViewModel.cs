@@ -105,6 +105,12 @@ public sealed class PluginCenterViewModel : ViewModelBase
         _availablePlugins = ParseAvailablePlugins(detail);
     }
 
+    public async Task ApplyAvailablePluginsAsync(string detail, CancellationToken cancellationToken = default)
+    {
+        _availablePlugins = ParseAvailablePlugins(detail);
+        await RefreshAsync(cancellationToken);
+    }
+
     public Task RefreshAsync(CancellationToken cancellationToken = default)
     {
         PluginItems.Clear();
