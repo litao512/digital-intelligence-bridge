@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildSiteGroupAssignmentUpdate, toSiteSummary } from '@/repositories/sitesRepository'
+import {
+  buildSiteGroupAssignmentUpdate,
+  buildSiteOrganizationAssignmentUpdate,
+  toSiteSummary,
+} from '@/repositories/sitesRepository'
 
 describe('sitesRepository', () => {
   it('buildSiteGroupAssignmentUpdate should map selected group into database payload', () => {
@@ -11,6 +15,15 @@ describe('sitesRepository', () => {
   it('buildSiteGroupAssignmentUpdate should allow clearing the group', () => {
     expect(buildSiteGroupAssignmentUpdate(null)).toEqual({
       group_id: null,
+    })
+  })
+
+  it('buildSiteOrganizationAssignmentUpdate should map selected organization into database payload', () => {
+    expect(buildSiteOrganizationAssignmentUpdate('org-1')).toEqual({
+      organization_id: 'org-1',
+    })
+    expect(buildSiteOrganizationAssignmentUpdate(null)).toEqual({
+      organization_id: null,
     })
   })
 

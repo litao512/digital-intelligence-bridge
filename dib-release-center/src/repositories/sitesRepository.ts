@@ -32,6 +32,10 @@ interface SiteGroupAssignmentPayload {
   group_id: string | null
 }
 
+interface SiteOrganizationAssignmentPayload {
+  organization_id: string | null
+}
+
 function throwIfError(error: PostgrestError | null, context: string): void {
   if (error) {
     throw new Error(`${context}失败：${error.message}`)
@@ -107,6 +111,12 @@ export function buildSiteGroupAssignmentUpdate(groupId: string | null): SiteGrou
   }
 }
 
+export function buildSiteOrganizationAssignmentUpdate(organizationId: string | null): SiteOrganizationAssignmentPayload {
+  return {
+    organization_id: organizationId,
+  }
+}
+
 export async function updateSiteGroup(siteRowId: string, groupId: string | null): Promise<void> {
   const { error } = await getSupabaseClient()
     .schema(RELEASE_SCHEMA)
@@ -115,4 +125,14 @@ export async function updateSiteGroup(siteRowId: string, groupId: string | null)
     .eq('id', siteRowId)
 
   throwIfError(error, '更新站点分组')
+}
+
+export async function updateSiteOrganization(siteRowId: string, organizationId: string | null): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .schema(RELEASE_SCHEMA)
+    .from('sites')
+    .update(buildSiteOrganizationAssignmentUpdate(organizationId))
+    .eq('id', siteRowId)
+
+  throwIfError(error, '更新站点单位')
 }

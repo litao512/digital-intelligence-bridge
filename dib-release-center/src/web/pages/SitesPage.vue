@@ -64,6 +64,7 @@
             <th>站点</th>
             <th>站点标识</th>
             <th>所属分组</th>
+            <th>所属单位</th>
             <th>客户端版本</th>
             <th>最近活跃</th>
           </tr>
@@ -89,6 +90,17 @@
                 </option>
               </select>
             </td>
+            <td>
+              <select
+                :value="site.organizationId ?? ''"
+                @change="onOrganizationChange(site.id, ($event.target as HTMLSelectElement).value || null)"
+              >
+                <option value="">未绑定单位</option>
+                <option v-for="organization in organizations" :key="organization.id" :value="organization.id">
+                  {{ organization.name }} / {{ organization.code }}
+                </option>
+              </select>
+            </td>
             <td>{{ site.clientVersion }}</td>
             <td>{{ formatDate(site.lastSeenAt) }}</td>
           </tr>
@@ -102,17 +114,20 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import type { OrganizationSummary } from '@/contracts/organization-types'
 import type { SiteGroup, SiteSummary } from '@/contracts/site-types'
 import { createDefaultSiteFilterInput, filterSites } from '@/services/siteManagementService'
 
 const props = defineProps<{
   sites: SiteSummary[]
   groups: SiteGroup[]
+  organizations: OrganizationSummary[]
   searchSeed?: string
 }>()
 
 const emit = defineEmits<{
   assignGroup: [payload: { siteRowId: string; groupId: string | null }]
+  assignOrganization: [payload: { siteRowId: string; organizationId: string | null }]
   bulkAssignGroup: [payload: { siteRowIds: string[]; groupId: string }]
 }>()
 
@@ -147,6 +162,10 @@ const allFilteredSelected = computed(() =>
 
 function onGroupChange(siteRowId: string, groupId: string | null): void {
   emit('assignGroup', { siteRowId, groupId })
+}
+
+function onOrganizationChange(siteRowId: string, organizationId: string | null): void {
+  emit('assignOrganization', { siteRowId, organizationId })
 }
 
 function toggleSelectSite(siteRowId: string, checked: boolean): void {

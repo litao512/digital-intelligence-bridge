@@ -70,12 +70,19 @@
 
       <section class="workspace">
         <ChannelsPage v-if="activeTab === 'channels'" :channels="channels" />
+        <OrganizationsPage
+          v-else-if="activeTab === 'organizations'"
+          :organizations="organizations"
+          @submit="handleSubmitOrganization"
+        />
         <SitesPage
         v-else-if="activeTab === 'sites'"
         :sites="sites"
         :groups="siteGroups"
+        :organizations="organizations"
         :search-seed="siteSearchSeed"
         @assign-group="handleAssignSiteGroup"
+        @assign-organization="handleAssignSiteOrganization"
         @bulk-assign-group="handleBulkAssignSiteGroup"
       />
       <GroupPoliciesPage
@@ -106,6 +113,39 @@
         @open-site="handleOpenAnalyticsSite"
         @open-site-override="handleOpenAnalyticsSiteOverride"
         @quick-assign-group="handleQuickAssignAnalyticsGroup"
+      />
+      <ResourcesPage
+        v-else-if="activeTab === 'resources'"
+        :resources="resources"
+        :organizations="organizations"
+        @submit="handleSubmitResource"
+      />
+      <OrganizationPermissionsPage
+        v-else-if="activeTab === 'organization-permissions'"
+        :organizations="organizations"
+        :packages="pluginPackages"
+        :resources="resources"
+        :selected-organization-id="selectedOrganizationId"
+        :plugin-permissions="organizationPluginPermissions"
+        :resource-permissions="organizationResourcePermissions"
+        @select="handleSelectOrganization"
+        @grant-plugin="handleGrantOrganizationPlugin"
+        @grant-resource="handleGrantOrganizationResource"
+        @deactivate-plugin="handleDeactivateOrganizationPlugin"
+        @deactivate-resource="handleDeactivateOrganizationResource"
+      />
+      <SiteResourceBindingsPage
+        v-else-if="activeTab === 'site-resource-bindings'"
+        :sites="sites"
+        :packages="pluginPackages"
+        :resources="resources"
+        :bindings="siteResourceBindings"
+        :plugin-permissions="siteBindingPluginPermissions"
+        :resource-permissions="siteBindingResourcePermissions"
+        :selected-site-row-id="selectedResourceBindingSiteRowId"
+        @select-site="handleSelectResourceBindingSite"
+        @submit="handleUpsertResourceBinding"
+        @deactivate="handleDeactivateResourceBinding"
       />
       <PluginReleasesPage
         v-else-if="activeTab === 'plugins'"
@@ -194,13 +234,26 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { Session } from '@supabase/supabase-js'
+import type { OrganizationPluginPermission, OrganizationResourcePermission, OrganizationSummary, OrganizationStatus } from '@/contracts/organization-types'
 import type { ClientVersion, PluginPackage, PluginVersion, ReleaseAsset, ReleaseChannel } from '@/contracts/release-types'
+import type { ResourceBindingSummary, ResourceStatus, ResourceSummary } from '@/contracts/resource-types'
 import type { SiteAnalyticsSummary, SiteGroup, SiteGroupPluginPolicy, SitePluginOverride, SiteSummary } from '@/contracts/site-types'
 import { createClientVersion, deleteClientVersion, listClientVersions } from '@/repositories/clientVersionsRepository'
 import { deleteGroupPluginPolicy, listGroupPluginPolicies, upsertGroupPluginPolicy } from '@/repositories/groupPluginPoliciesRepository'
+import { createOrganization, listOrganizations, updateOrganization } from '@/repositories/organizationsRepository'
+import {
+  deactivateOrganizationPluginPermission,
+  deactivateOrganizationResourcePermission,
+  listOrganizationPluginPermissions,
+  listOrganizationResourcePermissions,
+  upsertOrganizationPluginPermission,
+  upsertOrganizationResourcePermission,
+} from '@/repositories/organizationPermissionsRepository'
 import { listSiteGroups } from '@/repositories/siteGroupsRepository'
 import { deleteSitePluginOverride, listSitePluginOverrides, upsertSitePluginOverride } from '@/repositories/sitePluginOverridesRepository'
-import { listSites, updateSiteGroup } from '@/repositories/sitesRepository'
+import { listSites, updateSiteGroup, updateSiteOrganization } from '@/repositories/sitesRepository'
+import { createResource, listResources, updateResource } from '@/repositories/resourcesRepository'
+import { deactivateResourceBinding, listResourceBindingsBySite, upsertResourceBinding } from '@/repositories/resourceBindingsRepository'
 import { createPluginPackage, deletePluginPackage, listPluginPackages } from '@/repositories/pluginPackagesRepository'
 import { createPluginVersion, deletePluginVersion, listPluginVersions } from '@/repositories/pluginVersionsRepository'
 import {
@@ -245,7 +298,11 @@ import PluginReleasesPage from '@/web/pages/PluginReleasesPage.vue'
 import ReleaseAssetsPage from '@/web/pages/ReleaseAssetsPage.vue'
 import SiteAnalyticsPage from '@/web/pages/SiteAnalyticsPage.vue'
 import GroupPoliciesPage from '@/web/pages/GroupPoliciesPage.vue'
+import OrganizationPermissionsPage from '@/web/pages/OrganizationPermissionsPage.vue'
+import OrganizationsPage from '@/web/pages/OrganizationsPage.vue'
+import ResourcesPage from '@/web/pages/ResourcesPage.vue'
 import SiteOverridesPage from '@/web/pages/SiteOverridesPage.vue'
+import SiteResourceBindingsPage from '@/web/pages/SiteResourceBindingsPage.vue'
 import SitesPage from '@/web/pages/SitesPage.vue'
 import { aggregateSiteAnalytics } from '@/services/siteAuthorizationService'
 import { buildGroupPolicyUpsert, buildSiteOverrideUpsert, type SiteGroupPolicyDraftInput, type SiteOverrideDraftInput } from '@/services/sitePolicyDraftService'
@@ -253,10 +310,14 @@ import { buildQuickAssignGroupPayload, findSiteRowBySiteId, getSiteSearchSeed } 
 
 const tabs = [
   { id: 'channels', label: '发布渠道' },
+  { id: 'organizations', label: '单位管理' },
   { id: 'sites', label: '站点管理' },
   { id: 'group-policies', label: '分组授权' },
   { id: 'site-overrides', label: '站点覆盖' },
   { id: 'site-analytics', label: '站点统计' },
+  { id: 'resources', label: '资源管理' },
+  { id: 'organization-permissions', label: '单位授权' },
+  { id: 'site-resource-bindings', label: '资源绑定' },
   { id: 'plugins', label: '插件版本' },
   { id: 'clients', label: '客户端版本' },
   { id: 'assets', label: '发布资产' },
@@ -280,6 +341,15 @@ const selectedOverrideSiteRowId = ref('')
 const siteSearchSeed = ref('')
 const highlightedAnalyticsSiteId = ref('')
 const sites = ref<SiteSummary[]>([])
+const organizations = ref<OrganizationSummary[]>([])
+const resources = ref<ResourceSummary[]>([])
+const organizationPluginPermissions = ref<OrganizationPluginPermission[]>([])
+const organizationResourcePermissions = ref<OrganizationResourcePermission[]>([])
+const siteBindingPluginPermissions = ref<OrganizationPluginPermission[]>([])
+const siteBindingResourcePermissions = ref<OrganizationResourcePermission[]>([])
+const siteResourceBindings = ref<ResourceBindingSummary[]>([])
+const selectedOrganizationId = ref('')
+const selectedResourceBindingSiteRowId = ref('')
 const groupPluginPolicies = ref<SiteGroupPluginPolicy[]>([])
 const sitePluginOverrides = ref<SitePluginOverride[]>([])
 const pluginPackages = ref<PluginPackage[]>([])
@@ -361,6 +431,16 @@ watch(sites, (items) => {
   if (!items.some((item) => item.id === selectedOverrideSiteRowId.value)) {
     selectedOverrideSiteRowId.value = items[0]?.id ?? ''
   }
+
+  if (!items.some((item) => item.id === selectedResourceBindingSiteRowId.value)) {
+    selectedResourceBindingSiteRowId.value = items[0]?.id ?? ''
+  }
+})
+
+watch(organizations, (items) => {
+  if (!items.some((item) => item.id === selectedOrganizationId.value)) {
+    selectedOrganizationId.value = items[0]?.id ?? ''
+  }
 })
 
 async function refreshAuthState(): Promise<void> {
@@ -390,6 +470,13 @@ async function loadData(): Promise<void> {
     channels.value = []
     siteGroups.value = []
     sites.value = []
+    organizations.value = []
+    resources.value = []
+    organizationPluginPermissions.value = []
+    organizationResourcePermissions.value = []
+    siteBindingPluginPermissions.value = []
+    siteBindingResourcePermissions.value = []
+    siteResourceBindings.value = []
     groupPluginPolicies.value = []
     sitePluginOverrides.value = []
     pluginPackages.value = []
@@ -403,8 +490,10 @@ async function loadData(): Promise<void> {
   loadError.value = ''
 
   try {
-    const [channelData, siteGroupData, siteData, groupPolicyData, siteOverrideData, packageData, pluginVersionData, clientVersionData, assetData] = await Promise.all([
+    const [channelData, organizationData, resourceData, siteGroupData, siteData, groupPolicyData, siteOverrideData, packageData, pluginVersionData, clientVersionData, assetData] = await Promise.all([
       listReleaseChannels(),
+      listOrganizations(),
+      listResources(),
       listSiteGroups(),
       listSites(),
       listGroupPluginPolicies(),
@@ -416,6 +505,8 @@ async function loadData(): Promise<void> {
     ])
 
     channels.value = channelData
+    organizations.value = organizationData
+    resources.value = resourceData
     siteGroups.value = siteGroupData
     sites.value = siteData
     groupPluginPolicies.value = groupPolicyData
@@ -424,11 +515,48 @@ async function loadData(): Promise<void> {
     pluginVersions.value = pluginVersionData
     clientVersions.value = clientVersionData
     releaseAssets.value = assetData
+    await refreshOrganizationPermissions()
+    await refreshSiteBindingContext()
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '加载发布中心数据失败。'
   } finally {
     isLoading.value = false
   }
+}
+
+async function refreshOrganizationPermissions(): Promise<void> {
+  if (!selectedOrganizationId.value) {
+    organizationPluginPermissions.value = []
+    organizationResourcePermissions.value = []
+    return
+  }
+
+  const [pluginPermissions, resourcePermissions] = await Promise.all([
+    listOrganizationPluginPermissions(selectedOrganizationId.value),
+    listOrganizationResourcePermissions(selectedOrganizationId.value),
+  ])
+  organizationPluginPermissions.value = pluginPermissions
+  organizationResourcePermissions.value = resourcePermissions
+}
+
+async function refreshSiteBindingContext(): Promise<void> {
+  const site = sites.value.find((item) => item.id === selectedResourceBindingSiteRowId.value)
+
+  if (!site) {
+    siteBindingPluginPermissions.value = []
+    siteBindingResourcePermissions.value = []
+    siteResourceBindings.value = []
+    return
+  }
+
+  const [bindings, pluginPermissions, resourcePermissions] = await Promise.all([
+    listResourceBindingsBySite(site.id),
+    site.organizationId ? listOrganizationPluginPermissions(site.organizationId) : Promise.resolve([]),
+    site.organizationId ? listOrganizationResourcePermissions(site.organizationId) : Promise.resolve([]),
+  ])
+  siteResourceBindings.value = bindings
+  siteBindingPluginPermissions.value = pluginPermissions
+  siteBindingResourcePermissions.value = resourcePermissions
 }
 
 async function handleSignIn(payload: { email: string; password: string }): Promise<void> {
@@ -467,6 +595,182 @@ async function handleSignOut(): Promise<void> {
   }
 }
 
+async function handleSubmitOrganization(payload: {
+  id: string | null
+  code: string
+  name: string
+  organizationType: string
+  businessTags: string[]
+  status: OrganizationStatus
+}): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    const input = {
+      code: payload.code,
+      name: payload.name,
+      organizationType: payload.organizationType,
+      businessTags: payload.businessTags,
+      status: payload.status,
+    }
+
+    if (payload.id) {
+      await updateOrganization(payload.id, input)
+      statusMessage.value = '单位信息已更新。'
+    } else {
+      await createOrganization(input)
+      statusMessage.value = '单位已新增。'
+    }
+
+    await loadData()
+    activeTab.value = 'organizations'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '保存单位失败。'
+  }
+}
+
+async function handleSubmitResource(payload: {
+  id: string | null
+  resourceCode: string
+  resourceName: string
+  resourceType: string
+  ownerOrganizationId: string | null
+  ownerOrganizationName: string
+  visibilityScope: string
+  capabilities: string[]
+  businessTags: string[]
+  status: ResourceStatus
+  description: string
+}): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    const input = {
+      resourceCode: payload.resourceCode,
+      resourceName: payload.resourceName,
+      resourceType: payload.resourceType,
+      ownerOrganizationId: payload.ownerOrganizationId,
+      ownerOrganizationName: payload.ownerOrganizationName,
+      visibilityScope: payload.visibilityScope,
+      capabilities: payload.capabilities,
+      businessTags: payload.businessTags,
+      status: payload.status,
+      description: payload.description,
+    }
+
+    if (payload.id) {
+      await updateResource(payload.id, input)
+      statusMessage.value = '资源信息已更新。'
+    } else {
+      await createResource(input)
+      statusMessage.value = '资源已新增。'
+    }
+
+    await loadData()
+    activeTab.value = 'resources'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '保存资源失败。'
+  }
+}
+
+async function handleSelectOrganization(organizationId: string): Promise<void> {
+  selectedOrganizationId.value = organizationId
+  await refreshOrganizationPermissions()
+}
+
+async function handleGrantOrganizationPlugin(payload: { organizationId: string; pluginCode: string }): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await upsertOrganizationPluginPermission(payload)
+    statusMessage.value = '单位插件授权已保存。'
+    await refreshOrganizationPermissions()
+    activeTab.value = 'organization-permissions'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '保存单位插件授权失败。'
+  }
+}
+
+async function handleGrantOrganizationResource(payload: { organizationId: string; resourceId: string }): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await upsertOrganizationResourcePermission(payload)
+    statusMessage.value = '单位资源授权已保存。'
+    await refreshOrganizationPermissions()
+    activeTab.value = 'organization-permissions'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '保存单位资源授权失败。'
+  }
+}
+
+async function handleDeactivateOrganizationPlugin(permission: OrganizationPluginPermission): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await deactivateOrganizationPluginPermission(permission.organizationId, permission.pluginCode)
+    statusMessage.value = '单位插件授权已停用。'
+    await refreshOrganizationPermissions()
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '停用单位插件授权失败。'
+  }
+}
+
+async function handleDeactivateOrganizationResource(permission: OrganizationResourcePermission): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await deactivateOrganizationResourcePermission(permission.organizationId, permission.resourceId)
+    statusMessage.value = '单位资源授权已停用。'
+    await refreshOrganizationPermissions()
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '停用单位资源授权失败。'
+  }
+}
+
+async function handleSelectResourceBindingSite(siteRowId: string): Promise<void> {
+  selectedResourceBindingSiteRowId.value = siteRowId
+  await refreshSiteBindingContext()
+}
+
+async function handleUpsertResourceBinding(payload: {
+  siteRowId: string
+  pluginCode: string
+  resourceId: string
+  usageKey: string
+}): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await upsertResourceBinding(payload)
+    statusMessage.value = '站点资源绑定已保存。'
+    await refreshSiteBindingContext()
+    activeTab.value = 'site-resource-bindings'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '保存站点资源绑定失败。'
+  }
+}
+
+async function handleDeactivateResourceBinding(bindingId: string): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await deactivateResourceBinding(bindingId)
+    statusMessage.value = '站点资源绑定已停用。'
+    await refreshSiteBindingContext()
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '停用站点资源绑定失败。'
+  }
+}
+
 async function handleCreatePluginPackage(draft: PluginPackageDraftInput): Promise<void> {
   statusMessage.value = ''
   loadError.value = ''
@@ -492,6 +796,20 @@ async function handleAssignSiteGroup(payload: { siteRowId: string; groupId: stri
     activeTab.value = 'sites'
   } catch (error) {
     loadError.value = error instanceof Error ? error.message : '更新站点分组失败。'
+  }
+}
+
+async function handleAssignSiteOrganization(payload: { siteRowId: string; organizationId: string | null }): Promise<void> {
+  statusMessage.value = ''
+  loadError.value = ''
+
+  try {
+    await updateSiteOrganization(payload.siteRowId, payload.organizationId)
+    statusMessage.value = '站点单位已更新。'
+    await loadData()
+    activeTab.value = 'sites'
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : '更新站点单位失败。'
   }
 }
 
