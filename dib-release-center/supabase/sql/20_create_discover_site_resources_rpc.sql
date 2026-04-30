@@ -16,18 +16,27 @@ set search_path = dib_release, public
 as $$
 declare
     v_site_row_id uuid;
+    v_organization_id uuid;
     v_authorized jsonb := '[]'::jsonb;
     v_available jsonb := '[]'::jsonb;
     v_pending jsonb := '[]'::jsonb;
 begin
-    select s.id
-    into v_site_row_id
+    select s.id, s.organization_id
+    into v_site_row_id, v_organization_id
     from dib_release.sites s
     where s.site_id = p_site_id
       and s.is_active = true
     limit 1;
 
     if v_site_row_id is null then
+        return jsonb_build_object(
+            'availableToApply', '[]'::jsonb,
+            'authorized', '[]'::jsonb,
+            'pendingApplications', '[]'::jsonb
+        );
+    end if;
+
+    if v_organization_id is null then
         return jsonb_build_object(
             'availableToApply', '[]'::jsonb,
             'authorized', '[]'::jsonb,
@@ -65,6 +74,16 @@ begin
             array_agg(distinct requested_plugins.plugin_code order by requested_plugins.plugin_code) as matched_plugins
         from dib_release.resources r
         join requested_plugins on requested_plugins.resource_type = r.resource_type
+        join dib_release.organization_plugin_permissions opp
+          on opp.organization_id = v_organization_id
+         and opp.plugin_code = requested_plugins.plugin_code
+         and opp.status = 'Active'
+         and (opp.expires_at is null or opp.expires_at > now())
+        join dib_release.organization_resource_permissions orp
+          on orp.organization_id = v_organization_id
+         and orp.resource_id = r.id
+         and orp.status = 'Active'
+         and (orp.expires_at is null or orp.expires_at > now())
         where r.status = 'Active'
           and not exists (
               select 1

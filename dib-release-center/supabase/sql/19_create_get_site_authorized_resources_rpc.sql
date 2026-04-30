@@ -16,16 +16,21 @@ set search_path = dib_release, public
 as $$
 declare
     v_site_row_id uuid;
+    v_organization_id uuid;
     v_resources jsonb := '[]'::jsonb;
 begin
-    select s.id
-    into v_site_row_id
+    select s.id, s.organization_id
+    into v_site_row_id, v_organization_id
     from dib_release.sites s
     where s.site_id = p_site_id
       and s.is_active = true
     limit 1;
 
     if v_site_row_id is null then
+        return jsonb_build_object('resources', '[]'::jsonb);
+    end if;
+
+    if v_organization_id is null then
         return jsonb_build_object('resources', '[]'::jsonb);
     end if;
 
@@ -51,6 +56,16 @@ begin
         from dib_release.resource_bindings rb
         join dib_release.resources r on r.id = rb.resource_id
         join dib_release.resource_plugins rp on rp.plugin_code = rb.plugin_code
+        join dib_release.organization_plugin_permissions opp
+          on opp.organization_id = v_organization_id
+         and opp.plugin_code = rb.plugin_code
+         and opp.status = 'Active'
+         and (opp.expires_at is null or opp.expires_at > now())
+        join dib_release.organization_resource_permissions orp
+          on orp.organization_id = v_organization_id
+         and orp.resource_id = r.id
+         and orp.status = 'Active'
+         and (orp.expires_at is null or orp.expires_at > now())
         left join dib_release.resource_secrets rs on rs.resource_id = r.id
         where rb.site_row_id = v_site_row_id
           and rb.binding_scope = 'PluginAtSite'

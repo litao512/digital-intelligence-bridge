@@ -18,12 +18,13 @@ set search_path = dib_release, public
 as $$
 declare
     v_site_row_id uuid;
+    v_organization_id uuid;
     v_resource_uuid uuid;
     v_existing_application_id uuid;
     v_active_binding_exists boolean := false;
 begin
-    select s.id
-    into v_site_row_id
+    select s.id, s.organization_id
+    into v_site_row_id, v_organization_id
     from dib_release.sites s
     where s.site_id = p_site_id
       and s.is_active = true
@@ -33,6 +34,15 @@ begin
         return jsonb_build_object(
             'success', false,
             'message', '站点不存在或未激活',
+            'applicationId', '',
+            'status', ''
+        );
+    end if;
+
+    if v_organization_id is null then
+        return jsonb_build_object(
+            'success', false,
+            'message', '站点未绑定单位，无法申请资源',
             'applicationId', '',
             'status', ''
         );
@@ -56,6 +66,22 @@ begin
         return jsonb_build_object(
             'success', false,
             'message', '插件未注册或已停用',
+            'applicationId', '',
+            'status', ''
+        );
+    end if;
+
+    perform 1
+    from dib_release.organization_plugin_permissions opp
+    where opp.organization_id = v_organization_id
+      and opp.plugin_code = p_plugin_code
+      and opp.status = 'Active'
+      and (opp.expires_at is null or opp.expires_at > now());
+
+    if not found then
+        return jsonb_build_object(
+            'success', false,
+            'message', '站点所属单位未获得插件授权',
             'applicationId', '',
             'status', ''
         );
