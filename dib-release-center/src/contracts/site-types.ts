@@ -15,6 +15,9 @@ export interface SiteSummary {
   groupId: string | null
   groupCode: string | null
   groupName: string | null
+  organizationId: string | null
+  organizationCode: string | null
+  organizationName: string | null
   channelId: string | null
   channelCode: string | null
   channelName: string | null
@@ -25,6 +28,7 @@ export interface SiteSummary {
   lastPluginDownloadAt: string | null
   lastClientDownloadAt: string | null
   installedPlugins: string[]
+  businessTags: string[]
   isActive: boolean
   createdAt: string
   updatedAt: string
