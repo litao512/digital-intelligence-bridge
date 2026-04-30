@@ -453,9 +453,9 @@ resources.business_tags
 
 现有 RPC 可以沿用名称，但内部语义需要升级。
 
-### get_site_authorized_resources
+### 获取站点已授权资源 RPC
 
-升级后语义：
+`get_site_authorized_resources` 升级后语义：
 
 ```text
 根据 site_id 找到站点和所属单位
@@ -465,9 +465,9 @@ resources.business_tags
 返回当前站点实际可用资源
 ```
 
-### discover_site_resources
+### 发现站点资源 RPC
 
-升级后语义：
+`discover_site_resources` 升级后语义：
 
 ```text
 根据 site_id 找到站点和所属单位
@@ -476,9 +476,9 @@ resources.business_tags
 返回可申请资源、已授权资源和待审批申请
 ```
 
-### apply_site_resource
+### 申请站点资源 RPC
 
-升级后语义：
+`apply_site_resource` 升级后语义：
 
 ```text
 记录站点资源申请
