@@ -1,6 +1,6 @@
 # DIB 中心资源中心一期 Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **给执行者：** 必须使用 `superpowers:executing-plans`，并按任务逐项实施。
 
 **Goal:** 将资源中心从站点级最小运行时升级为以单位为治理主体的 DIB 中心资源中心一期能力。
 
@@ -773,3 +773,95 @@ RPC 校验
 ```
 
 不要先做页面再补授权模型。页面只是入口，单位授权和站点绑定才是资源中心一期的核心。
+
+## 实施记录
+
+实施分支：
+
+```text
+codex/dib-center-resource-center
+```
+
+已完成的迁移和验证脚本：
+
+```text
+dib-release-center/supabase/sql/22_create_organization_resource_governance_tables.sql
+dib-release-center/supabase/sql/23_validate_resource_center_organization_governance.sql
+```
+
+已增强的 SQL：
+
+```text
+dib-release-center/supabase/sql/07_create_release_center_views.sql
+dib-release-center/supabase/sql/08_validate_release_center_schema.sql
+dib-release-center/supabase/sql/19_create_get_site_authorized_resources_rpc.sql
+dib-release-center/supabase/sql/20_create_discover_site_resources_rpc.sql
+dib-release-center/supabase/sql/21_create_apply_site_resource_rpc.sql
+```
+
+已完成的管理端能力：
+
+```text
+单位管理
+站点绑定单位
+资源管理
+单位插件授权
+单位资源授权
+站点资源绑定
+```
+
+已完成的管理端页面：
+
+```text
+dib-release-center/src/web/pages/OrganizationsPage.vue
+dib-release-center/src/web/pages/ResourcesPage.vue
+dib-release-center/src/web/pages/OrganizationPermissionsPage.vue
+dib-release-center/src/web/pages/SiteResourceBindingsPage.vue
+```
+
+已完成的服务和仓储：
+
+```text
+dib-release-center/src/repositories/organizationsRepository.ts
+dib-release-center/src/repositories/organizationPermissionsRepository.ts
+dib-release-center/src/repositories/resourcesRepository.ts
+dib-release-center/src/repositories/resourceBindingsRepository.ts
+dib-release-center/src/services/organizationManagementService.ts
+dib-release-center/src/services/organizationPermissionService.ts
+dib-release-center/src/services/resourceBindingService.ts
+```
+
+通过的验证命令：
+
+```text
+npm test
+19 个测试文件通过，79 个测试通过
+
+npm run build
+vue-tsc --noEmit 和 vite build 通过
+
+dotnet build digital-intelligence-bridge\digital-intelligence-bridge.csproj --no-restore -m:1 -c Debug -v minimal
+客户端 Debug 构建通过，0 警告，0 错误
+
+.\scripts\check-doc-lang.ps1
+文档语言检查通过
+```
+
+客户端兼容结论：
+
+```text
+客户端 RPC 契约未改变。
+get_site_authorized_resources 仍返回 resources。
+discover_site_resources 仍返回 availableToApply、authorized、pendingApplications。
+apply_site_resource 仍返回 success、message、applicationId、status。
+客户端代码无需修改。
+```
+
+延期事项：
+
+```text
+资源密钥维护页面暂未实现，仍沿用 resource_secrets 表和后端维护流程。
+资源申请审批页面暂未完整实现，当前先具备单位授权和站点绑定的人工管理闭环。
+标签仍为轻量 JSON 元数据，未升级为正式标签字典。
+未引入组织层级、跨单位授权协议和策略引擎。
+```
