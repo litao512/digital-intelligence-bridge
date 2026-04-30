@@ -9,6 +9,9 @@ interface SiteOverviewRow {
   group_id: string | null
   group_code: string | null
   group_name: string | null
+  organization_id: string | null
+  organization_code: string | null
+  organization_name: string | null
   channel_id: string | null
   channel_code: string | null
   channel_name: string | null
@@ -19,6 +22,7 @@ interface SiteOverviewRow {
   last_plugin_download_at: string | null
   last_client_download_at: string | null
   installed_plugins_json: string[] | null
+  business_tags: string[] | null
   is_active: boolean
   created_at: string
   updated_at: string
@@ -34,7 +38,7 @@ function throwIfError(error: PostgrestError | null, context: string): void {
   }
 }
 
-function toSiteSummary(row: SiteOverviewRow): SiteSummary {
+export function toSiteSummary(row: SiteOverviewRow): SiteSummary {
   return {
     id: row.id,
     siteId: row.site_id,
@@ -42,6 +46,9 @@ function toSiteSummary(row: SiteOverviewRow): SiteSummary {
     groupId: row.group_id,
     groupCode: row.group_code,
     groupName: row.group_name,
+    organizationId: row.organization_id,
+    organizationCode: row.organization_code,
+    organizationName: row.organization_name,
     channelId: row.channel_id,
     channelCode: row.channel_code,
     channelName: row.channel_name,
@@ -52,6 +59,7 @@ function toSiteSummary(row: SiteOverviewRow): SiteSummary {
     lastPluginDownloadAt: row.last_plugin_download_at,
     lastClientDownloadAt: row.last_client_download_at,
     installedPlugins: row.installed_plugins_json ?? [],
+    businessTags: row.business_tags ?? [],
     isActive: row.is_active,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -69,6 +77,9 @@ export async function listSites(): Promise<SiteSummary[]> {
       group_id,
       group_code,
       group_name,
+      organization_id,
+      organization_code,
+      organization_name,
       channel_id,
       channel_code,
       channel_name,
@@ -79,6 +90,7 @@ export async function listSites(): Promise<SiteSummary[]> {
       last_plugin_download_at,
       last_client_download_at,
       installed_plugins_json,
+      business_tags,
       is_active,
       created_at,
       updated_at

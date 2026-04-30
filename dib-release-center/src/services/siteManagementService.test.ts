@@ -17,6 +17,9 @@ function createSite(overrides: Partial<SiteSummary> = {}): SiteSummary {
     groupId: 'group-a',
     groupCode: 'outpatient-basic',
     groupName: '门诊基础版',
+    organizationId: null,
+    organizationCode: null,
+    organizationName: null,
     channelId: 'channel-stable',
     channelCode: 'stable',
     channelName: '稳定版',
@@ -27,6 +30,7 @@ function createSite(overrides: Partial<SiteSummary> = {}): SiteSummary {
     lastPluginDownloadAt: null,
     lastClientDownloadAt: null,
     installedPlugins: [],
+    businessTags: [],
     isActive: true,
     createdAt: '2026-04-06T12:00:00Z',
     updatedAt: '2026-04-06T12:00:00Z',
@@ -49,6 +53,28 @@ describe('siteManagementService', () => {
     expect(filterSites(sites, { keyword: 'ward-client', groupId: '' })).toHaveLength(1)
     expect(filterSites(sites, { keyword: '登记台 1', groupId: '' })).toHaveLength(1)
     expect(filterSites(sites, { keyword: '22222222', groupId: '' })).toHaveLength(1)
+  })
+
+  it('should filter by organization fields and business tags', () => {
+    const sites = [
+      createSite({
+        id: 'site-row-1',
+        organizationCode: 'hospital-a',
+        organizationName: 'A 医院',
+        businessTags: ['门诊', '随访'],
+      }),
+      createSite({
+        id: 'site-row-2',
+        siteId: '22222222-2222-2222-2222-222222222222',
+        organizationCode: 'cdc-b',
+        organizationName: 'B 疾控中心',
+        businessTags: ['数据上报'],
+      }),
+    ]
+
+    expect(filterSites(sites, { keyword: '疾控', groupId: '' }).map((site) => site.id)).toEqual(['site-row-2'])
+    expect(filterSites(sites, { keyword: 'hospital-a', groupId: '' }).map((site) => site.id)).toEqual(['site-row-1'])
+    expect(filterSites(sites, { keyword: '数据上报', groupId: '' }).map((site) => site.id)).toEqual(['site-row-2'])
   })
 
   it('should filter by group id when provided', () => {

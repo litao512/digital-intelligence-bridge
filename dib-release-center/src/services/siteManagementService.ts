@@ -48,7 +48,10 @@ export function filterSites(sites: SiteSummary[], input: SiteFilterInput): SiteS
       site.machineName,
       site.groupName ?? '',
       site.groupCode ?? '',
+      site.organizationName ?? '',
+      site.organizationCode ?? '',
       site.clientVersion,
+      ...site.businessTags,
     ]
 
     return haystacks.some((item) => item.toLowerCase().includes(keyword))

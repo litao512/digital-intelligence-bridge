@@ -217,6 +217,9 @@ select
     s.group_id,
     sg.group_code,
     sg.group_name,
+    s.organization_id,
+    o.code as organization_code,
+    o.name as organization_name,
     s.channel_id,
     rc.channel_code,
     rc.channel_name,
@@ -227,11 +230,13 @@ select
     s.last_plugin_download_at,
     s.last_client_download_at,
     s.installed_plugins_json,
+    s.business_tags,
     s.is_active,
     s.created_at,
     s.updated_at
 from dib_release.sites s
 left join dib_release.site_groups sg on sg.id = s.group_id
+left join dib_release.organizations o on o.id = s.organization_id
 left join dib_release.release_channels rc on rc.id = s.channel_id;
 
 create or replace view dib_release.site_group_statistics as
