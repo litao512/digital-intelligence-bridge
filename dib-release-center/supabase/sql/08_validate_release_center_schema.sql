@@ -54,6 +54,58 @@ begin
         raise exception 'validation failed: dib_release.sites missing';
     end if;
 
+    if to_regclass('dib_release.organizations') is null then
+        raise exception 'validation failed: dib_release.organizations missing';
+    end if;
+
+    if to_regclass('dib_release.organization_plugin_permissions') is null then
+        raise exception 'validation failed: dib_release.organization_plugin_permissions missing';
+    end if;
+
+    if to_regclass('dib_release.organization_resource_permissions') is null then
+        raise exception 'validation failed: dib_release.organization_resource_permissions missing';
+    end if;
+
+    if not exists (
+        select 1
+        from information_schema.columns
+        where table_schema = 'dib_release'
+          and table_name = 'sites'
+          and column_name = 'organization_id'
+    ) then
+        raise exception 'validation failed: sites.organization_id missing';
+    end if;
+
+    if not exists (
+        select 1
+        from information_schema.columns
+        where table_schema = 'dib_release'
+          and table_name = 'sites'
+          and column_name = 'business_tags'
+    ) then
+        raise exception 'validation failed: sites.business_tags missing';
+    end if;
+
+    if not exists (
+        select 1
+        from information_schema.columns
+        where table_schema = 'dib_release'
+          and table_name = 'resources'
+          and column_name = 'owner_organization_id'
+    ) then
+        raise exception 'validation failed: resources.owner_organization_id missing';
+    end if;
+
+    if not exists (
+        select 1
+        from information_schema.columns
+        where table_schema = 'dib_release'
+          and table_name = 'resources'
+          and column_name = 'business_tags'
+    ) then
+        raise exception 'validation failed: resources.business_tags missing';
+    end if;
+
     if to_regclass('dib_release.group_plugin_policies') is null then
         raise exception 'validation failed: dib_release.group_plugin_policies missing';
     end if;
@@ -102,6 +154,42 @@ begin
           and indexname = 'idx_sites_group_id'
     ) then
         raise exception 'validation failed: idx_sites_group_id missing';
+    end if;
+
+    if not exists (
+        select 1
+        from pg_indexes
+        where schemaname = 'dib_release'
+          and indexname = 'idx_sites_organization_id'
+    ) then
+        raise exception 'validation failed: idx_sites_organization_id missing';
+    end if;
+
+    if not exists (
+        select 1
+        from pg_indexes
+        where schemaname = 'dib_release'
+          and indexname = 'idx_resources_owner_organization_id'
+    ) then
+        raise exception 'validation failed: idx_resources_owner_organization_id missing';
+    end if;
+
+    if not exists (
+        select 1
+        from pg_indexes
+        where schemaname = 'dib_release'
+          and indexname = 'ux_org_plugin_permissions_org_plugin'
+    ) then
+        raise exception 'validation failed: ux_org_plugin_permissions_org_plugin missing';
+    end if;
+
+    if not exists (
+        select 1
+        from pg_indexes
+        where schemaname = 'dib_release'
+          and indexname = 'ux_org_resource_permissions_org_resource'
+    ) then
+        raise exception 'validation failed: ux_org_resource_permissions_org_resource missing';
     end if;
 
     if not exists (
