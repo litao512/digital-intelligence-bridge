@@ -8,7 +8,8 @@ param(
     [switch]$SkipRestore,
     [switch]$SkipZip,
     [switch]$SkipPluginBuild,
-    [switch]$SkipPlugins
+    [switch]$SkipPlugins,
+    [string]$ReleaseCenterAnonKey
 )
 
 Set-StrictMode -Version Latest
@@ -62,12 +63,73 @@ function Copy-DirectoryContent {
     Copy-Item -Path (Join-Path $Source '*') -Destination $Destination -Recurse -Force
 }
 
+function Get-DotEnvValue {
+    param(
+        [string]$Path,
+        [string]$Name
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return ''
+    }
+
+    $line = Get-Content -LiteralPath $Path -Encoding UTF8 |
+        Where-Object { $_ -match "^\s*$([regex]::Escape($Name))\s*=" } |
+        Select-Object -Last 1
+
+    if ([string]::IsNullOrWhiteSpace($line)) {
+        return ''
+    }
+
+    $value = ($line -split '=', 2)[1].Trim()
+    if (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+        return $value.Substring(1, $value.Length - 2)
+    }
+
+    return $value
+}
+
+function Resolve-ReleaseCenterAnonKey {
+    param(
+        [string]$ProjectRoot,
+        [string]$ExplicitValue
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($ExplicitValue)) {
+        return $ExplicitValue
+    }
+
+    $candidateNames = @(
+        'RELEASE_CENTER_ANON_KEY',
+        'VITE_SUPABASE_ANON_KEY',
+        'SUPABASE_ANON_KEY'
+    )
+
+    foreach ($name in $candidateNames) {
+        $value = [Environment]::GetEnvironmentVariable($name)
+        if (-not [string]::IsNullOrWhiteSpace($value)) {
+            return $value
+        }
+    }
+
+    $envLocalPath = Join-Path $ProjectRoot 'dib-release-center\.env.local'
+    foreach ($name in $candidateNames) {
+        $value = Get-DotEnvValue -Path $envLocalPath -Name $name
+        if (-not [string]::IsNullOrWhiteSpace($value)) {
+            return $value
+        }
+    }
+
+    return ''
+}
+
 function Write-ReleaseAppSettings {
     param(
         [string]$SourcePath,
         [string]$DestinationPath,
         [string]$ReleaseVersion,
-        [string]$ReleaseChannel
+        [string]$ReleaseChannel,
+        [string]$ResolvedReleaseCenterAnonKey
     )
 
     if (-not (Test-Path -LiteralPath $SourcePath)) {
@@ -87,6 +149,13 @@ function Write-ReleaseAppSettings {
     $settings.Application.Version = $ReleaseVersion
     $settings.ReleaseCenter.Enabled = $true
     $settings.ReleaseCenter.Channel = $ReleaseChannel
+    if (-not [string]::IsNullOrWhiteSpace($ResolvedReleaseCenterAnonKey)) {
+        $settings.ReleaseCenter.AnonKey = $ResolvedReleaseCenterAnonKey
+    }
+
+    if ([bool]$settings.ReleaseCenter.Enabled -and [string]::IsNullOrWhiteSpace([string]$settings.ReleaseCenter.AnonKey)) {
+        throw 'ReleaseCenter.AnonKey is required for release packaging. Provide -ReleaseCenterAnonKey or set RELEASE_CENTER_ANON_KEY/VITE_SUPABASE_ANON_KEY/SUPABASE_ANON_KEY.'
+    }
 
     $json = $settings | ConvertTo-Json -Depth 100
     Write-Utf8Text -Path $DestinationPath -Content $json
@@ -151,6 +220,7 @@ $mainProjectPath = Join-Path $projectRoot 'digital-intelligence-bridge\digital-i
 $defaultConfigPath = Join-Path $projectRoot 'digital-intelligence-bridge\appsettings.json'
 $pluginsRoot = Join-Path $projectRoot 'plugins'
 $artifactsRoot = Join-Path $projectRoot 'artifacts\releases'
+$resolvedReleaseCenterAnonKey = Resolve-ReleaseCenterAnonKey -ProjectRoot $projectRoot -ExplicitValue $ReleaseCenterAnonKey
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
     $Version = Get-Date -Format 'yyyyMMdd-HHmmss'
@@ -219,7 +289,8 @@ Write-ReleaseAppSettings `
     -SourcePath $defaultConfigPath `
     -DestinationPath (Join-Path $publishRoot 'appsettings.json') `
     -ReleaseVersion $Version `
-    -ReleaseChannel $Channel
+    -ReleaseChannel $Channel `
+    -ResolvedReleaseCenterAnonKey $resolvedReleaseCenterAnonKey
 
 if (-not $SkipPlugins) {
     if (-not (Test-Path -LiteralPath $pluginsRoot)) {

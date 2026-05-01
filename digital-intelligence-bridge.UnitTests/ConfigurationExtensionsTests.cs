@@ -386,6 +386,78 @@ public class ConfigurationExtensionsTests
         Assert.Equal("stable", releaseCenter.GetProperty("Channel").GetString());
         Assert.Equal("site-001", releaseCenter.GetProperty("SiteId").GetString());
     }
+
+    [Fact]
+    public void AddAppConfiguration_ShouldUseDefaultReleaseCenterAnonKey_WhenUserConfigOmitsAnonKey()
+    {
+        using var sandbox = new TestConfigSandbox();
+        var userConfigPath = ConfigurationExtensions.GetConfigFilePath();
+        var defaultConfigPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+        var originalDefaultConfig = File.Exists(defaultConfigPath)
+            ? File.ReadAllText(defaultConfigPath)
+            : null;
+
+        File.WriteAllText(
+            userConfigPath,
+            """
+            {
+              "Application": { "MinimizeToTray": true, "StartWithSystem": false },
+              "Tray": { "ShowNotifications": true },
+              "ReleaseCenter": {
+                "Enabled": true,
+                "BaseUrl": "http://101.42.19.26:8000",
+                "Channel": "stable",
+                "SiteId": "site-001",
+                "SiteName": "LITAO"
+              }
+            }
+            """);
+
+        try
+        {
+            File.WriteAllText(
+                defaultConfigPath,
+                """
+                {
+                  "Application": { "Name": "DIB客户端", "Version": "1.0.10", "MinimizeToTray": true, "StartWithSystem": false },
+                  "Tray": { "IconPath": "Assets/avalonia-logo.ico", "ShowNotifications": true },
+                  "Plugin": { "PluginDirectory": "plugins", "AutoLoad": true, "AllowUnsigned": false },
+                  "Supabase": { "Url": "http://localhost:54321", "AnonKey": "", "ServiceRoleKey": "", "Schema": "dib" },
+                  "ReleaseCenter": {
+                    "Enabled": true,
+                    "BaseUrl": "http://101.42.19.26:8000",
+                    "Channel": "stable",
+                    "AnonKey": "default-anon-key",
+                    "SiteId": "",
+                    "SiteName": "",
+                    "SiteRemark": ""
+                  },
+                  "Logging": { "LogLevel": { "Default": "Information", "Microsoft": "Warning" }, "LogPath": "logs" }
+                }
+                """);
+
+            var services = new ServiceCollection();
+            services.AddAppConfiguration();
+            using var provider = services.BuildServiceProvider();
+
+            var settings = provider.GetRequiredService<IOptions<AppSettings>>().Value;
+
+            Assert.Equal("site-001", settings.ReleaseCenter.SiteId);
+            Assert.Equal("LITAO", settings.ReleaseCenter.SiteName);
+            Assert.Equal("default-anon-key", settings.ReleaseCenter.AnonKey);
+        }
+        finally
+        {
+            if (originalDefaultConfig is null)
+            {
+                File.Delete(defaultConfigPath);
+            }
+            else
+            {
+                File.WriteAllText(defaultConfigPath, originalDefaultConfig);
+            }
+        }
+    }
 }
 
 
