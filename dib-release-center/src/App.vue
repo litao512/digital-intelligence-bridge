@@ -636,7 +636,6 @@ async function handleSubmitResource(payload: {
   resourceName: string
   resourceType: string
   ownerOrganizationId: string | null
-  ownerOrganizationName: string
   visibilityScope: string
   capabilities: string[]
   businessTags: string[]
@@ -652,7 +651,6 @@ async function handleSubmitResource(payload: {
       resourceName: payload.resourceName,
       resourceType: payload.resourceType,
       ownerOrganizationId: payload.ownerOrganizationId,
-      ownerOrganizationName: payload.ownerOrganizationName,
       visibilityScope: payload.visibilityScope,
       capabilities: payload.capabilities,
       businessTags: payload.businessTags,

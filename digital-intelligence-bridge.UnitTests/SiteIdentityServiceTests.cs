@@ -15,14 +15,16 @@ public class SiteIdentityServiceTests
         var filePath = Path.Combine(sandbox.RootDirectory, "site-identity.json");
         var siteId = Guid.NewGuid().ToString();
 
-        var exported = SiteIdentityService.Export(siteId, "第一人民医院", "门诊一楼", "收费处旁", filePath);
+        var exported = SiteIdentityService.Export(siteId, "门诊一楼", "收费处旁", filePath);
         var imported = SiteIdentityService.Import(filePath);
 
         Assert.True(imported.IsSuccess);
         Assert.NotNull(imported.Snapshot);
         Assert.Equal(exported.SiteId, imported.Snapshot!.SiteId);
-        Assert.Equal("第一人民医院", imported.Snapshot.SiteOrganization);
         Assert.Equal("门诊一楼", imported.Snapshot.SiteName);
+
+        using var document = JsonDocument.Parse(File.ReadAllText(filePath));
+        Assert.False(document.RootElement.TryGetProperty("SiteOrganization", out _));
     }
 
     [Fact]
@@ -31,7 +33,7 @@ public class SiteIdentityServiceTests
         using var sandbox = new TestConfigSandbox();
         var filePath = Path.Combine(sandbox.RootDirectory, "site-identity.json");
         var siteId = Guid.NewGuid().ToString();
-        SiteIdentityService.Export(siteId, "第一人民医院", "门诊一楼", "收费处旁", filePath);
+        SiteIdentityService.Export(siteId, "门诊一楼", "收费处旁", filePath);
 
         var snapshot = JsonSerializer.Deserialize<SiteIdentitySnapshot>(File.ReadAllText(filePath));
         Assert.NotNull(snapshot);
@@ -50,7 +52,7 @@ public class SiteIdentityServiceTests
         var filePath = Path.Combine(sandbox.RootDirectory, "site-identity.json");
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
-            SiteIdentityService.Export("not-a-guid", "第一人民医院", "门诊一楼", string.Empty, filePath));
+            SiteIdentityService.Export("not-a-guid", "门诊一楼", string.Empty, filePath));
 
         Assert.Contains("GUID", ex.Message);
     }

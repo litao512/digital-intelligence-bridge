@@ -8,7 +8,6 @@ interface ResourceRow {
   resource_name: string
   resource_type: string
   owner_organization_id: string | null
-  owner_organization_name: string
   visibility_scope: string
   capabilities: string[] | null
   business_tags: string[] | null
@@ -23,7 +22,6 @@ export interface ResourceInput {
   resourceName: string
   resourceType: string
   ownerOrganizationId: string | null
-  ownerOrganizationName: string
   visibilityScope: string
   capabilities: string[]
   businessTags: string[]
@@ -44,7 +42,6 @@ export function toResourceSummary(row: ResourceRow): ResourceSummary {
     resourceName: row.resource_name,
     resourceType: row.resource_type,
     ownerOrganizationId: row.owner_organization_id,
-    ownerOrganizationName: row.owner_organization_name,
     visibilityScope: row.visibility_scope,
     capabilities: row.capabilities ?? [],
     businessTags: row.business_tags ?? [],
@@ -61,7 +58,6 @@ export function buildResourcePayload(input: ResourceInput) {
     resource_name: input.resourceName.trim(),
     resource_type: input.resourceType,
     owner_organization_id: input.ownerOrganizationId || null,
-    owner_organization_name: input.ownerOrganizationName.trim(),
     visibility_scope: input.visibilityScope,
     capabilities: input.capabilities.map((item) => item.trim()).filter(Boolean),
     business_tags: input.businessTags.map((item) => item.trim()).filter(Boolean),
@@ -74,7 +70,7 @@ export async function listResources(): Promise<ResourceSummary[]> {
   const { data, error } = await getSupabaseClient()
     .schema(RELEASE_SCHEMA)
     .from('resources')
-    .select('id, resource_code, resource_name, resource_type, owner_organization_id, owner_organization_name, visibility_scope, capabilities, business_tags, status, description, created_at, updated_at')
+    .select('id, resource_code, resource_name, resource_type, owner_organization_id, visibility_scope, capabilities, business_tags, status, description, created_at, updated_at')
     .order('resource_code', { ascending: true })
 
   throwIfError(error, '查询资源')

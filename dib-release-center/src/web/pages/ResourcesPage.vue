@@ -28,7 +28,6 @@
             <option v-for="org in organizations" :key="org.id" :value="org.id">{{ org.name }} / {{ org.code }}</option>
           </select>
         </label>
-        <label><span>历史单位名</span><input v-model="draft.ownerOrganizationName" placeholder="兼容 owner_organization_name"></label>
         <label>
           <span>可见范围</span>
           <select v-model="draft.visibilityScope">
@@ -65,7 +64,7 @@
           <tr v-for="item in resources" :key="item.id">
             <td><strong>{{ item.resourceName }}</strong><div class="subline">{{ item.resourceCode }}</div></td>
             <td>{{ item.resourceType }}</td>
-            <td>{{ organizationName(item.ownerOrganizationId) || item.ownerOrganizationName || '未指定' }}</td>
+            <td>{{ organizationName(item.ownerOrganizationId) || '未指定' }}</td>
             <td>{{ item.businessTags.join('、') || '未标注' }}</td>
             <td>{{ item.status }}</td>
             <td><button type="button" class="ghost-button inline-button" @click="editResource(item)">编辑</button></td>
@@ -98,7 +97,6 @@ interface ResourceSummaryInput {
   resourceName: string
   resourceType: string
   ownerOrganizationId: string | null
-  ownerOrganizationName: string
   visibilityScope: string
   capabilities: string[]
   businessTags: string[]
@@ -114,7 +112,6 @@ const draft = reactive({
   resourceName: '',
   resourceType: 'PostgreSQL',
   ownerOrganizationId: '',
-  ownerOrganizationName: '',
   visibilityScope: 'Private',
   status: 'Active' as ResourceStatus,
   description: '',
@@ -137,7 +134,6 @@ function editResource(item: ResourceSummary): void {
   draft.resourceName = item.resourceName
   draft.resourceType = item.resourceType
   draft.ownerOrganizationId = item.ownerOrganizationId ?? ''
-  draft.ownerOrganizationName = item.ownerOrganizationName
   draft.visibilityScope = item.visibilityScope
   draft.status = item.status
   draft.description = item.description
@@ -151,7 +147,6 @@ function resetDraft(): void {
   draft.resourceName = ''
   draft.resourceType = 'PostgreSQL'
   draft.ownerOrganizationId = ''
-  draft.ownerOrganizationName = ''
   draft.visibilityScope = 'Private'
   draft.status = 'Active'
   draft.description = ''

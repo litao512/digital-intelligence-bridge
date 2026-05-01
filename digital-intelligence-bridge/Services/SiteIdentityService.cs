@@ -10,7 +10,6 @@ namespace DigitalIntelligenceBridge.Services;
 public sealed record SiteIdentitySnapshot(
     int SchemaVersion,
     string SiteId,
-    string SiteOrganization,
     string SiteName,
     string SiteRemark,
     DateTimeOffset ExportedAtUtc,
@@ -24,7 +23,7 @@ public sealed record SiteIdentityImportResult(
 
 public static class SiteIdentityService
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
     public const string DefaultFileName = "site-identity.json";
 
     public static string GetDefaultFilePath()
@@ -32,10 +31,9 @@ public static class SiteIdentityService
         return Path.Combine(ConfigurationExtensions.GetConfigRootDirectory(), DefaultFileName);
     }
 
-    public static SiteIdentitySnapshot Export(string siteId, string siteOrganization, string siteName, string siteRemark, string filePath)
+    public static SiteIdentitySnapshot Export(string siteId, string siteName, string siteRemark, string filePath)
     {
         var normalizedSiteId = siteId.Trim();
-        var normalizedSiteOrganization = siteOrganization.Trim();
         var normalizedSiteName = siteName.Trim();
         var normalizedSiteRemark = siteRemark.Trim();
 
@@ -49,22 +47,16 @@ public static class SiteIdentityService
             throw new InvalidOperationException("站点 ID 不是合法 GUID，无法导出。");
         }
 
-        if (string.IsNullOrWhiteSpace(normalizedSiteOrganization))
-        {
-            throw new InvalidOperationException("使用单位为空，无法导出。");
-        }
-
         if (string.IsNullOrWhiteSpace(normalizedSiteName))
         {
             throw new InvalidOperationException("站点名称为空，无法导出。");
         }
 
         var exportedAtUtc = DateTimeOffset.UtcNow;
-        var checksum = ComputeChecksumV2(normalizedSiteId, normalizedSiteOrganization, normalizedSiteName, normalizedSiteRemark, exportedAtUtc);
+        var checksum = ComputeChecksum(normalizedSiteId, normalizedSiteName, normalizedSiteRemark, exportedAtUtc);
         var snapshot = new SiteIdentitySnapshot(
             CurrentSchemaVersion,
             normalizedSiteId,
-            normalizedSiteOrganization,
             normalizedSiteName,
             normalizedSiteRemark,
             exportedAtUtc,
@@ -94,7 +86,7 @@ public static class SiteIdentityService
                 return new SiteIdentityImportResult(false, "导入失败", "文件内容为空或无法解析。", null);
             }
 
-            if (snapshot.SchemaVersion is < 1 or > CurrentSchemaVersion)
+            if (snapshot.SchemaVersion != CurrentSchemaVersion)
             {
                 return new SiteIdentityImportResult(false, "导入失败", $"不支持的版本：{snapshot.SchemaVersion}", null);
             }
@@ -104,26 +96,12 @@ public static class SiteIdentityService
                 return new SiteIdentityImportResult(false, "导入失败", "SiteId 非法。", null);
             }
 
-            if (snapshot.SchemaVersion >= 2 && string.IsNullOrWhiteSpace(snapshot.SiteOrganization))
-            {
-                return new SiteIdentityImportResult(false, "导入失败", "SiteOrganization 为空。", null);
-            }
-
             if (string.IsNullOrWhiteSpace(snapshot.SiteName))
             {
                 return new SiteIdentityImportResult(false, "导入失败", "SiteName 为空。", null);
             }
 
-            var expected = snapshot.SchemaVersion switch
-            {
-                1 => ComputeChecksumV1(snapshot.SiteId.Trim(), snapshot.SiteName.Trim(), snapshot.SiteRemark?.Trim() ?? string.Empty, snapshot.ExportedAtUtc),
-                _ => ComputeChecksumV2(
-                    snapshot.SiteId.Trim(),
-                    snapshot.SiteOrganization?.Trim() ?? string.Empty,
-                    snapshot.SiteName.Trim(),
-                    snapshot.SiteRemark?.Trim() ?? string.Empty,
-                    snapshot.ExportedAtUtc)
-            };
+            var expected = ComputeChecksum(snapshot.SiteId.Trim(), snapshot.SiteName.Trim(), snapshot.SiteRemark?.Trim() ?? string.Empty, snapshot.ExportedAtUtc);
             if (!string.Equals(expected, snapshot.Checksum, StringComparison.OrdinalIgnoreCase))
             {
                 return new SiteIdentityImportResult(false, "导入失败", "身份文件校验失败，文件可能已被篡改或损坏。", null);
@@ -137,15 +115,9 @@ public static class SiteIdentityService
         }
     }
 
-    private static string ComputeChecksumV1(string siteId, string siteName, string siteRemark, DateTimeOffset exportedAtUtc)
+    private static string ComputeChecksum(string siteId, string siteName, string siteRemark, DateTimeOffset exportedAtUtc)
     {
         var canonical = $"{siteId}\n{siteName}\n{siteRemark}\n{exportedAtUtc:O}";
-        return ComputeSha256(canonical);
-    }
-
-    private static string ComputeChecksumV2(string siteId, string siteOrganization, string siteName, string siteRemark, DateTimeOffset exportedAtUtc)
-    {
-        var canonical = $"{siteId}\n{siteOrganization}\n{siteName}\n{siteRemark}\n{exportedAtUtc:O}";
         return ComputeSha256(canonical);
     }
 

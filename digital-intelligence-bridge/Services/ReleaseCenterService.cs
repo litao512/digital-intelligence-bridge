@@ -118,8 +118,15 @@ public sealed class ReleaseCenterService : IReleaseCenterService
 
     public async Task<AuthorizedResourceSnapshot> GetAuthorizedResourcesAsync(CancellationToken cancellationToken = default)
     {
-        if (!IsConfigured || string.IsNullOrWhiteSpace(_config.AnonKey))
+        if (!IsConfigured)
         {
+            _logger.LogWarning("ReleaseCenter 未启用或缺少 BaseUrl/Channel，已跳过授权资源刷新。");
+            return new AuthorizedResourceSnapshot();
+        }
+
+        if (string.IsNullOrWhiteSpace(_config.AnonKey))
+        {
+            _logger.LogWarning("ReleaseCenter.AnonKey 未配置，已跳过授权资源刷新。请检查程序目录 appsettings.json 是否包含发布中心匿名密钥。");
             return new AuthorizedResourceSnapshot();
         }
 
@@ -771,7 +778,7 @@ public sealed class ReleaseCenterService : IReleaseCenterService
 
         return new SiteHeartbeatPayload(
             _config.SiteId,
-            SiteProfileService.BuildRegistrationLabel(_config.SiteOrganization, _config.SiteName),
+            _config.SiteName.Trim(),
             _config.Channel.Trim(),
             _currentAppVersion,
             Environment.MachineName,

@@ -7,6 +7,7 @@ using DigitalIntelligenceBridge.Models;
 using DigitalIntelligenceBridge.Services;
 using DigitalIntelligenceBridge.Plugin.Abstractions;
 using DigitalIntelligenceBridge.Plugin.Host;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Xunit;
@@ -1021,7 +1022,7 @@ public class ReleaseCenterServiceTests
     }
 
     [Fact]
-    public async Task ApplyResourceAsync_ShouldAppendSiteRegistrationLabelIntoReason()
+    public async Task ApplyResourceAsync_ShouldUseSiteNameOnlyInReason()
     {
         string requestBody = string.Empty;
         var settings = new AppSettings
@@ -1034,7 +1035,6 @@ public class ReleaseCenterServiceTests
                 Channel = "stable",
                 AnonKey = "anon-key",
                 SiteId = "44444444-4444-4444-4444-444444444444",
-                SiteOrganization = "第一人民医院",
                 SiteName = "门诊登记台 5"
             }
         };
@@ -1073,8 +1073,41 @@ public class ReleaseCenterServiceTests
         using var document = JsonDocument.Parse(requestBody);
         var reason = document.RootElement.GetProperty("p_reason").GetString();
         Assert.NotNull(reason);
-        Assert.Contains("第一人民医院 / 门诊登记台 5", reason, StringComparison.Ordinal);
+        Assert.Contains("站点信息：门诊登记台 5", reason, StringComparison.Ordinal);
+        Assert.DoesNotContain("第一人民医院", reason, StringComparison.Ordinal);
         Assert.Contains("需要用于门诊实名登记", reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetAuthorizedResourcesAsync_ShouldLogWarning_WhenReleaseCenterAnonKeyMissing()
+    {
+        var logger = new CapturingLogger<ReleaseCenterService>();
+        var handler = new StubHttpMessageHandler(_ => throw new Xunit.Sdk.XunitException("不应发起 HTTP 请求"));
+        var settings = new AppSettings
+        {
+            Application = new ApplicationConfig { Version = "1.0.0" },
+            ReleaseCenter = new ReleaseCenterConfig
+            {
+                Enabled = true,
+                BaseUrl = "http://release-center.local",
+                Channel = "stable",
+                AnonKey = string.Empty,
+                SiteId = "55555555-5555-5555-5555-555555555555",
+                SiteName = "门诊登记台 6"
+            }
+        };
+
+        var service = new ReleaseCenterService(
+            new HttpClient(handler),
+            logger,
+            Options.Create(settings));
+
+        var snapshot = await service.GetAuthorizedResourcesAsync();
+
+        Assert.Empty(snapshot.Resources);
+        Assert.Contains(
+            logger.WarningMessages,
+            message => message.Contains("ReleaseCenter.AnonKey 未配置", StringComparison.Ordinal));
     }
 
     private static ReleaseCenterService CreateService(string clientManifest, string pluginManifest, AppSettings? settings = null)
@@ -1132,6 +1165,28 @@ public class ReleaseCenterServiceTests
                 PluginCode = pluginCode,
                 Resources = []
             };
+        }
+    }
+
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        public List<string> WarningMessages { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel == LogLevel.Warning)
+            {
+                WarningMessages.Add(formatter(state, exception));
+            }
         }
     }
 }

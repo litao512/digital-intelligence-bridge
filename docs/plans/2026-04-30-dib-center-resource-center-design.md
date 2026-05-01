@@ -150,7 +150,7 @@ resources.owner_organization_id
 资源数据责任属于谁
 ```
 
-当前已有 `resources.owner_organization_name`，它是文本形式的弱模型。一期可以保留兼容字段，同时新增正式外键字段，逐步迁移。
+资源所属单位只使用 `resources.owner_organization_id`。当前系统尚未正式上线，不保留 `resources.owner_organization_name` 这类文本兼容字段。
 
 ## 授权模型
 
@@ -442,7 +442,7 @@ resources.business_tags
 兼容策略：
 
 ```text
-保留 resources.owner_organization_name 作为历史兼容字段
+删除 resources.owner_organization_name 历史兼容字段
 保留现有 resource_bindings 结构，逐步增加单位授权校验
 现有 RPC 可先在内部补单位过滤，不立即改变客户端契约
 历史站点可先绑定到默认单位或待分配单位

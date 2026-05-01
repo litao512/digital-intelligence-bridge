@@ -49,7 +49,6 @@ public class ReleaseCenterConfig
     public string Channel { get; set; } = "stable";
     public string AnonKey { get; set; } = string.Empty;
     public string SiteId { get; set; } = string.Empty;
-    public string SiteOrganization { get; set; } = string.Empty;
     public string SiteName { get; set; } = string.Empty;
     public string SiteRemark { get; set; } = string.Empty;
     public string CacheDirectory { get; set; } = string.Empty;

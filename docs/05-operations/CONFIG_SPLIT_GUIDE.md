@@ -35,20 +35,42 @@
 1. `Application.MinimizeToTray`
 2. `Application.StartWithSystem`
 3. `Tray.ShowNotifications`
-4. `ReleaseCenter.SiteId`
-5. `ReleaseCenter.SiteOrganization`
-6. `ReleaseCenter.SiteName`
-7. `ReleaseCenter.SiteRemark`
-8. `ReleaseCenter.CacheDirectory`
-9. `ReleaseCenter.ClientCacheDirectory`
-10. `ReleaseCenter.StagingDirectory`
-11. `ReleaseCenter.RuntimePluginRoot`
-12. `ReleaseCenter.BackupDirectory`
+4. `ReleaseCenter.Enabled`
+5. `ReleaseCenter.BaseUrl`
+6. `ReleaseCenter.Channel`
+7. `ReleaseCenter.SiteId`
+8. `ReleaseCenter.SiteName`
+9. `ReleaseCenter.SiteRemark`
+10. `ReleaseCenter.CacheDirectory`
+11. `ReleaseCenter.ClientCacheDirectory`
+12. `ReleaseCenter.StagingDirectory`
+13. `ReleaseCenter.RuntimePluginRoot`
+14. `ReleaseCenter.BackupDirectory`
 
 ## 生命周期与写入规则
 1. 首次启动：如果用户目录配置不存在，系统创建白名单模板文件，不复制运行目录整份配置。
 2. 运行中保存：仅回写用户白名单字段，不写基线字段。
 3. 后续升级：运行目录基线变更可自动生效，前提是对应字段未进入用户白名单。
+
+## 发布打包要求
+`ReleaseCenter.AnonKey` 必须写入发布包运行目录的 `appsettings.json`。`scripts/publish-release.ps1` 会按以下顺序解析并注入：
+
+1. 命令参数 `-ReleaseCenterAnonKey`
+2. 环境变量 `RELEASE_CENTER_ANON_KEY`
+3. 环境变量 `VITE_SUPABASE_ANON_KEY`
+4. 环境变量 `SUPABASE_ANON_KEY`
+5. `dib-release-center/.env.local` 中的同名配置
+
+如果 `ReleaseCenter.Enabled = true` 且最终无法取得 `ReleaseCenter.AnonKey`，打包脚本必须失败，不允许产出缺少授权资源刷新能力的客户端包。
+
+## 诊断提示
+如果新机器打开插件后无法获取数据库连接，先检查运行目录 `appsettings.json` 是否包含非空 `ReleaseCenter.AnonKey`。客户端启动或资源刷新时，如果最终合并配置缺少该字段，日志会出现：
+
+```text
+ReleaseCenter.AnonKey 未配置，已跳过授权资源刷新。请检查程序目录 appsettings.json 是否包含发布中心匿名密钥。
+```
+
+此时 `%LOCALAPPDATA%/DibClient/resource-cache/authorized-resources.json` 通常不会生成。修复运行目录配置后，重启客户端并重新执行插件初始化或检查更新即可刷新资源缓存。
 
 ## 变更控制规范
 1. 新增字段前先判定归属：

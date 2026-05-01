@@ -58,6 +58,9 @@ alter table dib_release.resources
     add column if not exists owner_organization_id uuid null references dib_release.organizations (id) on delete restrict,
     add column if not exists business_tags jsonb not null default '[]'::jsonb;
 
+alter table dib_release.resources
+    drop column if exists owner_organization_name;
+
 do $$
 begin
     if not exists (

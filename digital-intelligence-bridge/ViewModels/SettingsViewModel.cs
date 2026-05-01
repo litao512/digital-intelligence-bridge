@@ -67,7 +67,6 @@ public class SettingsViewModel : ViewModelBase
     private DateTime? _lastPluginRollbackAt;
     private bool _isPluginRollbackRunning;
     private string _restartRequiredNotice = string.Empty;
-    private string _siteOrganizationInput = string.Empty;
     private string _siteNameInput = string.Empty;
     private string _siteRemarkInput = string.Empty;
     private string _siteProfileSummary = "站点信息：未填写";
@@ -111,19 +110,6 @@ public class SettingsViewModel : ViewModelBase
     public string PluginRollbackDetail { get => _pluginRollbackDetail; set => SetProperty(ref _pluginRollbackDetail, value); }
     public DateTime? LastPluginRollbackAt { get => _lastPluginRollbackAt; set => SetProperty(ref _lastPluginRollbackAt, value); }
     public string RestartRequiredNotice { get => _restartRequiredNotice; set => SetProperty(ref _restartRequiredNotice, value); }
-    public string SiteOrganizationInput
-    {
-        get => _siteOrganizationInput;
-        set
-        {
-            if (SetProperty(ref _siteOrganizationInput, value))
-            {
-                RaisePropertyChanged(nameof(CanInitializeSitePlugins));
-                SaveSiteProfileCommand?.RaiseCanExecuteChanged();
-                InitializeSitePluginsCommand?.RaiseCanExecuteChanged();
-            }
-        }
-    }
     public string SiteNameInput
     {
         get => _siteNameInput;
@@ -146,7 +132,7 @@ public class SettingsViewModel : ViewModelBase
     public string SiteProfileStatus { get => _siteProfileStatus; set => SetProperty(ref _siteProfileStatus, value); }
     public string SiteInitializationSummary { get => _siteInitializationSummary; set => SetProperty(ref _siteInitializationSummary, value); }
     public string SiteInitializationDetail { get => _siteInitializationDetail; set => SetProperty(ref _siteInitializationDetail, value); }
-    public bool CanInitializeSitePlugins => !string.IsNullOrWhiteSpace(SiteOrganizationInput) && !string.IsNullOrWhiteSpace(SiteNameInput);
+    public bool CanInitializeSitePlugins => !string.IsNullOrWhiteSpace(SiteNameInput);
 
     public bool IsSelfCheckRunning
     {
@@ -286,7 +272,7 @@ public class SettingsViewModel : ViewModelBase
         _clientUpgradeService = clientUpgradeService;
         LoadSettings();
         SaveSettingsCommand = new DelegateCommand(SaveSettings);
-        SaveSiteProfileCommand = new DelegateCommand(SaveSiteProfile, () => !string.IsNullOrWhiteSpace(SiteOrganizationInput) && !string.IsNullOrWhiteSpace(SiteNameInput));
+        SaveSiteProfileCommand = new DelegateCommand(SaveSiteProfile, () => !string.IsNullOrWhiteSpace(SiteNameInput));
         ExportSiteIdentityCommand = new DelegateCommand(ExportSiteIdentity);
         ImportSiteIdentityCommand = new DelegateCommand(ImportSiteIdentity);
         ExportDataCommand = new DelegateCommand(ExportData);
@@ -318,11 +304,9 @@ public class SettingsViewModel : ViewModelBase
         AutoSaveInterval = 5;
         AppName = _settings.Application.Name;
         AppVersion = _settings.Application.Version;
-        SiteOrganizationInput = _settings.ReleaseCenter.SiteOrganization;
         SiteNameInput = _settings.ReleaseCenter.SiteName;
         SiteRemarkInput = _settings.ReleaseCenter.SiteRemark;
         SiteProfileSummary = SiteProfileService.BuildSummary(
-            SiteOrganizationInput,
             SiteNameInput,
             SiteRemarkInput);
     }
@@ -358,10 +342,8 @@ public class SettingsViewModel : ViewModelBase
         {
             var result = SiteProfileService.Save(
                 _settings,
-                SiteOrganizationInput,
                 SiteNameInput,
                 SiteRemarkInput);
-            SiteOrganizationInput = result.SiteOrganization;
             SiteNameInput = result.SiteName;
             SiteRemarkInput = result.SiteRemark;
             SiteProfileSummary = result.Summary;
@@ -381,11 +363,10 @@ public class SettingsViewModel : ViewModelBase
             var filePath = SiteIdentityService.GetDefaultFilePath();
             var snapshot = SiteIdentityService.Export(
                 _settings.ReleaseCenter.SiteId,
-                _settings.ReleaseCenter.SiteOrganization,
                 _settings.ReleaseCenter.SiteName,
                 _settings.ReleaseCenter.SiteRemark,
                 filePath);
-            SiteProfileStatus = $"站点身份已导出：{SiteProfileService.BuildRegistrationLabel(snapshot.SiteOrganization, snapshot.SiteName)} / {snapshot.SiteId}，路径：{filePath}";
+            SiteProfileStatus = $"站点身份已导出：{snapshot.SiteName} / {snapshot.SiteId}，路径：{filePath}";
         }
         catch (Exception ex)
         {
@@ -407,15 +388,12 @@ public class SettingsViewModel : ViewModelBase
             }
 
             _settings.ReleaseCenter.SiteId = result.Snapshot.SiteId.Trim();
-            _settings.ReleaseCenter.SiteOrganization = result.Snapshot.SiteOrganization?.Trim() ?? string.Empty;
             _settings.ReleaseCenter.SiteName = result.Snapshot.SiteName.Trim();
             _settings.ReleaseCenter.SiteRemark = result.Snapshot.SiteRemark?.Trim() ?? string.Empty;
 
-            SiteOrganizationInput = _settings.ReleaseCenter.SiteOrganization;
             SiteNameInput = _settings.ReleaseCenter.SiteName;
             SiteRemarkInput = _settings.ReleaseCenter.SiteRemark;
             SiteProfileSummary = SiteProfileService.BuildSummary(
-                SiteOrganizationInput,
                 SiteNameInput,
                 SiteRemarkInput);
             SiteProfileService.PersistAppSettings(_settings);
@@ -432,7 +410,6 @@ public class SettingsViewModel : ViewModelBase
     private void EnsureSiteIdentityInitialized()
     {
         var changed = false;
-        var currentOrganization = SiteOrganizationInput.Trim();
         var currentSiteName = SiteNameInput.Trim();
         var currentSiteRemark = SiteRemarkInput.Trim();
 
@@ -445,12 +422,6 @@ public class SettingsViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(currentSiteName))
         {
             currentSiteName = Environment.MachineName;
-        }
-
-        if (!string.Equals(_settings.ReleaseCenter.SiteOrganization, currentOrganization, StringComparison.Ordinal))
-        {
-            _settings.ReleaseCenter.SiteOrganization = currentOrganization;
-            changed = true;
         }
 
         if (!string.Equals(_settings.ReleaseCenter.SiteName, currentSiteName, StringComparison.Ordinal))
@@ -761,11 +732,10 @@ public class SettingsViewModel : ViewModelBase
     {
         if (IsSiteInitializationRunning) return;
 
-        var siteOrganization = SiteOrganizationInput.Trim();
         var siteName = SiteNameInput.Trim();
-        if (string.IsNullOrWhiteSpace(siteOrganization) || string.IsNullOrWhiteSpace(siteName))
+        if (string.IsNullOrWhiteSpace(siteName))
         {
-            SiteInitializationSummary = "初始化本机插件：请先填写使用单位和站点名称";
+            SiteInitializationSummary = "初始化本机插件：请先填写站点名称";
             SiteInitializationDetail = "请先保存站点信息，再执行初始化。";
             return;
         }

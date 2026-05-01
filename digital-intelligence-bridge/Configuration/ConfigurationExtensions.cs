@@ -142,7 +142,6 @@ public static class ConfigurationExtensions
                 BaseUrl = settings.ReleaseCenter.BaseUrl,
                 Channel = settings.ReleaseCenter.Channel,
                 SiteId = settings.ReleaseCenter.SiteId,
-                SiteOrganization = settings.ReleaseCenter.SiteOrganization,
                 SiteName = settings.ReleaseCenter.SiteName,
                 SiteRemark = settings.ReleaseCenter.SiteRemark,
                 CacheDirectory = settings.ReleaseCenter.CacheDirectory,

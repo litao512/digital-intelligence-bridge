@@ -8,8 +8,8 @@
         x:DataType="vm:SiteRegistrationDialogViewModel"
         Width="520"
         MinWidth="460"
-        Height="320"
-        MinHeight="300"
+        Height="300"
+        MinHeight="280"
         WindowStartupLocation="CenterOwner"
         CanResize="False"
         Title="重新注册站点">
@@ -21,21 +21,18 @@
         <StackPanel Spacing="14">
             <StackPanel Spacing="4">
                 <TextBlock Text="重新注册站点" FontSize="22" FontWeight="Bold"/>
-                <TextBlock Text="修正站点资料后，后续注册与心跳将使用新信息。"
+                <TextBlock Text="修正站点资料后，后续注册与心跳将使用新信息。单位归属请在 DIB 中心配置。"
                            FontSize="12"
                            Opacity="0.7"
                            TextWrapping="Wrap"/>
             </StackPanel>
 
-            <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="12">
-                <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="使用单位"/>
-                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SiteOrganizationInput}" Watermark="例如：第一人民医院"/>
+            <Grid ColumnDefinitions="100,*" RowDefinitions="Auto,Auto" RowSpacing="10" ColumnSpacing="12">
+                <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Text="站点名称"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SiteNameInput}" Watermark="例如：门诊一楼登记台"/>
 
-                <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="站点名称"/>
-                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SiteNameInput}" Watermark="例如：门诊一楼登记台"/>
-
-                <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Text="站点备注"/>
-                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SiteRemarkInput}" Watermark="例如：收费处旁"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Text="站点备注"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SiteRemarkInput}" Watermark="例如：收费处旁"/>
             </Grid>
 
             <Border Padding="10" CornerRadius="8" BorderThickness="1">

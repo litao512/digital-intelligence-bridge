@@ -6,7 +6,6 @@ export interface ResourceSummary {
   resourceName: string
   resourceType: string
   ownerOrganizationId: string | null
-  ownerOrganizationName: string
   visibilityScope: string
   capabilities: string[]
   businessTags: string[]

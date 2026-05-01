@@ -35,10 +35,11 @@
 2. 主程序本机状态
 - `%LOCALAPPDATA%\\DibClient\\appsettings.json`
 - `SiteId`
-- `SiteOrganization`
 - `SiteName`
 - `SiteRemark`
 - 托盘与宿主行为偏好
+
+单位归属不属于客户端本机状态，必须由 DIB 中心 `sites.organization_id` 维护。
 
 3. 主程序通用默认配置模型
 - 安装目录 `appsettings.json` 作为默认模板

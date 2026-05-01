@@ -69,7 +69,6 @@ function createResource(overrides: Partial<ResourceSummary> = {}): ResourceSumma
     resourceName: 'HIS 数据库',
     resourceType: 'PostgreSQL',
     ownerOrganizationId: 'org-1',
-    ownerOrganizationName: 'A 医院',
     visibilityScope: 'Private',
     capabilities: [],
     businessTags: [],

@@ -9,7 +9,6 @@ public sealed class SiteRegistrationDialogViewModel : ViewModelBase
 {
     private readonly AppSettings _settings;
     private readonly ILoggerService<SiteRegistrationDialogViewModel> _logger;
-    private string _siteOrganizationInput = string.Empty;
     private string _siteNameInput = string.Empty;
     private string _siteRemarkInput = string.Empty;
     private string _statusMessage = "修改后将用于后续站点注册与心跳。";
@@ -27,15 +26,8 @@ public sealed class SiteRegistrationDialogViewModel : ViewModelBase
     {
         _settings = settings.Value;
         _logger = logger;
-        SiteOrganizationInput = _settings.ReleaseCenter.SiteOrganization;
         SiteNameInput = _settings.ReleaseCenter.SiteName;
         SiteRemarkInput = _settings.ReleaseCenter.SiteRemark;
-    }
-
-    public string SiteOrganizationInput
-    {
-        get => _siteOrganizationInput;
-        set => SetProperty(ref _siteOrganizationInput, value);
     }
 
     public string SiteNameInput
@@ -62,10 +54,8 @@ public sealed class SiteRegistrationDialogViewModel : ViewModelBase
         {
             var result = SiteProfileService.Save(
                 _settings,
-                SiteOrganizationInput,
                 SiteNameInput,
                 SiteRemarkInput);
-            SiteOrganizationInput = result.SiteOrganization;
             SiteNameInput = result.SiteName;
             SiteRemarkInput = result.SiteRemark;
             StatusMessage = result.Status;

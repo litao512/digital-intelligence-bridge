@@ -148,16 +148,12 @@
                                        FontSize="12"
                                        Foreground="{DynamicResource TextMutedBrush}"
                                        TextWrapping="Wrap"/>
-                            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                                 <StackPanel Grid.Column="0" Spacing="6">
-                                    <TextBlock Text="使用单位" FontWeight="Medium"/>
-                                    <TextBox Text="{Binding SiteOrganizationInput}" Watermark="例如：第一人民医院"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Spacing="6">
                                     <TextBlock Text="站点名称" FontWeight="Medium"/>
                                     <TextBox Text="{Binding SiteNameInput}" Watermark="例如：门诊一楼登记台"/>
                                 </StackPanel>
-                                <StackPanel Grid.Column="2" Spacing="6">
+                                <StackPanel Grid.Column="1" Spacing="6">
                                     <TextBlock Text="站点备注（可选）" FontWeight="Medium"/>
                                     <TextBox Text="{Binding SiteRemarkInput}" Watermark="例如：收费处旁"/>
                                 </StackPanel>
@@ -177,6 +173,10 @@
                                         Classes="Primary"/>
                             </StackPanel>
                             <TextBlock Text="身份文件默认路径：LocalAppData/DibClient/site-identity.json"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       TextWrapping="Wrap"/>
+                            <TextBlock Text="单位归属请在 DIB 中心的站点管理中配置。"
                                        FontSize="11"
                                        Foreground="{DynamicResource TextMutedBrush}"
                                        TextWrapping="Wrap"/>

@@ -35,14 +35,14 @@ public sealed class HomeDashboardViewModel : ViewModelBase
     private readonly IPluginUpdateOrchestrator? _pluginUpdateOrchestrator;
     private readonly Action _openSettingsAction;
 
-    private string _siteDisplayName = "未配置使用单位";
-    private string _siteStatus = "请先在设置中填写使用单位和站点名称。";
+    private string _siteDisplayName = "未配置站点名称";
+    private string _siteStatus = "请先在设置中填写站点名称。";
     private string _siteGroupDisplayName = "待同步";
     private string _siteGroupStatus = "当前客户端未获取分组信息。";
     private string _authorizedPluginCountText = "0 个";
     private string _authorizedPluginSummaryText = "当前站点未授权任何插件";
     private string _pendingActionTitle = "需要完善站点信息";
-    private string _pendingActionDetail = "请先进入设置填写使用单位和站点名称。";
+    private string _pendingActionDetail = "请先进入设置填写站点名称。";
     private string _releaseCenterStatusText = "未检查";
     private string _lastUpdateCheckStatus = "尚未执行";
     private string _lastInitializationStatus = "尚未执行";
@@ -235,7 +235,7 @@ public sealed class HomeDashboardViewModel : ViewModelBase
         if (!SiteProfileService.HasRequiredProfile(_settings.ReleaseCenter))
         {
             PendingActionTitle = "需要完善站点信息";
-            PendingActionDetail = "请先进入设置填写使用单位和站点名称。";
+            PendingActionDetail = "请先进入设置填写站点名称。";
             return;
         }
 
@@ -301,9 +301,7 @@ public sealed class HomeDashboardViewModel : ViewModelBase
 
     private void RefreshLocalState(IReadOnlyCollection<AuthorizedPluginState> authorizedPlugins)
     {
-        SiteDisplayName = SiteProfileService.BuildDisplayName(
-            _settings.ReleaseCenter.SiteOrganization,
-            _settings.ReleaseCenter.SiteName);
+        SiteDisplayName = SiteProfileService.BuildDisplayName(_settings.ReleaseCenter.SiteName);
         SiteStatus = !SiteProfileService.HasRequiredProfile(_settings.ReleaseCenter)
             ? "请先进入设置完善站点信息。"
             : string.IsNullOrWhiteSpace(_settings.ReleaseCenter.SiteRemark)
@@ -340,7 +338,7 @@ public sealed class HomeDashboardViewModel : ViewModelBase
         if (!SiteProfileService.HasRequiredProfile(_settings.ReleaseCenter))
         {
             PendingActionTitle = "需要完善站点信息";
-            PendingActionDetail = "请先进入设置填写使用单位和站点名称。";
+            PendingActionDetail = "请先进入设置填写站点名称。";
         }
         else if (hasPendingRestart)
         {

@@ -91,7 +91,7 @@
 - `resource_code`
 - `resource_name`
 - `resource_type`
-- `owner_organization_name`
+- `owner_organization_id`
 - `visibility_scope`
 - `config_schema_version`
 - `config_payload`
@@ -102,7 +102,7 @@
 
 说明：
 
-- 第一阶段允许 `owner_organization_name` 直接存文本，后续再升级为正式 `organization_id`。
+- 资源所属单位只允许使用 `owner_organization_id`，不再保留单位名称文本兼容字段。
 - `config_payload` 只存非敏感字段。
 
 ### 3. `resource_secrets`

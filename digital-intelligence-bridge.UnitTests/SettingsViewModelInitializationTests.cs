@@ -11,28 +11,25 @@ namespace DigitalIntelligenceBridge.UnitTests;
 public class SettingsViewModelInitializationTests
 {
     [Fact]
-    public void SaveSiteProfileCommand_ShouldPersistSiteOrganizationNameAndRemark()
+    public void SaveSiteProfileCommand_ShouldPersistSiteNameAndRemark()
     {
         using var sandbox = new TestConfigSandbox();
 
         var vm = CreateVm();
-        vm.SiteOrganizationInput = "第一人民医院";
         vm.SiteNameInput = "门诊一楼登记台";
         vm.SiteRemarkInput = "收费处旁";
 
         vm.SaveSiteProfileCommand.Execute();
 
-        Assert.Equal("第一人民医院", vm.SiteOrganizationInput);
         Assert.Equal("门诊一楼登记台", vm.SiteNameInput);
         Assert.Equal("收费处旁", vm.SiteRemarkInput);
-        Assert.Contains("第一人民医院", vm.SiteProfileSummary);
         Assert.Contains("门诊一楼登记台", vm.SiteProfileSummary);
         Assert.Contains("已保存", vm.SiteProfileStatus);
 
         var persistedJson = File.ReadAllText(ConfigurationExtensions.GetConfigFilePath());
         using var document = JsonDocument.Parse(persistedJson);
         var releaseCenter = document.RootElement.GetProperty("ReleaseCenter");
-        Assert.Equal("第一人民医院", releaseCenter.GetProperty("SiteOrganization").GetString());
+        Assert.False(releaseCenter.TryGetProperty("SiteOrganization", out _));
         Assert.Equal("门诊一楼登记台", releaseCenter.GetProperty("SiteName").GetString());
         Assert.Equal("收费处旁", releaseCenter.GetProperty("SiteRemark").GetString());
     }
@@ -43,7 +40,6 @@ public class SettingsViewModelInitializationTests
         var service = new SequenceReleaseCenterService();
         var vm = CreateVm(service);
         service.ResetCounters();
-        vm.SiteOrganizationInput = "第一人民医院";
         vm.SiteNameInput = string.Empty;
 
         Assert.False(vm.InitializeSitePluginsCommand.CanExecute());
@@ -58,7 +54,6 @@ public class SettingsViewModelInitializationTests
         var service = new SequenceReleaseCenterService();
         var vm = CreateVm(service);
         service.ResetCounters();
-        vm.SiteOrganizationInput = "第一人民医院";
         vm.SiteNameInput = "门诊一楼登记台";
 
         vm.InitializeSitePluginsCommand.Execute();

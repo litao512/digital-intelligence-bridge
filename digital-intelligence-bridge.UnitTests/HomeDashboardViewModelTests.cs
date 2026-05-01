@@ -14,26 +14,13 @@ public class HomeDashboardViewModelTests
     public async Task RefreshAsync_ShouldShowSiteProfileRequired_WhenSiteNameMissing()
     {
         using var sandbox = new TestConfigSandbox();
-        var vm = CreateVm(siteOrganization: "第一人民医院", siteName: string.Empty, siteRemark: string.Empty);
+        var vm = CreateVm(siteName: string.Empty, siteRemark: string.Empty);
 
         await vm.RefreshAsync();
 
         Assert.Equal("未配置站点名称", vm.SiteDisplayName);
         Assert.Equal("需要完善站点信息", vm.PendingActionTitle);
         Assert.Contains("设置", vm.PendingActionDetail);
-    }
-
-    [Fact]
-    public async Task RefreshAsync_ShouldShowSiteProfileRequired_WhenSiteOrganizationMissing()
-    {
-        using var sandbox = new TestConfigSandbox();
-        var vm = CreateVm(siteOrganization: string.Empty, siteName: "门诊一楼登记台", siteRemark: string.Empty);
-
-        await vm.RefreshAsync();
-
-        Assert.Equal("未配置使用单位", vm.SiteDisplayName);
-        Assert.Equal("需要完善站点信息", vm.PendingActionTitle);
-        Assert.Contains("使用单位", vm.PendingActionDetail);
     }
 
     [Fact]
@@ -54,7 +41,7 @@ public class HomeDashboardViewModelTests
             stagingDirectory: stagingRoot);
         await vm.RefreshAsync();
 
-        Assert.Equal("第一人民医院 / 门诊一楼登记台", vm.SiteDisplayName);
+        Assert.Equal("门诊一楼登记台", vm.SiteDisplayName);
         Assert.Equal("1 个", vm.AuthorizedPluginCountText);
         var plugin = Assert.Single(vm.PluginItems);
         Assert.Equal("就诊登记", plugin.Name);
@@ -176,7 +163,6 @@ public class HomeDashboardViewModelTests
         IReleaseCenterService? releaseCenterService = null,
         StubApplicationService? appService = null,
         Action? openSettings = null,
-        string siteOrganization = "第一人民医院",
         string siteName = "门诊一楼登记台",
         string siteRemark = "收费处旁",
         string? runtimePluginRoot = null,
@@ -199,7 +185,6 @@ public class HomeDashboardViewModelTests
                 Enabled = true,
                 BaseUrl = "http://101.42.19.26:8000",
                 Channel = "stable",
-                SiteOrganization = siteOrganization,
                 SiteName = siteName,
                 SiteRemark = siteRemark,
                 RuntimePluginRoot = runtimePluginRoot ?? string.Empty,

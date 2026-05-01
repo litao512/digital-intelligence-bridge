@@ -750,7 +750,7 @@ git commit -m "docs: 更新资源中心一期实施记录"
 缓解策略：
 
 1. 迁移时准备默认单位或待分配单位。
-2. 历史资源保留 `owner_organization_name` 兼容展示。
+2. 历史资源不保留 `owner_organization_name` 兼容展示，所属单位统一通过 `owner_organization_id` 关联展示。
 3. 上线前为现有站点和资源补齐单位插件授权、单位资源授权。
 4. 新页面尽量放入 `src/web/pages`，`App.vue` 只负责导航和页面切换。
 

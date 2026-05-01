@@ -20,7 +20,6 @@ insert into dib_release.resources (
     resource_code,
     resource_name,
     resource_type,
-    owner_organization_name,
     visibility_scope,
     config_schema_version,
     config_payload,
@@ -32,7 +31,6 @@ values (
     'patient-registration-postgres-sample',
     '示例就诊登记 PostgreSQL',
     'PostgreSQL',
-    '',
     'Private',
     1,
     jsonb_build_object(
@@ -50,7 +48,6 @@ values (
 on conflict (resource_code) do update
 set resource_name = excluded.resource_name,
     resource_type = excluded.resource_type,
-    owner_organization_name = excluded.owner_organization_name,
     visibility_scope = excluded.visibility_scope,
     config_schema_version = excluded.config_schema_version,
     config_payload = excluded.config_payload,

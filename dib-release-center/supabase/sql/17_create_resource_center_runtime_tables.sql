@@ -30,7 +30,6 @@ create table if not exists dib_release.resources (
     resource_type text not null check (
         resource_type in ('PostgreSQL', 'SqlServer', 'Supabase', 'HttpService')
     ),
-    owner_organization_name text not null default '',
     visibility_scope text not null default 'Private' check (
         visibility_scope in ('Private', 'Shared', 'Platform')
     ),

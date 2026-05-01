@@ -24,11 +24,12 @@
 2. 本机站点状态
 - 例如：
   - `SiteId`
-  - `SiteOrganization`
   - `SiteName`
   - `SiteRemark`
   - 托盘行为偏好
   - UI 本机偏好
+
+单位归属不属于客户端本机状态。客户端只持有 `SiteId`，站点所属单位由 DIB 中心的 `sites.organization_id` 管理。
 
 结论：
 - 主程序配置负责“宿主怎么运行”和“这台机器是谁”。
