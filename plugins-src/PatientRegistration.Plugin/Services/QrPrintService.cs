@@ -13,11 +13,16 @@ public class QrPrintService : IQrPrintService
 {
     private readonly PrintTemplateSettings _template;
     private readonly string _pluginDirectory;
+    private readonly Func<ProcessStartInfo, Process?> _processStarter;
 
-    public QrPrintService(PrintTemplateSettings? template = null, string? pluginDirectory = null)
+    public QrPrintService(
+        PrintTemplateSettings? template = null,
+        string? pluginDirectory = null,
+        Func<ProcessStartInfo, Process?>? processStarter = null)
     {
         _template = template ?? new PrintTemplateSettings();
         _pluginDirectory = string.IsNullOrWhiteSpace(pluginDirectory) ? AppContext.BaseDirectory : pluginDirectory;
+        _processStarter = processStarter ?? Process.Start;
     }
 
     public Task PrintAsync(PatientRegistrationPrintPayload payload, CancellationToken cancellationToken = default)
@@ -38,13 +43,13 @@ public class QrPrintService : IQrPrintService
 
         var startInfo = new ProcessStartInfo
         {
-            FileName = htmlPath,
-            Verb = "print",
+            FileName = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe",
+            Arguments = $"/c start \"\" \"{htmlPath}\"",
             UseShellExecute = true,
             CreateNoWindow = true
         };
 
-        _ = Process.Start(startInfo);
+        _ = _processStarter(startInfo);
         return Task.CompletedTask;
     }
 
