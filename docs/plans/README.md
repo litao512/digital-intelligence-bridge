@@ -14,6 +14,7 @@
 - [2026-04-14-resource-center-implementation.md](./2026-04-14-resource-center-implementation.md)
 - [2026-04-30-dib-center-resource-center-design.md](./2026-04-30-dib-center-resource-center-design.md)
 - [2026-04-30-dib-center-resource-center.md](./2026-04-30-dib-center-resource-center.md)
+- [2026-05-01-dib-center-organization-workbench-design.md](./2026-05-01-dib-center-organization-workbench-design.md)
 - [2026-04-14-authorized-resource-cache-design.md](./2026-04-14-authorized-resource-cache-design.md)
 - [2026-04-14-authorized-resource-cache-implementation.md](./2026-04-14-authorized-resource-cache-implementation.md)
 - [2026-04-20-host-configuration-tightening-design.md](./2026-04-20-host-configuration-tightening-design.md)
