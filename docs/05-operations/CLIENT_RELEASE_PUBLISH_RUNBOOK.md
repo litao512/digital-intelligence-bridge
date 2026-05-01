@@ -82,13 +82,35 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-release.ps
 - `Application.Version == <version>`
 - `ReleaseCenter.Enabled == true`
 - `ReleaseCenter.Channel == <channel>`
+- `ReleaseCenter.AnonKey` 非空
 
 建议在上传前同时记录：
 
 - zip 文件 `SHA256`
 - zip 文件大小（bytes）
 
-如果包内版本号、更新开关或渠道不正确，禁止继续上传。此类问题必须在本地产物阶段拦住，不要依赖发布中心侧兜底。
+如果包内版本号、更新开关、渠道或 `ReleaseCenter.AnonKey` 不正确，禁止继续上传。此类问题必须在本地产物阶段拦住，不要依赖发布中心侧兜底。
+
+### 3.4 `ReleaseCenter.AnonKey` 注入要求
+
+`ReleaseCenter.AnonKey` 是新电脑首次安装后刷新授权资源的必要配置。发布包程序目录中的 `appsettings.json` 必须包含非空值，否则客户端无法拉取站点授权资源，插件也无法获得数据库连接。
+
+`scripts/publish-release.ps1` 会按以下顺序解析并注入：
+
+1. 命令参数 `-ReleaseCenterAnonKey`
+2. 环境变量 `RELEASE_CENTER_ANON_KEY`
+3. 环境变量 `VITE_SUPABASE_ANON_KEY`
+4. 环境变量 `SUPABASE_ANON_KEY`
+5. `dib-release-center/.env.local` 中的同名配置
+
+如果 `ReleaseCenter.Enabled == true` 且最终无法取得 `ReleaseCenter.AnonKey`，脚本应直接失败。遇到此类失败时，先补齐上述任一配置来源，再重新产包。
+
+上传前可使用以下命令只检查是否非空，不打印密钥明文：
+
+```powershell
+$settings = Get-Content .\artifacts\releases\<version>\publish\appsettings.json -Raw | ConvertFrom-Json
+if ([string]::IsNullOrWhiteSpace([string]$settings.ReleaseCenter.AnonKey)) { throw 'ReleaseCenter.AnonKey 为空' }
+```
 
 ## 4. 启动发布中心
 
@@ -281,6 +303,7 @@ clients/stable/1.0.3/dib-win-x64-portable-1.0.3.zip
 - `publish/appsettings.json` 中版本号正确
 - `ReleaseCenter.Enabled == true`
 - `ReleaseCenter.Channel` 正确
+- `ReleaseCenter.AnonKey` 非空，且未写入用户目录配置
 
 2. 公开客户端包正确
 

@@ -143,14 +143,44 @@
 原因：
 
 - 当前站点尚未在 DIB 中心绑定 `registration-db` 资源
+- 客户端未能刷新授权资源缓存
 
 处理：
 
-1. 在 DIB 中心确认站点已分配单位
-2. 确认单位已授权 `patient-registration`
-3. 确认单位已授权对应 PostgreSQL 资源
-4. 确认站点资源绑定存在 `usage_key = registration-db`
-5. 重启 DIB 客户端后再打开就诊登记插件
+1. 先检查程序目录 `appsettings.json` 中 `ReleaseCenter.AnonKey` 是否非空。
+2. 检查用户目录 `%LocalAppData%\DibClient\appsettings.json` 中 `ReleaseCenter.SiteId` 是否为当前站点。
+3. 在 DIB 中心确认站点已分配单位。
+4. 确认单位已授权 `patient-registration`。
+5. 确认单位已授权对应 PostgreSQL 资源。
+6. 确认站点资源绑定存在 `usage_key = registration-db`。
+7. 重启 DIB 客户端后再打开就诊登记插件。
+
+如果日志中出现以下提示，优先修复发布包程序目录配置：
+
+```text
+ReleaseCenter.AnonKey 未配置，已跳过授权资源刷新。请检查程序目录 appsettings.json 是否包含发布中心匿名密钥。
+```
+
+注意：
+
+- `%LocalAppData%\DibClient\resource-cache` 不存在，通常表示授权资源尚未成功刷新。
+- 不要把程序目录整份 `appsettings.json` 复制到用户目录。用户目录只保存本机站点身份和偏好，发布默认配置应来自程序目录。
+
+### 10.5 新机器已注册站点但 DIB 中心看不到单位信息
+
+原因：
+
+- 客户端只负责生成并上报站点身份，单位归属由 DIB 中心配置。
+- 本机 `SiteId` 与 DIB 中心站点记录不一致。
+- 发布中心配置缺失导致心跳或授权资源刷新没有成功。
+
+处理：
+
+1. 在用户目录配置中确认 `ReleaseCenter.SiteId`。
+2. 在 DIB 中心按该 `SiteId` 查询站点。
+3. 确认站点已绑定正确单位。
+4. 确认客户端日志中没有 `ReleaseCenter.AnonKey 未配置`。
+5. 保存站点信息或重启客户端后，等待下一次心跳更新。
 
 ## 11. 相关文档
 
@@ -158,3 +188,5 @@
 - [RUNTIME_DIRECTORY_GUIDE.md](./RUNTIME_DIRECTORY_GUIDE.md)
 - [DIB_CONFIG_SAFETY_GUIDE.md](./DIB_CONFIG_SAFETY_GUIDE.md)
 - [PLUGIN_PACKAGING_GUIDE.md](./PLUGIN_PACKAGING_GUIDE.md)
+- [CONFIG_SPLIT_GUIDE.md](./CONFIG_SPLIT_GUIDE.md)
+- [CLIENT_RELEASE_PUBLISH_RUNBOOK.md](./CLIENT_RELEASE_PUBLISH_RUNBOOK.md)
